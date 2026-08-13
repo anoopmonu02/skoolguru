@@ -31,3 +31,11 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Gradle ###
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+.DS_Store
+
+### Local dev secrets - NEVER commit ###
+local.env.properties

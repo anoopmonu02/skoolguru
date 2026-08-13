@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <property name="LOG_FILE" value="C:/Softwares/logs/app.log"/>
+    <property name="LOG_FILE" value="/Users/anoopkrchaudhary/app/logs/app.log"/>
+
+
+    <!-- CONSOLE appender added during the Gradle/Boot migration. The root logger
+         previously wrote ONLY to the rolling file, so `./gradlew bootRun` produced
+         a completely silent terminal and startup failures were invisible.
+         File logging below is unchanged. -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %highlight(%-5level) %cyan(%logger{36}) - %msg%n</pattern>
+        </encoder>
+    </appender>
 
     <appender name="FILE-ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_FILE}</file>
@@ -24,5 +35,6 @@
     <!-- Set the root logger level to DEBUG -->
     <root level="DEBUG">
         <appender-ref ref="FILE-ROLLING"/>
+        <appender-ref ref="CONSOLE"/>
     </root>
 </configuration>
