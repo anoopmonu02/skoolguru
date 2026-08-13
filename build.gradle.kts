@@ -1,17 +1,16 @@
 // =============================================================================
 //  SkoolGuru — build.gradle.kts
 //
-//  STEP 1 of the migration: build tool ONLY.
-//  Spring Boot stays 3.2.7, Java stays 17, every dependency version is
-//  identical to the pom.xml it replaces. If this build produces a working
-//  app, Gradle is proven and is no longer a suspect for anything that
-//  follows. Do not change versions in this commit.
+//  STEP 4: Spring Boot 3.5.16 + Java 21 + Flyway.
+//  3.5 is the stepping stone to 4.1 - still Spring Security 6 and Hibernate 6,
+//  so deprecation warnings can be cleared here while behaviour is unchanged.
+//  Compile with -Xlint:deprecation to see what 4.x will remove.
 // =============================================================================
 
 plugins {
     java
-    id("org.springframework.boot") version "3.2.7"
-    id("io.spring.dependency-management") version "1.1.4"
+    id("org.springframework.boot") version "3.5.16"   // STEP 4: 3.2.7 -> 3.5.16 (last 3.5 patch)
+    id("io.spring.dependency-management") version "1.1.7"
 }
 
 group = "com.smsweb"
@@ -143,6 +142,11 @@ tasks.named<Jar>("jar") {
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"              // was project.build.sourceEncoding
     options.compilerArgs.add("-parameters") // Spring needs param names for @PathVariable etc.
+    // Show exactly what is deprecated. Anything deprecated in the 3.5 line is a
+    // strong candidate for REMOVAL in 4.x - e.g. AntPathRequestMatcher in
+    // WebSecurityConfig. Fixing them here means they are not tangled up with
+    // everything else when we jump to 4.1.
+    options.compilerArgs.add("-Xlint:deprecation")
 }
 
 tasks.withType<Test>().configureEach {
