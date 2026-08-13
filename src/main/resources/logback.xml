@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <property name="LOG_FILE" value="/Users/anoopkrchaudhary/app/logs/app.log"/>
+    <!-- LOG_DIR drives both the active log and the rolled-over archives, and is
+         overridable via -DLOG_DIR=... so a container can point elsewhere. -->
+    <property name="LOG_DIR"  value="${LOG_DIR:-/Users/anoopkrchaudhary/app/logs}"/>
+    <property name="LOG_FILE" value="${LOG_DIR}/app.log"/>
 
 
     <!-- CONSOLE appender added during the Gradle/Boot migration. The root logger
@@ -17,7 +20,10 @@
         <file>${LOG_FILE}</file>
 
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>logs/archived/app.%d{yyyy-MM-dd}-%i.log</fileNamePattern>
+            <!-- FIXED: was the relative path "logs/archived/...", so rolled-over logs were
+                 written to the process working directory (the repo root under Gradle)
+                 instead of alongside the active log file. Now derived from LOG_FILE. -->
+            <fileNamePattern>${LOG_DIR}/archived/app.%d{yyyy-MM-dd}-%i.log</fileNamePattern>
             <maxFileSize>10MB</maxFileSize>
             <maxHistory>60</maxHistory>
         </rollingPolicy>

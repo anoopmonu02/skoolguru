@@ -39,3 +39,6 @@ build/
 
 ### Local dev secrets - NEVER commit ###
 local.env.properties
+
+### Runtime logs (logback rollover) ###
+logs/
