@@ -20,7 +20,10 @@ description = "sms"
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)   // was <java.version>17</java.version>
+        // STEP 2: Java 17 -> 21 LTS. Spring Boot 3.2.7 fully supports Java 21.
+        // Nothing else changes in this commit. If this runs, Java 21 is proven
+        // and stops being a suspect when we move to Spring Boot 4.1.
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
 
@@ -75,6 +78,15 @@ dependencies {
 
     // ── Database driver ──────────────────────────────────────────────────────
     runtimeOnly("com.mysql:mysql-connector-j")
+
+    // ── Flyway — versioned schema migrations ─────────────────────────────────
+    // STEP 3. Replaces `ddl-auto=update`, which let Hibernate alter production
+    // tables straight from entity changes with no version history and no way to
+    // roll back. The last bootRun did exactly that: it dropped and recreated
+    // unique constraints on month_mapping and sibling_discount at startup.
+    // From here every schema change is a numbered, reviewed SQL file.
+    implementation("org.flywaydb:flyway-core")
+    implementation("org.flywaydb:flyway-mysql")
 
     // ── Lombok ───────────────────────────────────────────────────────────────
     // BOTH lines are required. With only compileOnly the annotation processor
