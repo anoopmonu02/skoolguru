@@ -321,3 +321,28 @@ function formatINR(value) {
     if (isNaN(n)) { return value == null ? "" : value; }
     return n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+/* ============================================================================
+   Theme toggle — light <-> dark, persisted in localStorage.
+   The initial value is applied by an inline script in base.html BEFORE paint;
+   this only handles clicks and keeps the icon in sync.
+   ============================================================================ */
+(function () {
+    function iconFor(theme) { return theme === "dark" ? "bi-sun" : "bi-moon-stars"; }
+    document.addEventListener("DOMContentLoaded", function () {
+        var btn = document.getElementById("themeToggle");
+        if (!btn) return;
+        var icon = btn.querySelector("i");
+        function sync() {
+            var t = document.documentElement.getAttribute("data-bs-theme") === "dark" ? "dark" : "light";
+            if (icon) icon.className = "bi " + iconFor(t);
+        }
+        sync();
+        btn.addEventListener("click", function () {
+            var dark = document.documentElement.getAttribute("data-bs-theme") === "dark";
+            if (dark) { document.documentElement.removeAttribute("data-bs-theme"); localStorage.setItem("theme", "light"); }
+            else      { document.documentElement.setAttribute("data-bs-theme", "dark"); localStorage.setItem("theme", "dark"); }
+            sync();
+        });
+    });
+})();

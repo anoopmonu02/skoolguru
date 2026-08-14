@@ -18,54 +18,54 @@
         "fsn-" to avoid clashing with any existing global style.
     -->
     <style>
-        .fsn-card{background:var(--card-bg,#fff);border:1px solid #eef1f5;border-radius:12px;padding:16px 20px;box-shadow:0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.05);}
+        .fsn-card{background: var(--card-bg);border:1px solid #eef1f5;border-radius:12px;padding:16px 20px;box-shadow:0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.05);}
         .fsn-identity-card{margin-bottom:16px;box-shadow:0 1px 0 rgba(255,255,255,0.8) inset,0 2px 6px rgba(15,23,42,0.05),0 8px 20px rgba(15,23,42,0.06);border:1px solid #eef1f5;}
         .fsn-avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(145deg,#eaf2fc,#dbe9fa);display:flex;align-items:center;justify-content:center;font-size:20px;color:#1d5fa8;flex-shrink:0;box-shadow:0 1px 3px rgba(29,95,168,0.25) inset,0 1px 2px rgba(15,23,42,0.06);}
-        .fsn-subtext{font-size:12.5px;color:#64748b;display:flex;align-items:center;flex-wrap:wrap;}
-        .fsn-name{font-size:15.5px;font-weight:700;color:#0f172a;letter-spacing:-0.1px;}
+        .fsn-subtext{font-size:12.5px;color:var(--text-muted);display:flex;align-items:center;flex-wrap:wrap;}
+        .fsn-name{font-size:15.5px;font-weight:700;color:var(--text-primary);letter-spacing:-0.1px;}
         .fsn-dot{color:#cbd5e1;margin:0 6px;}
-        .fsn-tel-icon{font-size:11px;color:#94a3b8;margin-right:3px;}
+        .fsn-tel-icon{font-size:11px;color:var(--text-muted);margin-right:3px;}
         .fsn-info-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12.5px;color:#475569;border-top:1px dashed #e2e8f0;padding-top:8px;margin-top:8px;}
         .fsn-sep{color:#e2e8f0;}
         .fsn-inline-field{white-space:nowrap;}
-        .fsn-inline-field > span:first-child{color:#94a3b8;}
-        .fsn-plain-inline{border:none !important;background:transparent !important;padding:0 0 0 4px !important;height:auto !important;width:90px;font-size:12.5px;font-weight:600;color:#0f172a;display:inline-block;}
+        .fsn-inline-field > span:first-child{color:var(--text-muted);}
+        .fsn-plain-inline{border:none !important;background:transparent !important;padding:0 0 0 4px !important;height:auto !important;width:90px;font-size:12.5px;font-weight:600;color:var(--text-primary);display:inline-block;}
         #feedate.fsn-plain-inline{width:88px;}
         #feesubmissiondate.fsn-plain-inline{width:150px;}
         #previousBalance.fsn-plain-inline{width:55px;}
         .fsn-btn-icon-green{width:23px;height:23px;border-radius:50%;background:linear-gradient(145deg,#22c55e,#16a34a);color:#fff;border:none;display:inline-flex;align-items:center;justify-content:center;font-size:10px;margin-left:8px;cursor:pointer;vertical-align:middle;box-shadow:0 1px 3px rgba(22,163,74,0.45);transition:transform .1s ease,box-shadow .1s ease;}
         .fsn-btn-icon-green:hover{background:linear-gradient(145deg,#16a34a,#128038);box-shadow:0 2px 5px rgba(22,163,74,0.55);transform:translateY(-1px);}
         .fsn-btn-icon-green i{font-size:10px;}
-        .fsn-panel-title{font-size:12px;color:#64748b;margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
-        .fsn-panel-subtitle{font-size:11px;color:#94a3b8;font-weight:400;text-transform:none;letter-spacing:0;}
-        .fsn-month-legend{display:flex;gap:14px;font-size:11.5px;color:#64748b;align-items:center;}
-        .fsn-swatch{width:11px;height:11px;border-radius:3px;display:inline-block;border:1px solid #cbd5e1;margin-right:4px;vertical-align:middle;}
-        .fsn-swatch-paid{background:#f1f5f9;}
+        .fsn-panel-title{font-size:12px;color:var(--text-muted);margin-bottom:10px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
+        .fsn-panel-subtitle{font-size:11px;color:var(--text-muted);font-weight:400;text-transform:none;letter-spacing:0;}
+        .fsn-month-legend{display:flex;gap:14px;font-size:11.5px;color:var(--text-muted);align-items:center;}
+        .fsn-swatch{width:11px;height:11px;border-radius:3px;display:inline-block;border: 1px solid var(--border-color);margin-right:4px;vertical-align:middle;}
+        .fsn-swatch-paid{background:var(--body-bg);}
         .fsn-swatch-selected{background:#3b5bdb;border-color:#3b5bdb;}
-        .fsn-swatch-available{background:#fff;}
+        .fsn-swatch-available{background:var(--card-bg);}
         .fsn-month-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;}
         .fsn-month-tile{position:relative;display:block;cursor:pointer;margin:0;}
         .fsn-month-tile input{position:absolute;opacity:0;width:0;height:0;}
-        .fsn-month-visual{display:flex;flex-direction:column;align-items:center;gap:2px;border:1px solid #e2e8f0;border-radius:8px;padding:10px 0;font-size:12.5px;color:#475569;transition:all .12s ease;}
+        .fsn-month-visual{display:flex;flex-direction:column;align-items:center;gap:2px;border: 1px solid var(--border-color);border-radius:8px;padding:10px 0;font-size:12.5px;color:#475569;transition:all .12s ease;}
         .fsn-month-visual i{font-size:14px;visibility:hidden;color:#1d5fa8;}
         .fsn-month-tile input:checked + .fsn-month-visual{background:linear-gradient(145deg,#eaf2fc,#dde9fb);border-color:#a9c9f2;color:#1d5fa8;font-weight:700;box-shadow:0 2px 6px rgba(29,95,168,0.18);}
         .fsn-month-tile input:checked + .fsn-month-visual i{visibility:visible;}
         .fsn-month-tile:hover input:enabled + .fsn-month-visual{border-color:#c7d7ec;}
-        .fsn-month-tile input:disabled + .fsn-month-visual{background:#f1f5f9;color:#94a3b8;}
-        .fsn-month-tile input:disabled + .fsn-month-visual i{visibility:visible;color:#94a3b8;}
+        .fsn-month-tile input:disabled + .fsn-month-visual{background:var(--body-bg);color:var(--text-muted);}
+        .fsn-month-tile input:disabled + .fsn-month-visual i{visibility:visible;color:var(--text-muted);}
         .fsn-fee-table{margin-bottom:6px;}
-        .fsn-fee-table thead th{background:transparent;color:#94a3b8;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid #e2e8f0 !important;border-top:none;}
+        .fsn-fee-table thead th{background:transparent;color:var(--text-muted);font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid #e2e8f0 !important;border-top:none;}
         .fsn-fee-table td,.fsn-fee-table th{border-color:#f1f5f9;vertical-align:middle;}
-        .fsn-fee-table tbody tr:nth-child(even){background:#fafbfd;}
-        .fsn-invoice{background:var(--card-bg,#fff);border:1px solid #eef1f5;border-radius:12px;padding:18px 20px;position:sticky;top:12px;box-shadow:0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.05);}
-        .fsn-invoice-header{font-size:15px;font-weight:700;margin-bottom:4px;padding-bottom:10px;border-bottom:1px dashed #e2e8f0;color:#0f172a;}
-        .fsn-invoice-subtitle{font-size:11.5px;font-weight:400;color:#94a3b8;margin-top:2px;}
+        .fsn-fee-table tbody tr:nth-child(even){background: var(--card-bg);}
+        .fsn-invoice{background: var(--card-bg);border:1px solid #eef1f5;border-radius:12px;padding:18px 20px;position:sticky;top:12px;box-shadow:0 1px 2px rgba(15,23,42,0.04),0 4px 12px rgba(15,23,42,0.05);}
+        .fsn-invoice-header{font-size:15px;font-weight:700;margin-bottom:4px;padding-bottom:10px;border-bottom:1px dashed #e2e8f0;color:var(--text-primary);}
+        .fsn-invoice-subtitle{font-size:11.5px;font-weight:400;color:var(--text-muted);margin-top:2px;}
         .fsn-invoice-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;margin-bottom:0;font-size:13px;}
-        .fsn-invoice-row label{color:#64748b;margin:0;flex:1;}
+        .fsn-invoice-row label{color:var(--text-muted);margin:0;flex:1;}
         .fsn-invoice-value{display:inline-flex;align-items:center;gap:2px;white-space:nowrap;flex-shrink:0;}
         .fsn-invoice-value .fsn-currency{position:relative;top:0;line-height:1;}
         .fsn-plain-input{border:none !important;background:transparent !important;padding:0 !important;height:auto !important;text-align:right;width:70px;font-size:13px;}
-        .fsn-currency{color:#94a3b8;font-size:12px;}
+        .fsn-currency{color:var(--text-muted);font-size:12px;}
         .fsn-line-sub{font-size:11px;color:#16a34a;margin:2px 0 0;text-align:right;}
         .fsn-line-sub label{margin:0 0 0 6px;font-weight:400;}
         .fsn-line-sub label:first-child{margin-left:0;}
@@ -75,9 +75,9 @@
         .fsn-fine-active-hint{color:#dc2626 !important;font-weight:600;}
         #msgLabel{display:none !important;}
         .fsn-total-row{padding-top:10px;border-top:1px solid #e2e8f0;margin-top:12px;}
-        .fsn-total-row label{font-weight:600;color:#0f172a;font-size:14px;}
-        .fsn-total-value{font-weight:700 !important;font-size:20px !important;color:#0f172a;}
-        .fsn-hint{font-size:11px;color:#94a3b8;margin:2px 0 0;display:block;border:none;background:transparent;padding:0;height:auto;width:100%;text-align:right;}
+        .fsn-total-row label{font-weight:600;color:var(--text-primary);font-size:14px;}
+        .fsn-total-value{font-weight:700 !important;font-size:20px !important;color:var(--text-primary);}
+        .fsn-hint{font-size:11px;color:var(--text-muted);margin:2px 0 0;display:block;border:none;background:transparent;padding:0;height:auto;width:100%;text-align:right;}
         .fsn-input{width:70px;text-align:right;font-size:13px;height:32px;}
         #feeSubmitBtn{border-radius:8px;box-shadow:0 2px 6px rgba(37,99,235,0.3);}
     </style>
@@ -537,7 +537,7 @@
 
         function setFeeRelatedData(data, flag){
             if(flag===1){
-                $(".studname").html(`${data.student.studentName} <span class="badge rounded-pill ${data.countStu=='OLD'?'bg-primary':'bg-success'}"> <b>${data.countStu}</b> </span>`);
+                $(".studname").html(`${data.student.studentName} <span class="badge rounded-pill ${data.countStu=='OLD'?'text-bg-primary':'text-bg-success'}"> <b>${data.countStu}</b> </span>`);
                 $(".fname").html(`${data.student.fatherName}`);
                 $(".mname").html(`${data.student.motherName}`);
                 $(".contactno").html(`${data.student.mobile1}`);

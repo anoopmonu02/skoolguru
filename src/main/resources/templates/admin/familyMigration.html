@@ -18,11 +18,11 @@
     width:38px; height:38px; border-radius:50%;
     display:flex; align-items:center; justify-content:center;
     font-weight:700; font-size:.9rem; z-index:1;
-    border:2px solid #dee2e6; background:#fff; color:#6c757d;
+    border: 2px solid var(--border-color); background:var(--card-bg); color:var(--text-muted);
   }
   .step-item.active .step-circle { border-color:#0d6efd; background:#0d6efd; color:#fff; }
   .step-item.done   .step-circle { border-color:#198754; background:#198754; color:#fff; }
-  .step-label { font-size:.75rem; margin-top:5px; color:#6c757d; font-weight:500; }
+  .step-label { font-size:.75rem; margin-top:5px; color:var(--text-muted); font-weight:500; }
   .step-item.active .step-label { color:#0d6efd; font-weight:700; }
   .step-item.done   .step-label { color:#198754; }
 
@@ -30,16 +30,16 @@
   .result-stat-card { border-radius:12px; border:0; box-shadow:0 2px 10px rgba(0,0,0,.08); text-align:center; padding:20px 10px; }
   .result-stat-num  { font-size:2.4rem; font-weight:800; line-height:1; }
 
-  .group-card { border-radius:10px; border:1px solid #e2e8f0; margin-bottom:.6rem; overflow:hidden; }
+  .group-card { border-radius:10px; border: 1px solid var(--border-color); margin-bottom:.6rem; overflow:hidden; }
   .group-header {
     display:flex; align-items:center; gap:10px;
-    padding:8px 14px; background:#f8fafc; cursor:pointer;
+    padding:8px 14px; background:var(--body-bg); cursor:pointer;
     font-size:.85rem; font-weight:600;
   }
-  .group-header:hover { background:#f1f5f9; }
+  .group-header:hover { background:var(--body-bg); }
   .group-body { padding:0; }
   .group-table { font-size:.78rem; margin:0; }
-  .group-table th { background:#f8fafc; font-weight:600; padding:5px 10px; }
+  .group-table th { background:var(--body-bg); font-weight:600; padding:5px 10px; }
   .group-table td { padding:5px 10px; vertical-align:middle; }
   .badge-m1 { background:#dbeafe; color:#1d4ed8; font-size:.68rem; }
   .badge-m2 { background:#fce7f3; color:#9d174d; font-size:.68rem; }
@@ -148,10 +148,10 @@
       <div class="group-header" th:attr="data-bs-toggle='collapse',data-bs-target='#grp-' + ${groupStat.index}">
         <i class="bi bi-phone-fill text-primary"></i>
         <span th:text="${group.mobile}" class="font-monospace"></span>
-        <span class="badge bg-primary rounded-pill ms-1" th:text="${group.totalStudents} + ' student(s)'"></span>
-        <span th:if="${group.accountExists}" class="badge bg-success ms-1">Account exists</span>
-        <span th:unless="${group.accountExists}" class="badge bg-warning text-dark ms-1">New account</span>
-        <span th:if="${group.needsLink > 0}" class="badge bg-danger ms-1" th:text="${group.needsLink} + ' unlinked'"></span>
+        <span class="badge text-bg-primary rounded-pill ms-1" th:text="${group.totalStudents} + ' student(s)'"></span>
+        <span th:if="${group.accountExists}" class="badge text-bg-success ms-1">Account exists</span>
+        <span th:unless="${group.accountExists}" class="badge text-bg-warning ms-1">New account</span>
+        <span th:if="${group.needsLink > 0}" class="badge text-bg-danger ms-1" th:text="${group.needsLink} + ' unlinked'"></span>
         <i class="bi bi-chevron-down ms-auto"></i>
       </div>
       <div th:id="'grp-' + ${groupStat.index}" class="collapse group-body">
@@ -177,8 +177,8 @@
                 <span th:if="${stu.matchedVia == 'mobile2'}" class="badge badge-m2">mobile2</span>
               </td>
               <td>
-                <span th:if="${stu.alreadyLinked}"  class="badge bg-success">Linked</span>
-                <span th:unless="${stu.alreadyLinked}" class="badge bg-warning text-dark">Pending</span>
+                <span th:if="${stu.alreadyLinked}"  class="badge text-bg-success">Linked</span>
+                <span th:unless="${stu.alreadyLinked}" class="badge text-bg-warning">Pending</span>
               </td>
             </tr>
           </tbody>

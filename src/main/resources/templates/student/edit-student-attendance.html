@@ -21,7 +21,7 @@
       background: conic-gradient(#10b981 calc(var(--pct) * 1%), #e2e8f0 0);
     }
     .summary-ring-inner {
-      width: 50px; height: 50px; border-radius: 50%; background: #fff;
+      width: 50px; height: 50px; border-radius: 50%; background: var(--card-bg);
       display: flex; align-items: center; justify-content: center;
     }
     #ledger-table td, #ledger-table th { vertical-align: middle; }
@@ -279,11 +279,11 @@
 
     const statusBadge = (status) => {
       switch(status){
-        case 'Present': return '<span class="status-badge bg-success text-white">Present</span>';
-        case 'Absent': return '<span class="status-badge bg-danger text-white">Absent</span>';
-        case 'Holiday': return '<span class="status-badge bg-secondary text-white">Holiday</span>';
-        case 'Future': return '<span class="status-badge bg-light text-muted">-</span>';
-        case 'NotMarked': return '<span class="status-badge bg-warning text-dark">Not Marked</span>';
+        case 'Present': return '<span class="status-badge text-bg-success text-white">Present</span>';
+        case 'Absent': return '<span class="status-badge text-bg-danger text-white">Absent</span>';
+        case 'Holiday': return '<span class="status-badge text-bg-secondary text-white">Holiday</span>';
+        case 'Future': return '<span class="status-badge text-bg-light text-muted">-</span>';
+        case 'NotMarked': return '<span class="status-badge text-bg-warning">Not Marked</span>';
         default: return status;
       }
     };

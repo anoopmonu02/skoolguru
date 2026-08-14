@@ -16,8 +16,8 @@
             left: 0;
             right: 0;
             z-index: 1050; /* Higher than Bootstrap cards */
-            background: white;
-            border: 1px solid #ddd;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
             max-height: 250px;
             overflow-y: auto;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
@@ -656,7 +656,7 @@
                             <td>${counter}</td>
                             <td>${n.smsHeading || ''}</td>
                             <td>${dt}</td>
-                            <td><span class="badge bg-info text-dark">${recipientLabel}</span></td>
+                            <td><span class="badge text-bg-info">${recipientLabel}</span></td>
                             <td>${attachmentCell}</td>
                         </tr>`;
                         tbody.append(row);
@@ -1293,7 +1293,7 @@
                     const isClosed = !!g.closed;
                     const statusCell = isClosed
                         ? `<span class="badge text-bg-success" title="${(g.closerStatementRemark || '').replace(/"/g, '&quot;')}">Closed</span>`
-                        : `<span class="badge text-bg-warning text-dark">Pending</span>`;
+                        : `<span class="badge text-text-bg-warning">Pending</span>`;
                     // Once closed: no reschedule control, no close button — read-only due date, action column empty.
                     const dueDateCell = isClosed
                         ? `<span class="small">${dueDateDisplay}</span>`

@@ -63,3 +63,39 @@
 
     --transition: 0.22s cubic-bezier(.4,0,.2,1);
 }
+
+/* ============================================================================
+   DARK THEME
+   ----------------------------------------------------------------------------
+   Only the variables change — no component CSS is duplicated. That is the whole
+   payoff from extracting tokens: a second theme is ~30 lines, not a second
+   stylesheet.
+
+   The attribute is Bootstrap 5.3's own `data-bs-theme`, so Bootstrap's built-in
+   components (dropdowns, modals, tables, form controls, badges) switch with it
+   automatically. What follows only covers the custom shell on top of that.
+   ============================================================================ */
+[data-bs-theme="dark"] {
+    --body-bg:        #0b1220;
+    --card-bg:        #131c2e;
+    --text-primary:   #e8edf5;
+    --text-muted:     #94a3b8;
+    --border-color:   #27354d;
+
+    --topbar-bg:      #131c2e;
+    --topbar-border:  #27354d;
+
+    --sidebar-bg:          #080e1a;
+    --sidebar-text:        #94a3b8;
+    --sidebar-text-active: #ffffff;
+    --sidebar-hover-bg:    rgba(56,189,248,0.10);
+    --sidebar-active-bg:   rgba(56,189,248,0.18);
+    --sidebar-header-text: #64748b;
+
+    --accent-light:   rgba(56,189,248,0.14);
+
+    /* Shadows need more weight on a dark surface to stay visible */
+    --shadow-xs: 0 1px 3px rgba(0,0,0,.45), 0 1px 2px rgba(0,0,0,.35);
+    --shadow-sm: 0 2px 8px rgba(0,0,0,.50);
+    --shadow-md: 0 4px 16px rgba(0,0,0,.55);
+}

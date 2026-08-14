@@ -447,7 +447,7 @@
 
         function setFeeRelatedData(data, flag){
             if(flag===1){
-                $(".studname").html(`<strong>Student Name: </strong> ${data.student.studentName} <span class="badge rounded-pill ${data.countStu=='OLD'?'bg-primary':'bg-success'}"> <b>${data.countStu}</b> </span>`);
+                $(".studname").html(`<strong>Student Name: </strong> ${data.student.studentName} <span class="badge rounded-pill ${data.countStu=='OLD'?'text-bg-primary':'text-bg-success'}"> <b>${data.countStu}</b> </span>`);
                 $(".fname").html(`<strong>Father Name: </strong> ${data.student.fatherName}`);
                 $(".mname").html(`<strong>Mother Name: </strong> ${data.student.motherName}`);
                 $(".contactno").html(`<strong>Contact No: </strong> ${data.student.mobile1}<button type="button" class="btn btn-success dynamic-btn"> <i class="bi bi-telephone-plus"></i> </button>`);
@@ -585,7 +585,7 @@
                     tot = tot + prevBalAmount;
                     for (let i = 0; i < headList.length; i++) {
                         let value = headList[i];
-                        $('#feeTable > tbody').append('<tr><td>'+ (i+1) +'</td><td>'+ value.feehead+'</td><td>'+ value.quantity +'</td><td>'+value.amount+'<input type="hidden" name="headName" value="'+value.feehead+'###'+value.amount+'###'+ value.feeid +'" /></td></tr>');
+                        $('#feeTable > tbody').append('<tr><td>'+ (i+1) +'</td><td>'+ value.feehead+'</td><td>'+ value.quantity +'</td><td>₹ '+formatINR(value.amount)+'<input type="hidden" name="headName" value="'+value.feehead+'###'+value.amount+'###'+ value.feeid +'" /></td></tr>');
                         tot = tot + value.amount;
                     }
                     if(olist.amount>0){

@@ -13,7 +13,7 @@
     border-radius: 16px;
     padding: 60px 30px;
     text-align: center;
-    background: #f8f9fa;
+    background: var(--card-bg);
     transition: all .25s ease;
     cursor: pointer;
   }
@@ -21,7 +21,7 @@
     border-color: #0d6efd;
     background: #e9f0ff;
   }
-  .upload-zone .upload-icon { font-size: 3.5rem; color: #6c757d; transition: color .25s; }
+  .upload-zone .upload-icon { font-size: 3.5rem; color: var(--text-muted); transition: color .25s; }
   .upload-zone:hover .upload-icon { color: #0d6efd; }
 
   /* ── Step tracker ── */
@@ -36,11 +36,11 @@
     width: 38px; height: 38px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     font-weight: 700; font-size: .9rem; z-index: 1;
-    border: 2px solid #dee2e6; background: #fff; color: #6c757d;
+    border: 2px solid var(--border-color); background: var(--card-bg); color: var(--text-muted);
   }
   .step-item.active .step-circle  { border-color: #0d6efd; background: #0d6efd; color: #fff; }
   .step-item.done   .step-circle  { border-color: #198754; background: #198754; color: #fff; }
-  .step-label { font-size: .75rem; margin-top: 5px; color: #6c757d; font-weight: 500; }
+  .step-label { font-size: .75rem; margin-top: 5px; color: var(--text-muted); font-weight: 500; }
   .step-item.active .step-label { color: #0d6efd; font-weight: 700; }
   .step-item.done   .step-label { color: #198754; }
 
@@ -53,7 +53,7 @@
   /* ── Row status colouring ── */
   .row-ready   { background: #f0fff4 !important; }
   .row-warning { background: #fffbf0 !important; }
-  .row-error   { background: #fff5f5 !important; }
+  .row-error   { background: var(--card-bg); }
 
   /* ── Stat counters ── */
   .stat-pill { border-radius: 50px; padding: 6px 18px; font-size: .85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
@@ -89,7 +89,7 @@
     transition: background .15s;
   }
   .btn-add-all:hover { background: rgba(255,255,255,.3); }
-  .btn-add-all.text-dark { color: #212529 !important; border-color: rgba(0,0,0,.4) !important; background: rgba(0,0,0,.08) !important; }
+  .btn-add-all.text-dark { color: var(--text-primary); border-color: rgba(0,0,0,.4) !important; background: rgba(0,0,0,.08) !important; }
   .btn-add-all.text-dark:hover { background: rgba(0,0,0,.18) !important; }
 </style>
 
@@ -204,7 +204,7 @@
                 <input type="file" name="file" id="xlsFile" accept=".xls,.xlsx"
                        class="d-none" required/>
                 <div id="fileInfo" class="d-none mt-2">
-                  <span class="badge bg-primary fs-6 px-3 py-2" id="fileName"></span>
+                  <span class="badge text-bg-primary fs-6 px-3 py-2" id="fileName"></span>
                 </div>
               </div>
 
@@ -246,12 +246,12 @@
                 <tr><td class="fw-bold">C</td><td>Father's Name</td><td class="text-muted">Uppercased</td></tr>
                 <tr><td class="fw-bold">D</td><td>Mother's Name</td><td class="text-muted">Uppercased</td></tr>
                 <tr><td class="fw-bold">E</td><td>SR No</td><td class="text-muted">→ classSrNo</td></tr>
-                <tr class="table-danger"><td class="fw-bold">F</td><td>Class</td><td><span class="badge bg-danger">Must exist in DB</span></td></tr>
-                <tr class="table-danger"><td class="fw-bold">G</td><td>Section</td><td><span class="badge bg-danger">Must exist in DB</span></td></tr>
+                <tr class="table-danger"><td class="fw-bold">F</td><td>Class</td><td><span class="badge text-bg-danger">Must exist in DB</span></td></tr>
+                <tr class="table-danger"><td class="fw-bold">G</td><td>Section</td><td><span class="badge text-bg-danger">Must exist in DB</span></td></tr>
                 <tr><td class="fw-bold">H</td><td>DOB</td><td class="text-muted">DD/MMM/YYYY or null</td></tr>
                 <tr><td class="fw-bold">I</td><td>Religion</td><td class="text-muted">HINDU/MUSLIM/SIKH/OTHER</td></tr>
-                <tr><td class="fw-bold">J</td><td>Cast</td><td><span class="badge bg-warning text-dark">Auto-created</span></td></tr>
-                <tr class="table-danger"><td class="fw-bold">K</td><td>Category</td><td><span class="badge bg-danger">Must exist in DB</span></td></tr>
+                <tr><td class="fw-bold">J</td><td>Cast</td><td><span class="badge text-bg-warning">Auto-created</span></td></tr>
+                <tr class="table-danger"><td class="fw-bold">K</td><td>Category</td><td><span class="badge text-bg-danger">Must exist in DB</span></td></tr>
                 <tr><td class="fw-bold">L</td><td>Gender</td><td class="text-muted">MALE / FEMALE</td></tr>
                 <tr><td class="fw-bold">M</td><td>Contact No</td><td class="text-muted">1 or 2 numbers</td></tr>
                 <tr><td class="fw-bold">N</td><td>Address</td><td class="text-muted">Street, City</td></tr>
@@ -334,7 +334,7 @@
             <span><i class="bi bi-grid-3x3-gap me-1"></i>Grades</span>
             <div class="d-flex align-items-center gap-1">
               <span th:if="${!preview.gradesToCreate.isEmpty()}"
-                    class="badge bg-dark"
+                    class="badge text-bg-dark"
                     th:text="${preview.gradesToCreate.size()} + ' new'"></span>
               <button th:if="${!preview.gradesToCreate.isEmpty()}"
                       class="btn-add-all text-dark"
@@ -365,7 +365,7 @@
             <span><i class="bi bi-layout-split me-1"></i>Sections</span>
             <div class="d-flex align-items-center gap-1">
               <span th:if="${!preview.sectionsToCreate.isEmpty()}"
-                    class="badge bg-dark"
+                    class="badge text-bg-dark"
                     th:text="${preview.sectionsToCreate.size()} + ' new'"></span>
               <button th:if="${!preview.sectionsToCreate.isEmpty()}"
                       class="btn-add-all text-dark"
@@ -395,7 +395,7 @@
                th:classappend="${!preview.categoriesMissing.isEmpty()} ? 'bg-danger text-white' : 'bg-success text-white'">
             <i class="bi bi-tags me-1"></i>Categories
             <span th:if="${!preview.categoriesMissing.isEmpty()}"
-                  class="badge bg-light text-danger float-end" style="font-size:.65rem;">Admin → Config</span>
+                  class="badge text-bg-light text-danger float-end" style="font-size:.65rem;">Admin → Config</span>
           </div>
           <div class="card-body">
             <div class="lookup-item text-success" th:each="c:${preview.categoriesFound}">
@@ -412,7 +412,7 @@
           <div class="card-header bg-warning text-dark d-flex align-items-center justify-content-between">
             <span><i class="bi bi-person-badge me-1"></i>Castes</span>
             <div class="d-flex align-items-center gap-1">
-              <span class="badge bg-dark"
+              <span class="badge text-bg-dark"
                     th:if="${!preview.castesToCreate.isEmpty()}"
                     th:text="${preview.castesToCreate.size()} + ' new'"></span>
               <button th:if="${!preview.castesToCreate.isEmpty()}"
@@ -441,7 +441,7 @@
           <div class="card-header bg-info text-dark d-flex align-items-center justify-content-between">
             <span><i class="bi bi-geo-alt me-1"></i>Cities</span>
             <div class="d-flex align-items-center gap-1">
-              <span class="badge bg-dark"
+              <span class="badge text-bg-dark"
                     th:if="${!preview.citiesToCreate.isEmpty()}"
                     th:text="${preview.citiesToCreate.size()} + ' new'"></span>
               <button th:if="${!preview.citiesToCreate.isEmpty()}"
@@ -481,7 +481,7 @@
             </div>
             <div class="lookup-item text-muted" th:each="b:${preview.banksFallback}">
               <i class="bi bi-arrow-right"></i> <span th:text="${b}"></span>
-              <span class="badge bg-secondary" style="font-size:.65rem;">→ NO Bank</span>
+              <span class="badge text-bg-secondary" style="font-size:.65rem;">→ NO Bank</span>
               <button class="btn-quick-add"
                       th:attr="data-name=${b}"
                       data-type="bank"
@@ -527,9 +527,9 @@
                                 (${row.status=='WARNING'} ? 'row-warning' : 'row-ready')">
                     <td th:text="${row.rowNum}" class="text-muted"></td>
                     <td>
-                      <span th:if="${row.status=='READY'}"   class="badge bg-success">✓</span>
-                      <span th:if="${row.status=='WARNING'}" class="badge bg-warning text-dark">⚠</span>
-                      <span th:if="${row.status=='ERROR'}"   class="badge bg-danger">✗</span>
+                      <span th:if="${row.status=='READY'}"   class="badge text-bg-success">✓</span>
+                      <span th:if="${row.status=='WARNING'}" class="badge text-bg-warning">⚠</span>
+                      <span th:if="${row.status=='ERROR'}"   class="badge text-bg-danger">✗</span>
                     </td>
                     <td th:text="${row.classSrNo}" class="fw-semibold"></td>
                     <td th:text="${row.studentName}"></td>
@@ -550,21 +550,21 @@
                     <td th:text="${row.religion}"></td>
                     <td>
                       <span th:text="${row.casteCleaned}"></span>
-                      <span th:unless="${row.castExists}" class="badge bg-warning text-dark" style="font-size:.65rem;">new</span>
+                      <span th:unless="${row.castExists}" class="badge text-bg-warning" style="font-size:.65rem;">new</span>
                     </td>
                     <td th:text="${row.categoryName}"></td>
                     <td>
                       <span th:text="${row.mobile1}"></span>
-                      <span th:if="${row.contactDummy}" class="badge bg-secondary" style="font-size:.65rem;">dummy</span>
+                      <span th:if="${row.contactDummy}" class="badge text-bg-secondary" style="font-size:.65rem;">dummy</span>
                     </td>
                     <td th:text="${row.mobile2!=null ? row.mobile2 : '—'}"></td>
                     <td>
                       <span th:text="${row.cityName!=null ? row.cityName : '—'}"></span>
-                      <span th:if="${row.cityName!=null and !row.cityExists}" class="badge bg-info text-dark" style="font-size:.65rem;">new</span>
+                      <span th:if="${row.cityName!=null and !row.cityExists}" class="badge text-bg-info" style="font-size:.65rem;">new</span>
                     </td>
                     <td>
                       <span th:text="${row.bankName.isBlank() ? '—' : row.bankName}"></span>
-                      <span th:unless="${row.bankFound}" class="badge bg-secondary" style="font-size:.65rem;">NO Bank</span>
+                      <span th:unless="${row.bankFound}" class="badge text-bg-secondary" style="font-size:.65rem;">NO Bank</span>
                     </td>
                     <td>
                       <ul class="notes-list" th:if="${!row.messages.isEmpty()}">
@@ -649,9 +649,9 @@
                             (${row.status=='WARNING'} ? 'row-warning' : '')">
                 <td th:text="${row.rowNum}" class="text-muted"></td>
                 <td>
-                  <span th:if="${row.status=='READY'}"   class="badge bg-success">✓ Saved</span>
-                  <span th:if="${row.status=='WARNING'}" class="badge bg-warning text-dark">✓ Saved</span>
-                  <span th:if="${row.status=='ERROR'}"   class="badge bg-danger">✗ Failed</span>
+                  <span th:if="${row.status=='READY'}"   class="badge text-bg-success">✓ Saved</span>
+                  <span th:if="${row.status=='WARNING'}" class="badge text-bg-warning">✓ Saved</span>
+                  <span th:if="${row.status=='ERROR'}"   class="badge text-bg-danger">✗ Failed</span>
                 </td>
                 <td th:text="${row.classSrNo}" class="fw-semibold"></td>
                 <td th:text="${row.studentName}"></td>

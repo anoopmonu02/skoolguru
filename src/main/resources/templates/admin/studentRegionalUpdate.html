@@ -10,21 +10,21 @@
   .stat-pill { border-radius:50px; padding:5px 16px; font-size:.82rem; font-weight:600;
                display:inline-flex; align-items:center; gap:6px; }
   .preview-table { font-size:.82rem; }
-  .preview-table th { background:#f8fafc; font-weight:600; padding:8px 10px; white-space:nowrap; }
+  .preview-table th { background:var(--body-bg); font-weight:600; padding:8px 10px; white-space:nowrap; }
   .preview-table td { padding:6px 8px; vertical-align:middle; }
-  .preview-table td.locked-col { background:#f4f5f7; color:#495057; }
-  .preview-table input.regional-input { font-size:.82rem; padding:3px 6px; border:1px solid #cfd4da; border-radius:5px; width:100%; background:#fffdf3; }
+  .preview-table td.locked-col { background: var(--card-bg); color: var(--text-primary); }
+  .preview-table input.regional-input { font-size:.82rem; padding:3px 6px; border: 1px solid var(--border-color); border-radius:5px; width:100%; background: var(--card-bg); }
   .preview-table input.regional-input:focus { outline:none; border-color:#0d6efd; box-shadow:0 0 0 .15rem rgba(13,110,253,.15); }
   .status-badge { font-size:.7rem; font-weight:700; border-radius:4px; padding:3px 8px; }
-  .upload-card { border:1px dashed #c9ceD6; border-radius:14px; background:#fbfcfe; }
-  .search-result { max-height:320px; overflow-y:auto; border:1px solid #dee2e6; border-radius:8px; display:none; }
+  .upload-card { border: 1px dashed var(--border-color); border-radius:14px; background: var(--card-bg); }
+  .search-result { max-height:320px; overflow-y:auto; border: 1px solid var(--border-color); border-radius:8px; display:none; }
   .search-result .list-group-item { cursor:pointer; }
-  .edit-card { border-radius:14px; border:1px solid #d7ecdf; background:#f7fdf9; }
-  .edit-card .form-label { font-size:.8rem; font-weight:600; color:#495057; margin-bottom:2px; }
+  .edit-card { border-radius:14px; border: 1px solid var(--border-color); background: var(--card-bg); }
+  .edit-card .form-label { font-size:.8rem; font-weight:600; color: var(--text-primary); margin-bottom:2px; }
   .edit-card .form-label span#refStudentName, .edit-card .form-label span#refFatherName,
   .edit-card .form-label span#refMotherName, .edit-card .form-label span#refAddress { font-weight:600; }
   .regional-badge { font-size:.7rem; font-weight:700; border-radius:4px; padding:3px 8px; }
-  .student-info-box { background:#ffffff; border:1px solid #e3e8ee; }
+  .student-info-box { background:var(--card-bg); border: 1px solid var(--border-color); }
 </style>
 
 <div class="container-fluid px-3 px-lg-4">
@@ -148,7 +148,7 @@
     <div class="col-md-6">
       <div class="card upload-card h-100">
         <div class="card-body">
-          <h6 class="fw-bold"><span class="badge bg-success rounded-pill me-2">1</span>Download Template</h6>
+          <h6 class="fw-bold"><span class="badge text-bg-success rounded-pill me-2">1</span>Download Template</h6>
           <p class="text-muted small mb-3">Real student data for your current school &amp; session, with any regional-language values already saved pre-filled. Only the yellow columns are editable in Excel.</p>
           <a th:href="@{/admin/student-regional/download}" class="btn btn-success">
             <i class="bi bi-download me-1"></i> Download Template
@@ -159,7 +159,7 @@
     <div class="col-md-6">
       <div class="card upload-card h-100">
         <div class="card-body">
-          <h6 class="fw-bold"><span class="badge bg-success rounded-pill me-2">2</span>Upload Filled Template</h6>
+          <h6 class="fw-bold"><span class="badge text-bg-success rounded-pill me-2">2</span>Upload Filled Template</h6>
           <p class="text-muted small mb-2">Select the file you filled in, then preview before saving.</p>
           <div class="input-group">
             <input type="file" id="regionalFile" class="form-control" accept=".xlsx">
@@ -366,7 +366,7 @@
       // Same single-line layout as the Fee Submission search: Name / Father Name / Grade-Section / SR No
       const cls = (s.gradeName && s.sectionName) ? `${s.gradeName}-${s.sectionName}` : '-';
       const sr = s.classSrNo ? ' / ' + s.classSrNo : ' / -';
-      const already = s.studentNameRegional ? ' <span class="badge bg-success-subtle text-success ms-1">filled</span>' : '';
+      const already = s.studentNameRegional ? ' <span class="badge text-bg-success-subtle text-success ms-1">filled</span>' : '';
       return `<a data-idx="${idx}" onclick="selectRegStudent(${idx})" href="#" class="list-group-item list-group-item-action">${escHtml(s.studentName)} / ${escHtml(s.fatherName)} / ${escHtml(cls)}${sr}${already}</a>`;
     };
 

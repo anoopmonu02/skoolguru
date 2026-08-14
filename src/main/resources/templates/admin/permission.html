@@ -84,7 +84,7 @@
                             <!-- SUPERADMIN/ADMIN rows — no fine-grained permissions needed -->
                             <span th:if="${#lists.contains(user.roles.![name], 'ROLE_SUPERADMIN') or
                                           #lists.contains(user.roles.![name], 'ROLE_ADMIN')}"
-                                  class="badge bg-success">
+                                  class="badge text-bg-success">
                                 <i class="bi bi-shield-check"></i> Full Access (by role)
                             </span>
                             <!-- Other roles — show manage button -->

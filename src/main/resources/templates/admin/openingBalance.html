@@ -19,11 +19,11 @@
     width:38px; height:38px; border-radius:50%;
     display:flex; align-items:center; justify-content:center;
     font-weight:700; font-size:.9rem; z-index:1;
-    border:2px solid #dee2e6; background:#fff; color:#6c757d;
+    border: 2px solid var(--border-color); background:var(--card-bg); color:var(--text-muted);
   }
   .step-item.active .step-circle { border-color:#0d6efd; background:#0d6efd; color:#fff; }
   .step-item.done   .step-circle { border-color:#198754; background:#198754; color:#fff; }
-  .step-label { font-size:.75rem; margin-top:5px; color:#6c757d; font-weight:500; }
+  .step-label { font-size:.75rem; margin-top:5px; color:var(--text-muted); font-weight:500; }
   .step-item.active .step-label { color:#0d6efd; font-weight:700; }
   .step-item.done   .step-label { color:#198754; }
 
@@ -33,7 +33,7 @@
 
   /* ── Preview table ── */
   .preview-table { font-size:.8rem; }
-  .preview-table th { background:#f8fafc; font-weight:600; padding:6px 10px; white-space:nowrap; }
+  .preview-table th { background:var(--body-bg); font-weight:600; padding:6px 10px; white-space:nowrap; }
   .preview-table td { padding:5px 10px; vertical-align:middle; }
   .status-badge { font-size:.7rem; font-weight:700; border-radius:4px; padding:2px 7px; }
 
@@ -97,7 +97,7 @@
           <li>Upload the Excel file (columns: SNo, Student Name, Father Name, <strong>SR No</strong>, <strong>Class</strong>, <strong>Pending Amount</strong>)</li>
           <li>System matches each row by SR No → cross-checks Grade + Section</li>
           <li>You review the preview, then confirm to save</li>
-          <li>Only <span class="badge bg-success">Matched</span> and <span class="badge bg-warning text-dark">Grade/Section Mismatch</span> rows can be saved</li>
+          <li>Only <span class="badge text-bg-success">Matched</span> and <span class="badge text-bg-warning">Grade/Section Mismatch</span> rows can be saved</li>
         </ul>
 
         <form th:action="@{/admin/opening-balance/preview}" method="post" enctype="multipart/form-data">
@@ -217,9 +217,9 @@
                 </td>
                 <!-- Status badge -->
                 <td>
-                  <span th:if="${row.matched}"  class="status-badge bg-success text-white">Matched</span>
-                  <span th:if="${row.mismatch}" class="status-badge bg-warning text-dark">Mismatch</span>
-                  <span th:if="${row.notFound}" class="status-badge bg-danger text-white">Not Found</span>
+                  <span th:if="${row.matched}"  class="status-badge text-bg-success text-white">Matched</span>
+                  <span th:if="${row.mismatch}" class="status-badge text-bg-warning">Mismatch</span>
+                  <span th:if="${row.notFound}" class="status-badge text-bg-danger text-white">Not Found</span>
                 </td>
                 <!-- Include checkbox — only for matched/mismatch rows -->
                 <td class="text-center">

@@ -52,6 +52,12 @@
             if (state === "true") {
                 document.documentElement.classList.add("sidebar-preload");
             }
+            // Apply the saved theme BEFORE first paint, otherwise the page renders
+            // light and then snaps to dark — the classic theme flash.
+            var theme = localStorage.getItem("theme");
+            if (theme === "dark") {
+                document.documentElement.setAttribute("data-bs-theme", "dark");
+            }
         })();
     </script>
 </head>
@@ -406,6 +412,13 @@
                     <i class="bi bi-calendar3-week-fill"></i>
                     <span th:text="${#strings.defaultString(session.activeAcademicYear?.sessionFormat, 'Not Set')}">2024-25</span>
                 </span>
+
+                <!-- Theme toggle. Sets data-bs-theme on <html>, which switches both
+                     Bootstrap's own components and our token set in tokens.css. -->
+                <button type="button" id="themeToggle" class="topbar-theme-btn"
+                        title="Toggle dark mode" aria-label="Toggle dark mode">
+                    <i class="bi bi-moon-stars"></i>
+                </button>
 
                 <div class="topbar-divider"></div>
 

@@ -11,7 +11,7 @@
     #filter-sidebar {
         width: 230px;
         flex-shrink: 0;
-        background: #fff;
+        background: var(--card-bg);
         border-right: 1px solid #dee2e6;
         padding: 12px;
         overflow-y: auto;
@@ -23,30 +23,30 @@
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: .05em;
-        color: #495057;
+        color: var(--text-primary);
         margin-bottom: 5px;
         margin-top: 2px;
     }
     #filter-sidebar .form-label {
         font-size: 12px;
         font-weight: 600;
-        color: #212529;
+        color: var(--text-primary);
         margin-bottom: 4px;
     }
     /* Scrollable checkbox panels */
     .cb-panel {
-        border: 1px solid #dee2e6;
+        border: 1px solid var(--border-color);
         border-radius: .25rem;
         max-height: 145px;
         overflow-y: auto;
-        background: #fdfdfd;
+        background: var(--card-bg);
     }
     .cb-panel .form-check {
         padding: 4px 10px;
         margin: 0;
         font-size: 12px;
     }
-    .cb-panel .form-check:hover { background: #f8f9fa; }
+    .cb-panel .form-check:hover { background: var(--card-bg); }
     /* ── Custom checkboxes — bypass any theme override on form-check-input ── */
     .cb-item {
         display: flex;
@@ -76,7 +76,7 @@
     .select-all-row {
         font-size: 12px;
         font-weight: 600;
-        color: #212529;
+        color: var(--text-primary);
         padding: 3px 2px 5px 2px;
         display: flex;
         align-items: center;
@@ -99,10 +99,10 @@
     }
     /* ── Stat cards ──────────────────────────────────────────────── */
     .stat-card { border-radius: .375rem; padding: 10px 14px; border: 1px solid transparent; }
-    .stat-card .sc-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; color: #6c757d; }
+    .stat-card .sc-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; color: var(--text-muted); }
     .stat-card .sc-value { font-size: 20px; font-weight: 800; line-height: 1.1; }
     .stat-card .sc-sub   { font-size: 10px; color: #adb5bd; margin-top: 2px; }
-    .stat-danger  { background:#fff5f5; border-color:#f8d7da; } .stat-danger  .sc-value { color:#dc3545; }
+    .stat-danger  { background: var(--card-bg); border-color:#f8d7da; } .stat-danger  .sc-value { color:#dc3545; }
     .stat-warning { background:#fff8f0; border-color:#ffe0b2; } .stat-warning .sc-value { color:#fd7e14; }
     .stat-primary { background:#eff6ff; border-color:#cfe2ff; } .stat-primary .sc-value { color:#0d6efd; }
     .stat-success { background:#f0fff4; border-color:#c3e6cb; } .stat-success .sc-value { color:#198754; }

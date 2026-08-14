@@ -116,7 +116,7 @@
         /* ── Right panel ── */
         .right-panel {
             width: 52%;
-            background: #ffffff;
+            background: var(--card-bg);
             padding: 48px 44px;
             display: flex;
             flex-direction: column;
@@ -155,27 +155,27 @@
         .welcome-sub {
             text-align: center;
             font-size: 13px;
-            color: #6b7280;
+            color: var(--text-muted);
             margin-bottom: 28px;
         }
 
         .form-label {
             font-size: 13px;
             font-weight: 600;
-            color: #374151;
+            color: var(--text-primary);
             margin-bottom: 6px;
         }
 
         .input-group-text {
-            background: #f9fafb;
-            border: 1.5px solid #d1d5db;
+            background: var(--card-bg);
+            border: 1.5px solid var(--border-color);
             border-right: none;
             border-radius: 8px 0 0 8px;
-            color: #6b7280;
+            color: var(--text-muted);
         }
 
         .form-control {
-            border: 1.5px solid #d1d5db;
+            border: 1.5px solid var(--border-color);
             border-left: none;
             border-radius: 0 8px 8px 0;
             padding: 11px 14px;
@@ -236,7 +236,7 @@
 
         /* Alert boxes */
         .alert-error {
-            background: #fef2f2;
+            background: var(--card-bg);
             border: 1px solid #fecaca;
             color: #b91c1c;
             border-radius: 8px;

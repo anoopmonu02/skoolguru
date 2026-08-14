@@ -51,15 +51,15 @@
          plain white letterhead, thin table rules, no colour accents.
     ═════════════════════════════════════════════════════ -->
     <style>
-        .search-result { max-height:320px; overflow-y:auto; border:1px solid #dee2e6; border-radius:8px; display:none; }
+        .search-result { max-height:320px; overflow-y:auto; border: 1px solid var(--border-color); border-radius:8px; display:none; }
         .search-result .list-group-item { cursor:pointer; }
 
         .bc-certificate {
             max-width: 820px;
-            background: #fff;
+            background: var(--card-bg);
             padding: 30px 45px 45px;
             font-family: 'Times New Roman', Times, serif;
-            color: #000;
+            color: var(--text-primary);
         }
         .bc-topline { display:flex; justify-content:space-between; align-items:flex-start; font-size:12px; }
         .bc-topline .bc-recognized { flex:1; text-align:center; }
@@ -302,7 +302,7 @@
             printWindow.document.write(`<style>
                 @page { size: A4 portrait; margin: 16mm; }
                 * { box-sizing: border-box; }
-                body { margin:0; padding:0; font-family:'Times New Roman', Times, serif; color:#000; }
+                body { margin:0; padding:0; font-family:'Times New Roman', Times, serif; color: var(--text-primary); }
                 .bc-certificate { padding: 0; }
                 .bc-topline { display:flex; justify-content:space-between; align-items:flex-start; font-size:12px; }
                 .bc-topline .bc-recognized { flex:1; text-align:center; }

@@ -7,10 +7,10 @@
 <body>
 <section>
     <style>
-        .er-toolbar-card{background:var(--card-bg,#fff);border:1px solid var(--border-color,#e2e8f0);border-radius:var(--radius-md,10px);padding:14px 18px;margin-bottom:16px;}
-        .er-results-card{background:var(--card-bg,#fff);border:1px solid var(--border-color,#e2e8f0);border-radius:var(--radius-md,10px);padding:16px 18px;position:relative;min-height:80px;}
-        .er-stat-pill{background:#f1f5f9;border-radius:8px;padding:8px 14px;text-align:center;min-width:90px;}
-        .er-stat-pill .er-stat-label{font-size:11.5px;color:#64748b;}
+        .er-toolbar-card{background: var(--card-bg);border: 1px solid var(--border-color,var(--border-color));border-radius:var(--radius-md,10px);padding:14px 18px;margin-bottom:16px;}
+        .er-results-card{background: var(--card-bg);border: 1px solid var(--border-color,var(--border-color));border-radius:var(--radius-md,10px);padding:16px 18px;position:relative;min-height:80px;}
+        .er-stat-pill{background:var(--body-bg);border-radius:8px;padding:8px 14px;text-align:center;min-width:90px;}
+        .er-stat-pill .er-stat-label{font-size:11.5px;color:var(--text-muted);}
         .er-stat-pill .er-stat-value{font-size:19px;font-weight:600;}
         .er-badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;}
         .er-badge-ready{background:#dcfce7;color:#166534;}
@@ -19,9 +19,9 @@
         .er-normal-state, .er-loading-state{display:inline-flex;align-items:center;}
         .btn.is-loading .er-normal-state{display:none;}
         .btn:not(.is-loading) .er-loading-state{display:none;}
-        .er-filter-toggle{display:flex;background:#f1f5f9;border-radius:8px;padding:3px;gap:2px;}
-        .er-filter-toggle button{border:none;background:transparent;padding:5px 14px;border-radius:6px;font-size:12.5px;color:#64748b;cursor:pointer;}
-        .er-filter-toggle button.active{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08);font-weight:600;color:#0f172a;}
+        .er-filter-toggle{display:flex;background:var(--body-bg);border-radius:8px;padding:3px;gap:2px;}
+        .er-filter-toggle button{border:none;background:transparent;padding:5px 14px;border-radius:6px;font-size:12.5px;color:var(--text-muted);cursor:pointer;}
+        .er-filter-toggle button.active{background:var(--card-bg);box-shadow:0 1px 2px rgba(0,0,0,.08);font-weight:600;color:var(--text-primary);}
         .er-admin-strip{border-top:1px dashed #e2e8f0;margin-top:14px;padding-top:14px;}
         /* Keep most review-table columns on one line (so a long ID/UUID doesn't
            force every row tall) and only let the free-text Remark/Reason columns
