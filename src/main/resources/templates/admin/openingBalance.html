@@ -313,7 +313,6 @@
 
 </div><!-- /container -->
 
-<script th:src="@{/js/jquery-3.6.0.min.js}"></script>
 <script type="text/javascript" th:inline="javascript">
   const contextPath = /*[[@{/}]]*/ '/';
 
@@ -418,6 +417,9 @@
     return true;
   }
 </script>
+  <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html
+       now loads them in <head>, so they are available before this page's
+       inline scripts run. They used to be duplicated on every page. -->
 </section>
 </body>
 </html>

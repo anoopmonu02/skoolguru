@@ -4,7 +4,6 @@
 <head>
   <meta charset="UTF-8">
   <title>UAIC - School</title>
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
 <section>
@@ -49,8 +48,6 @@
       </div>
     </div>
   </div>
-  <script th:src="@{/js/jquery-3.6.0.min.js}"></script>
-  <script th:src="@{/js/toastr.min.js}"></script>
 
   <script th:inline="javascript" type="text/javascript">
     $(document).ready(function () {
@@ -105,6 +102,9 @@
     });
   </script>
 
+  <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html
+       now loads them in <head>, so they are available before this page's
+       inline scripts run. They used to be duplicated on every page. -->
 </section>
 </body>
 </html>

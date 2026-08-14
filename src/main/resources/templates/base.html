@@ -45,6 +45,46 @@
     <link rel="stylesheet" th:href="@{/css/layout.css}">
     <link rel="stylesheet" th:href="@{/css/components.css}">
 
+    <!-- ================= THIRD-PARTY LIBRARIES =================
+         MOVED here from the end of <body>.
+
+         Page content is inserted into <main> ABOVE the old script location, so
+         a page's own inline JS ran BEFORE jQuery existed. 70 templates call $(…)
+         at parse time, which is why every one of them had to re-load jQuery
+         itself — 89 loaded jquery-3.6, 33 loaded 3.7, 91 re-loaded toastr. Pages
+         were pulling jQuery two or three times.
+
+         These files only define globals (no DOM work), so loading them in <head>
+         is safe and lets those duplicate tags be deleted. script.js still loads
+         at the end of <body>, because it does touch the DOM.
+    ========================================================== -->
+    <th:block th:if="${page == 'datatable'}">
+    <script th:src="@{/js/jquery-3.7.1.js}"></script>
+    <script th:src="@{/js/popper.min.js}"></script>
+    <script th:src="@{/dtbl/bootstrap.bundle.min.js}"></script>
+    <script th:src="@{/js/toastr.min.js}"></script>
+    <script th:src="@{/js/jquery-ui.min.js}"></script>
+    <script th:src="@{/js/dataTables.js}"></script>
+    <script th:src="@{/js/dataTables.bootstrap5.js}"></script>
+    <script th:src="@{/js/dataTables.buttons.js}"></script>
+    <script th:src="@{/js/buttons.bootstrap5.js}"></script>
+    <script th:src="@{/js/jszip.min.js}"></script>
+    <script th:src="@{/js/pdfmake.min.js}"></script>
+    <script th:src="@{/js/vfs_fonts.js}"></script>
+    <script th:src="@{/js/buttons.html5.min.js}"></script>
+    <script th:src="@{/js/select2.min.js}"></script>
+    </th:block>
+
+    <th:block th:unless="${page == 'datatable'}">
+    <script th:src="@{/js/jquery-3.6.0.min.js}"></script>
+    <script th:src="@{/js/bootstrap.bundle.min.js}" crossorigin="anonymous"></script>
+    <script th:src="@{/js/toastr.min.js}"></script>
+    <script th:src="@{/js/jquery-ui.min.js}"></script>
+    <script th:src="@{/js/select2.min.js}"></script>
+    </th:block>
+
+
+
     <script>
         // Prevent sidebar flash on load
         (function () {
@@ -466,57 +506,14 @@
 </div><!-- end .wrapper -->
 
 
-<!-- ====================== SCRIPTS ====================== -->
+<!-- script.js — loads last because it manipulates the DOM -->
 <th:block th:if="${page == 'datatable'}">
-    <script th:src="@{/js/jquery-3.7.1.js}"></script>
-    <script th:src="@{/js/popper.min.js}"></script>
-    <script th:src="@{/dtbl/bootstrap.bundle.min.js}"></script>
-    <script th:src="@{/js/toastr.min.js}"></script>
-    <script th:src="@{/js/jquery-ui.min.js}"></script>
-    <script th:src="@{/js/dataTables.js}"></script>
-    <script th:src="@{/js/dataTables.bootstrap5.js}"></script>
-    <script th:src="@{/js/dataTables.buttons.js}"></script>
-    <script th:src="@{/js/buttons.bootstrap5.js}"></script>
-    <script th:src="@{/js/jszip.min.js}"></script>
-    <script th:src="@{/js/pdfmake.min.js}"></script>
-    <script th:src="@{/js/vfs_fonts.js}"></script>
-    <script th:src="@{/js/buttons.html5.min.js}"></script>
-    <script th:src="@{/js/select2.min.js}"></script>
     <script th:src="@{/js/script.js}"></script>  <!-- LAST: needs Bootstrap + jQuery ready -->
 </th:block>
 
 <th:block th:unless="${page == 'datatable'}">
-    <script th:src="@{/js/jquery-3.6.0.min.js}"></script>
-    <script th:src="@{/js/bootstrap.bundle.min.js}" crossorigin="anonymous"></script>
-    <script th:src="@{/js/toastr.min.js}"></script>
-    <script th:src="@{/js/jquery-ui.min.js}"></script>
-    <script th:src="@{/js/select2.min.js}"></script>
     <script th:src="@{/js/script.js}"></script>  <!-- LAST: needs Bootstrap + jQuery ready -->
 </th:block>
-
-<!--
-    Flash messages, rendered ONCE for every page.
-
-    Previously each page carried ~50 lines: its own <script> tags for jQuery and
-    toastr, a local copy of showMsg(), and the three [[${success}]]/[[${info}]]/
-    [[${error}]] checks. That block was duplicated across 73 templates.
-
-    base.html sees the same model attributes as the page it wraps, so it can do
-    this once - and crucially it runs AFTER script.js has loaded, so showMsg and
-    toastr are guaranteed to exist.
--->
-<script th:inline="javascript">
-    (function () {
-        var flashes = [
-            ["success", /*[[${success}]]*/ null, "Success"],
-            ["info",    /*[[${info}]]*/    null, "Info"],
-            ["error",   /*[[${error}]]*/   null, "Error"]
-        ];
-        flashes.forEach(function (f) {
-            if (f[1]) { showMsg(f[0], f[1], f[2]); }
-        });
-    })();
-</script>
 
 <!-- All sidebar/UI logic is in script.js -->
 

@@ -318,12 +318,9 @@
         </footer>
     </div>
 </div>
-<!--<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" ></script>-->
+<!---->
 <th:block th:if="${page == 'datatable'}">
-    <script src="/js/popper.min.js"></script>
-    <script src="/dtbl/bootstrap.bundle.min.js"></script>
     <script src="/js/script.js"></script>
-    <script src="/js/jquery-ui.min.js"></script>
     <script src="/js/dataTables.js"></script>
     <script src="/js/dataTables.bootstrap5.js"></script>
 
@@ -334,15 +331,11 @@
     <script src="/js/vfs_fonts.js"></script>
     <script src="/js/buttons.html5.min.js"></script>
 
-    <script src="/js/select2.min.js"></script>
 </th:block>
 <th:block th:unless="${page == 'datatable'}">
-    <!--<script src="/js/popper.min.js"></script>-->
+    <!---->
     <!--<script src="/js/bootstrap.js"></script>-->
-    <script th:src="@{/js/bootstrap.bundle.min.js}" crossorigin="anonymous"></script>
-    <script src="/js/jquery-ui.min.js"></script>
     <script src="/js/script.js"></script>
-    <script src="/js/select2.min.js"></script>
 </th:block>
 
 </body>

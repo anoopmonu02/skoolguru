@@ -135,9 +135,6 @@
     </div>
   </div>
 
-  <script th:src="@{/js/jquery-3.6.0.min.js}"></script>
-  <script th:src="@{/js/jquery-ui.min.js}"></script>
-  <script th:src="@{/js/toastr.min.js}"></script>
   <link type="text/css" rel="stylesheet" th:href="@{/css/flatpickr.min.css}"/>
   <script th:src="@{/js/flatpickr.js}"></script>
   <script type="text/javascript" th:inline="javascript">
@@ -173,6 +170,9 @@
     
 
   </script>
+  <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html
+       now loads them in <head>, so they are available before this page's
+       inline scripts run. They used to be duplicated on every page. -->
 </section>
 </body>
 </html>
