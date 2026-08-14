@@ -78,12 +78,6 @@
   <script th:src="@{/js/jquery-3.6.0.min.js}"></script>
   <script th:src="@{/js/toastr.min.js}"></script>
 
-  <script type="text/javascript" th:inline="javascript">
-    const successMessage = [[${success}]];
-    if (successMessage) {
-      toastr["success"](successMessage, "Success");
-    }
-  </script>
 </section>
 </body>
 </html>

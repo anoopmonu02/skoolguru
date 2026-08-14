@@ -306,20 +306,11 @@
     <script th:src="@{/js/toastr.min.js}"></script>
     <script type="text/javascript" th:inline="javascript">
         const contextPath = /*[[@{/}]]*/ '/';
-        const successMessage = [[${success}]];
-        if (successMessage) {
-            showWarningMsg("success", successMessage, "Success");
-        }
+        
 
-        const infoMessage = [[${info}]];
-        if (infoMessage) {
-            showWarningMsg("info", infoMessage, "Info");
-        }
+        
 
-        const errorMessage = [[${error}]];
-        if (errorMessage) {
-            showWarningMsg("error", errorMessage, "Error");
-        }
+        
 
 
         // Event listener for dynamically added button

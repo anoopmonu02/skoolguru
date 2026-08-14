@@ -245,19 +245,9 @@
   <script th:src="@{/js/toastr.min.js}"></script>
   <script type="text/javascript" th:inline="javascript">
       const contextPath = /*[[@{/}]]*/ '/';
-      const successMessage = [[${success}]];
-      if (successMessage) {
-          showWarningMsg("success", successMessage, "Success");
-      }
-      const infoMessage = [[${info}]];
-      if (infoMessage) {
-          showWarningMsg("info", infoMessage, "Info");
-      }
-      // Display error message
-      const errorMessage = [[${error}]];
-      if (errorMessage) {
-          showWarningMsg("error", errorMessage, "Error");
-      }
+      
+      
+
 
       function showWarningMsg(msgType, msg, headerValue){
               toastr.options = {

@@ -94,13 +94,6 @@
             }
         });
     </script>
-    <script type="text/javascript" th:inline="javascript">
-        const successMessage = [[${success}]];
-        if (successMessage) {
-            toastr.options = { closeButton: true, positionClass: "toast-top-right", timeOut: "5000" };
-            toastr["success"](successMessage, "Success");
-        }
-    </script>
 </section>
 </body>
 </html>

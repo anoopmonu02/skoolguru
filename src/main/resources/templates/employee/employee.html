@@ -223,24 +223,13 @@
             "showMethod": "fadeIn",
             "hideMethod": "fadeOut"
         }
-        const successMessage = [[${success}]];
-        if (successMessage) {
-            toastr["success"](successMessage,"Success");
-        }
+        
 
-        const infoMessage = [[${info}]];
-        if (infoMessage) {
-            toastr["info"](infoMessage, "Info");
-        }
+        
 
-        const errorMessage = [[${error}]];
-        if (errorMessage) {
-            toastr["error"](errorMessage, "Error");
-        }
+        
 
-        function showMsg(msgType, msg, headerValue){
-            toastr[msgType](msg,headerValue);
-        }
+        
     </script>
 </section>
 </body>

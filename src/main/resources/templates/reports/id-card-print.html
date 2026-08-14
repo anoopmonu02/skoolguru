@@ -205,14 +205,7 @@
         const sessionLabel = /*[[${academicYear?.sessionFormat}]]*/ 'Session';
 
         // ── Toast helper ──────────────────────────────────────────────────────
-        function showMsg(type, msg, header) {
-            toastr.options = {
-                closeButton: true, progressBar: false,
-                positionClass: 'toast-top-right',
-                timeOut: '4000', showMethod: 'fadeIn', hideMethod: 'fadeOut'
-            };
-            toastr[type](msg, header);
-        }
+        
 
         // ── Fetch students and render cards ───────────────────────────────────
         function fetchAndRenderCards() {
