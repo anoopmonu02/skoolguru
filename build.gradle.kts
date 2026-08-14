@@ -1,15 +1,14 @@
 // =============================================================================
 //  SkoolGuru — build.gradle.kts
 //
-//  STEP 4: Spring Boot 3.5.16 + Java 21 + Flyway.
-//  3.5 is the stepping stone to 4.1 - still Spring Security 6 and Hibernate 6,
-//  so deprecation warnings can be cleared here while behaviour is unchanged.
-//  Compile with -Xlint:deprecation to see what 4.x will remove.
+//  STEP 5: Spring Boot 4.1.0 + Java 21 + Flyway.
+//  Major jump: Spring Framework 7, Spring Security 7, Hibernate 7, Jakarta EE 11,
+//  Jackson 3 by default, and Boot's module restructure (starter renames).
 // =============================================================================
 
 plugins {
     java
-    id("org.springframework.boot") version "3.5.16"   // STEP 4: 3.2.7 -> 3.5.16 (last 3.5 patch)
+    id("org.springframework.boot") version "4.1.0"   // STEP 5: 3.5.16 -> 4.1.0
     id("io.spring.dependency-management") version "1.1.7"
 }
 
@@ -41,15 +40,24 @@ dependencies {
     // ── Spring Boot starters (versions managed by the BOM) ───────────────────
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
-    implementation("org.springframework.boot:spring-boot-starter-web")
+    // RENAMED in Boot 4: spring-boot-starter-web -> spring-boot-starter-webmvc.
+    // (If something turns out to be missing, "spring-boot-starter-classic" restores
+    // the whole pre-modularisation classpath as a temporary fallback.)
+    implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-mail")
 
-    // Was declared explicitly in the pom. It is already pulled in by
-    // starter-web, so it is redundant — but this commit changes the build tool
-    // and NOTHING else, so it stays. Remove it in a later commit.
-    implementation("org.springframework:spring-webmvc")
+
+    // ── Jackson ──────────────────────────────────────────────────────────────
+    // No bridge needed. Boot 4 uses Jackson 3, and Jackson 3 deliberately KEPT the
+    // annotations in com.fasterxml.jackson.annotation ("jackson-annotations: 2.x
+    // version still used with 3.x, so no group-id/Java package change"). All 47
+    // Jackson imports in this codebase are annotations - @JsonIgnore(27),
+    // @JsonBackReference(8), @JsonProperty(4), @JsonManagedReference(4),
+    // @JsonIgnoreProperties(3), @JsonFormat(1) - and nothing uses ObjectMapper,
+    // JsonNode or anything else from databind/core, which DID move to tools.jackson.
+    // So the cycle-breakers on FeeSubmission etc. keep working as-is.
 
     // ── Thymeleaf extras ─────────────────────────────────────────────────────
     // Version deliberately OMITTED — Spring Boot's BOM manages this artifact
