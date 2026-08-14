@@ -57,7 +57,7 @@
                   </div>
 
                   <div th:if="${hasEmployee} == false or ${hasRoles} == false">
-                      <p class="text-center">No user/role found to assign.</p>
+                      <div th:replace="~{components/ui :: empty-state('No user/role found to assign.', 'bi-inbox')}"></div>
                   </div>
                 </div>
       </div>

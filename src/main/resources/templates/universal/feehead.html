@@ -49,7 +49,7 @@
           </tbody>
         </table>
         <div th:if="${!hasFeeheads}">
-          <p class="text-center">No Feehead found.</p>
+          <div th:replace="~{components/ui :: empty-state('No Feehead found.', 'bi-inbox')}"></div>
         </div>
       </div>
     </div>

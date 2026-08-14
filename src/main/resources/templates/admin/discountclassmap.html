@@ -49,7 +49,7 @@
           </tbody>
         </table>
         <div th:if="${!hasDiscountClassMap}">
-          <p class="text-center">No Discount-Grade Mapping found.</p>
+          <div th:replace="~{components/ui :: empty-state('No Discount-Grade Mapping found.', 'bi-inbox')}"></div>
         </div>
       </div>
     </div>

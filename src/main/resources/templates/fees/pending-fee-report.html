@@ -206,7 +206,7 @@
                                         <td>${srno}</td>
                                         <td>${studentData.academicStudent.student.studentName}</td>
                                         <td>${studentData.academicStudent.student.fatherName}</td>
-                                        <td>&#8377; ${studentData.amount}</td>
+                                        <td>₹ ${formatINR(studentData.amount)}</td>
                                         <td>${studentData.monthsList}</td>
                                         <td>${studentData.headList}</td>
                                     </tr>`;
@@ -217,7 +217,7 @@
                         }
                         tblData+=`</tbody><tfoot>
                         <tr>
-                            <td colspan="8" class="text-end">Total Pending Amount: <strong>&#8377; ${totalAmount}</strong></td>
+                            <td colspan="8" class="text-end">Total Pending Amount: <strong>₹ ${formatINR(totalAmount)}</strong></td>
                         </tr>
                         </tfoot></table>`;
                         $("#student-collection-data").html(tblData);

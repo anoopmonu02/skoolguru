@@ -60,7 +60,7 @@
                     </tbody>
                 </table>
                 <div th:if="${!hasEmployee}">
-                    <p class="text-center">No Employee found.</p>
+                    <div th:replace="~{components/ui :: empty-state('No Employee found.', 'bi-inbox')}"></div>
                 </div>
             </div>
         </div>

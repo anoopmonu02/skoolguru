@@ -52,7 +52,7 @@
                     </tbody>
                 </table>
                 <div th:if="${!hasAttendance}">
-                    <p class="text-center">No attendance data found.</p>
+                    <div th:replace="~{components/ui :: empty-state('No attendance data found.', 'bi-inbox')}"></div>
                 </div>
             </div>
         </div>

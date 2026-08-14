@@ -47,7 +47,7 @@
           </tbody>
         </table>
         <div th:if="${!hasSections}">
-          <p class="text-center">No Section found.</p>
+          <div th:replace="~{components/ui :: empty-state('No Section found.', 'bi-inbox')}"></div>
         </div>
       </div>
     </div>

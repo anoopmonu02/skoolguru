@@ -47,7 +47,7 @@
           </tbody>
         </table>
         <div th:if="${!hasCategories}">
-          <p class="text-center">No Category found.</p>
+          <div th:replace="~{components/ui :: empty-state('No Category found.', 'bi-inbox')}"></div>
         </div>
       </div>
     </div>

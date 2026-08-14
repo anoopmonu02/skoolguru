@@ -57,7 +57,7 @@
           </tbody>
         </table>
         <div th:if="${!isFine}">
-          <p class="text-center">No Fine found.</p>
+          <div th:replace="~{components/ui :: empty-state('No Fine found.', 'bi-inbox')}"></div>
         </div>
       </div>
     </div>

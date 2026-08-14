@@ -45,7 +45,7 @@
           </tbody>
         </table>
         <div th:if="${!isHoliDays}">
-          <p class="text-center">No Holiday found.</p>
+          <div th:replace="~{components/ui :: empty-state('No Holiday found.', 'bi-inbox')}"></div>
         </div>
       </div>
     </div>

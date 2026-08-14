@@ -49,7 +49,7 @@
           </tbody>
         </table>
         <div th:if="${!hasFeeClassMap}">
-          <p class="text-center">No Fee-Grade Mapping found.</p>
+          <div th:replace="~{components/ui :: empty-state('No Fee-Grade Mapping found.', 'bi-inbox')}"></div>
         </div>
       </div>
     </div>

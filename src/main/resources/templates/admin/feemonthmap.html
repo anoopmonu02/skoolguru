@@ -51,7 +51,7 @@
           </tbody>
         </table>
         <div th:if="${!hasFeeMonthMap}">
-          <p class="text-center">No Fee-Month Mapping found.</p>
+          <div th:replace="~{components/ui :: empty-state('No Fee-Month Mapping found.', 'bi-inbox')}"></div>
         </div>
       </div>
     </div>

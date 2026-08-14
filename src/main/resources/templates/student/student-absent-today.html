@@ -48,7 +48,7 @@
                     </tbody>
                 </table>
                 <div th:if="${!hasAbsent}">
-                    <p class="text-center">No absent students today.</p>
+                    <div th:replace="~{components/ui :: empty-state('No absent students today.', 'bi-inbox')}"></div>
                 </div>
 
                 <hr/>

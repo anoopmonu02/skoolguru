@@ -331,7 +331,7 @@
                         for(let i=0;i<rowData.length;i++){
                             //console.log(rowData[i]);
                             let rowVal = rowData[i];
-                            tableData+=`<tr><td>${(i+1)}</td><td>${rowVal[0]}</td><td class="text-center"><span class="badge rounded-pill text-bg-success"> &#8377; ${rowVal[1]}.00 </span></td></tr>`;
+                            tableData+=`<tr><td>${(i+1)}</td><td>${rowVal[0]}</td><td class="text-center"><span class="badge rounded-pill text-bg-success"> ₹ ${formatINR(rowVal[1])} </span></td></tr>`;
                             totalAmt+=rowVal[1];
                             /*labels.push(rowVal[0]); // User Name
                             amounts.push(rowVal[1]);
@@ -339,7 +339,7 @@
                             backgroundColors.push(color);
                             borderColors.push(color.replace('0.6', '1'));*/
                         }
-                        tableData+=`</tbody><tfoot class="table-group-divider"><tr><td></td><td></td><td class="text-center"><strong>Total: </strong> &#8377; ${totalAmt}</td></tr></tfoot></table>`;
+                        tableData+=`</tbody><tfoot class="table-group-divider"><tr><td></td><td></td><td class="text-center"><strong>Total: </strong> ₹ ${formatINR(totalAmt)}</td></tr></tfoot></table>`;
                         $("#userwise-collection-info").html(tableData);
                         //generateChart(labels,amounts, backgroundColors, borderColors);
                     })

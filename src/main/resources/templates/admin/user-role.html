@@ -54,7 +54,7 @@
                 </tbody>
             </table>
             <div th:if="${!hasUserRoleMapping}">
-                <p class="text-center">No User-Role found.</p>
+                <div th:replace="~{components/ui :: empty-state('No User-Role found.', 'bi-inbox')}"></div>
             </div>
         </div>
     </div>

@@ -55,7 +55,7 @@
           </tbody>
         </table>
         <div th:if="${!hasCustomerData}">
-          <p class="text-center">No Customer found.</p>
+          <div th:replace="~{components/ui :: empty-state('No Customer found.', 'bi-inbox')}"></div>
         </div>
       </div>
     </div>

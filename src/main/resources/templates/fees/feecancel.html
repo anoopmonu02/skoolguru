@@ -242,10 +242,10 @@
         $(".csection").html(`<strong>Section: </strong> ${data.feeSubmission.academicStudent.section.sectionName}`);
         $(".csr").html(`<strong>SR No: </strong> ${data.feeSubmission.academicStudent.classSrNo==null?"":data.feeSubmission.academicStudent.classSrNo}`);
 
-        $(".tamt").html(`<strong>Total Amount: </strong> &#8377; ${data.feeSubmission.totalAmount}`);
-        $(".pamt").html(`<strong>Paid Amount: </strong> &#8377; ${data.feeSubmission.paidAmount}`);
-        $(".famt").html(`<strong>Fine Amount: </strong> &#8377; ${data.feeSubmission.fineAmount}`);
-        $(".damt").html(`<strong>Discount Amount: </strong> &#8377; ${data.feeSubmission.discountAmount}`);
+        $(".tamt").html(`<strong>Total Amount: </strong> ₹ ${formatINR(data.feeSubmission.totalAmount)}`);
+        $(".pamt").html(`<strong>Paid Amount: </strong> ₹ ${formatINR(data.feeSubmission.paidAmount)}`);
+        $(".famt").html(`<strong>Fine Amount: </strong> ₹ ${formatINR(data.feeSubmission.fineAmount)}`);
+        $(".damt").html(`<strong>Discount Amount: </strong> ₹ ${formatINR(data.feeSubmission.discountAmount)}`);
 
         $('#StudentId').val(`${data.feeSubmission.academicStudent.student.id}`);
         $('#gradeId').val(`${data.feeSubmission.academicStudent.grade.id}`);

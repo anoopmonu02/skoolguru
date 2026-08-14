@@ -46,7 +46,7 @@
                     </tbody>
                 </table>
                 <div th:if="${!hasCasts}">
-                    <p class="text-center">No Cast found.</p>
+                    <div th:replace="~{components/ui :: empty-state('No Cast found.', 'bi-inbox')}"></div>
                 </div>
             </div>
         </div>

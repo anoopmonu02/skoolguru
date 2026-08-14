@@ -306,3 +306,18 @@ function showMsg(msgType, msg, headerValue) {
     };
     toastr[msgType](msg, headerValue);
 }
+
+/* ============================================================================
+   formatINR — Indian-grouped currency for client-side rendering.
+
+   Most fee reports build their tables in JavaScript from AJAX responses, so the
+   server-side MoneyFormatter bean never sees those numbers. They were being
+   printed raw ("125000.00", or worse "125000" with ".00" glued on by hand).
+
+   toLocaleString('en-IN', ...) gives the correct Indian grouping: 1,25,000.00
+   ============================================================================ */
+function formatINR(value) {
+    var n = parseFloat(value);
+    if (isNaN(n)) { return value == null ? "" : value; }
+    return n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}

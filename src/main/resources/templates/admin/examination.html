@@ -42,7 +42,7 @@
           </tbody>
         </table>
         <div th:if="${!isExamination}">
-          <p class="text-center">No Examination found.</p>
+          <div th:replace="~{components/ui :: empty-state('No Examination found.', 'bi-inbox')}"></div>
         </div>
       </div>
     </div>

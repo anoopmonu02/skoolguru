@@ -59,7 +59,7 @@
           </tbody>
         </table>
         <div th:if="${!hasDiscounts}">
-          <p class="text-center">No Student-Discount found.</p>
+          <div th:replace="~{components/ui :: empty-state('No Student-Discount found.', 'bi-inbox')}"></div>
         </div>
       </div>
     </div>

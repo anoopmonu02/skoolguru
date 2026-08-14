@@ -49,7 +49,7 @@
           </tbody>
         </table>
         <div th:if="${!hasFineheads}">
-          <p class="text-center">No Finehead found.</p>
+          <div th:replace="~{components/ui :: empty-state('No Finehead found.', 'bi-inbox')}"></div>
         </div>
       </div>
     </div>

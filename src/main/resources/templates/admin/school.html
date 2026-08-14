@@ -60,7 +60,7 @@
           </tbody>
         </table>
         <div th:if="${!hasSchoolData}">
-          <p class="text-center">No School found.</p>
+          <div th:replace="~{components/ui :: empty-state('No School found.', 'bi-inbox')}"></div>
         </div>
       </div>
     </div>

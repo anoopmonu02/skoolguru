@@ -39,7 +39,7 @@
           </tbody>
         </table>
         <div th:if="${!hasMonthMappings}">
-          <p class="text-center">No Month-Mapping found.</p>
+          <div th:replace="~{components/ui :: empty-state('No Month-Mapping found.', 'bi-inbox')}"></div>
         </div>
         <div class="pt-5">
           <a sms:access="ADMIN_MONTH_MAP:CREATE" class="btn btn-success" th:href="@{/admin/month-mapping/add}"

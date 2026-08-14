@@ -127,7 +127,8 @@
                                 <div class="col-md-4"></div>
                                 <div class="col-md-4"><strong>Previous Balance: </strong></div>
                                 <div class="col-md-4 text-end"
-                                     th:text="'&#8377; ' + ${feeSubmission['previousFeeBalanceRemark']}"></div>
+                                     <!-- NOT a currency value: previousFeeBalanceRemark is a String (can be "") -->
+                                th:text="'&#8377; ' + ${feeSubmission['previousFeeBalanceRemark']}"></div>
                             </div>
                             <hr/>
                         </th:block>
@@ -137,17 +138,17 @@
                             <div class="col-md-4"></div>
                             <div class="col-md-4"><strong>Total Amount: </strong></div>
                             <div class="col-md-4 text-end"
-                                 th:text="'&#8377; ' + ${feeSubmission['totalAmount']}"></div>
+                                 th:text="${@money.rupees(feeSubmission['totalAmount'])}"></div>
 
                             <div class="col-md-4"></div>
                             <div class="col-md-4"><strong>Paid Amount: </strong></div>
                             <div class="col-md-4 text-end"
-                                 th:text="'&#8377; ' + ${feeSubmission['paidAmount']}"></div>
+                                 th:text="${@money.rupees(feeSubmission['paidAmount'])}"></div>
 
                             <div class="col-md-4"></div>
                             <div class="col-md-4"><strong>Balance Amount: </strong></div>
                             <div class="col-md-4 text-end"
-                                 th:text="'&#8377; ' + ${feeSubmission['balanceAmount']}"></div>
+                                 th:text="${@money.rupees(feeSubmission['balanceAmount'])}"></div>
                         </div>
 
                         <br/><br/>

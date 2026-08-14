@@ -51,7 +51,7 @@
           </tbody>
         </table>
         <div th:if="${!hasAcademicyears}">
-          <p class="text-center">No Academic-year found.</p>
+          <div th:replace="~{components/ui :: empty-state('No Academic-year found.', 'bi-inbox')}"></div>
         </div>
       </div>
     </div>

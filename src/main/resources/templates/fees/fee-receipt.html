@@ -186,7 +186,7 @@
                                                   <tr th:each="fsub, iter: ${feesublist}">
                                                       <td th:text="${iter.index + 1}+'.'"></td>
                                                       <td th:text="${fsub.feehead.feeHeadName}"></td>
-                                                      <td class="text-end" th:text="'&#8377; '+${fsub.amount}"></td>
+                                                      <td class="text-end" th:text="${@money.rupees(fsub.amount)}"></td>
                                                   </tr>
                                                   </tbody>
                                               </table>
@@ -200,7 +200,7 @@
 
                                           <div class="col-md-4"></div>
                                           <div class="col-md-4"><strong>Fine Amount: </strong></div>
-                                          <div class="col-md-4 text-end" th:text="'&#8377; '+${feeSubmission.fineAmount}"></div>
+                                          <div class="col-md-4 text-end" th:text="${@money.rupees(feeSubmission.fineAmount)}"></div>
                                       </div>
                                       <hr/>
                                       <div class="row" th:if="${feeSubmission.discounthead}">
@@ -209,19 +209,19 @@
 
                                           <div class="col-md-4"></div>
                                           <div class="col-md-4"><strong>Discount Amount: </strong></div>
-                                          <div class="col-md-4 text-end" th:text="'&#8377; '+${feeSubmission.discountAmount}"></div>
+                                          <div class="col-md-4 text-end" th:text="${@money.rupees(feeSubmission.discountAmount)}"></div>
                                       </div>
                                       <hr/>
                                       <div class="row">
                                           <div class="col-md-4"></div>
                                           <div class="col-md-4"><strong>Total Amount: </strong></div>
-                                          <div class="col-md-4 text-end" th:text="'&#8377; '+${feeSubmission.totalAmount}"></div>
+                                          <div class="col-md-4 text-end" th:text="${@money.rupees(feeSubmission.totalAmount)}"></div>
                                           <div class="col-md-4"></div>
                                           <div class="col-md-4"><strong>Paid Amount: </strong></div>
-                                          <div class="col-md-4 text-end" th:text="'&#8377; '+${feeSubmission.paidAmount}"></div>
+                                          <div class="col-md-4 text-end" th:text="${@money.rupees(feeSubmission.paidAmount)}"></div>
                                           <div class="col-md-4"></div>
                                           <div class="col-md-4"><strong>Balance Amount: </strong></div>
-                                          <div class="col-md-4 text-end" th:text="'&#8377; '+${feeSubmission.balanceAmount}"></div>
+                                          <div class="col-md-4 text-end" th:text="${@money.rupees(feeSubmission.balanceAmount)}"></div>
                                       </div>
                                       <br/><br/>
                                       <div class="row mb-3"><div class="col-md-12 text-end">(Authorized Signatory)</div></div>
@@ -504,7 +504,7 @@
 
                         <div class="col-md-4"></div>
                         <div class="col-md-4"><strong>Fine Amount: </strong></div>
-                        <div class="col-md-4 text-end">&#8377; ${data.feeSubmission.fineAmount}</div>
+                        <div class="col-md-4 text-end">₹ ${formatINR(data.feeSubmission.fineAmount)}</div>
                     </div>
                     <hr/>
                     ${data.feeSubmission.discounthead ? `
@@ -514,32 +514,32 @@
 
                             <div class="col-md-4"></div>
                             <div class="col-md-4"><strong>Discount Amount: </strong></div>
-                            <div class="col-md-4 text-end">&#8377; ${data.feeSubmission.discountAmount}</div>
+                            <div class="col-md-4 text-end">₹ ${formatINR(data.feeSubmission.discountAmount)}</div>
                         </div><hr/>` : ''}
                     ${data.feeSubmission.previousFeeBalanceRemark ? `
                          <div class="row">
                             <div class="col-md-4"></div>
                             <div class="col-md-4"><strong>Previous Balance: </strong></div>
-                            <div class="col-md-4 text-end">&#8377; ${data.feeSubmission.previousFeeBalanceRemark}</div>
+                            <div class="col-md-4 text-end">₹ ${formatINR(data.feeSubmission.previousFeeBalanceRemark)}</div>
                         </div>
                         <hr/>` : ''}
                     ${data.feeSubmission.migrationDiscountAmount && Number(data.feeSubmission.migrationDiscountAmount) > 0 ? `
                          <div class="row">
                             <div class="col-md-4"></div>
                             <div class="col-md-4"><strong>Special Discount (Admin): </strong></div>
-                            <div class="col-md-4 text-end">&#8377; ${data.feeSubmission.migrationDiscountAmount}</div>
+                            <div class="col-md-4 text-end">₹ ${formatINR(data.feeSubmission.migrationDiscountAmount)}</div>
                         </div>
                         <hr/>` : ''}
                     <div class="row">
                         <div class="col-md-4"></div>
                         <div class="col-md-4"><strong>Total Amount: </strong></div>
-                        <div class="col-md-4 text-end" >&#8377; ${data.feeSubmission.totalAmount}</div>
+                        <div class="col-md-4 text-end" >₹ ${formatINR(data.feeSubmission.totalAmount)}</div>
                         <div class="col-md-4"></div>
                         <div class="col-md-4"><strong>Paid Amount: </strong></div>
-                        <div class="col-md-4 text-end">&#8377; ${data.feeSubmission.paidAmount}</div>
+                        <div class="col-md-4 text-end">₹ ${formatINR(data.feeSubmission.paidAmount)}</div>
                         <div class="col-md-4"></div>
                         <div class="col-md-4"><strong>Balance Amount: </strong></div>
-                        <div class="col-md-4 text-end" >&#8377; ${data.feeSubmission.balanceAmount}</div>
+                        <div class="col-md-4 text-end" >₹ ${formatINR(data.feeSubmission.balanceAmount)}</div>
                     </div>
                     <br/><br/>
                   <div class="row mb-3"><div class="col-md-12 text-end">(Authorized Signatory)</div></div>
@@ -579,7 +579,7 @@
                     <td>${index}</td>
                     <td>${headName}</td>
                     <td>${unit}</td>
-                    <td class="text-end">&#8377; ${amount}</td>
+                    <td class="text-end">₹ ${formatINR(amount)}</td>
                 </tr>
                 `;
           });

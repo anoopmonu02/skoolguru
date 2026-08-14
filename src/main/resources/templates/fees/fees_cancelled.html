@@ -175,9 +175,9 @@
                             <td>${escHtml(month_names)}</td>
                             <td>${escHtml(dt)}</td>
                             <td>${escHtml(feeSubmission.receiptNo)}</td>
-                            <td class="text-end">&#8377; ${feeSubmission.totalAmount}</td>
-                            <td class="text-end">&#8377; ${feeSubmission.balanceAmount}</td>
-                            <td class="text-end">&#8377; ${feeSubmission.paidAmount}</td>
+                            <td class="text-end">₹ ${formatINR(feeSubmission.totalAmount)}</td>
+                            <td class="text-end">₹ ${formatINR(feeSubmission.balanceAmount)}</td>
+                            <td class="text-end">₹ ${formatINR(feeSubmission.paidAmount)}</td>
                         </tr>`;
                     counter++;
                 });

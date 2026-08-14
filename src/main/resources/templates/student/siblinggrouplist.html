@@ -57,7 +57,7 @@
                             </tbody>
                         </table>
                         <div th:if="${!hasSiblingGroup}">
-                            <p class="text-center">No Sibling-Group found.</p>
+                            <div th:replace="~{components/ui :: empty-state('No Sibling-Group found.', 'bi-inbox')}"></div>
                         </div>
                     </div>
                 </div>

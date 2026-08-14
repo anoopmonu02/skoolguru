@@ -195,11 +195,11 @@
                                 <td>${escHtml(month_names)}</td>
                                 <td>${escHtml(dt)}</td>
                                 <td ${receiptStyle}>${escHtml(receiptNo)}</td>
-                                <td class="text-end">&#8377; ${feeSubmission.totalAmount}</td>
-                                <td class="text-end">&#8377; ${feeSubmission.balanceAmount}</td>
-                                <td class="text-end">&#8377; ${feeSubmission.paidAmount}</td>
-                                <!--<td class="text-end">&#8377; ${feeSubmission.fineAmount}</td>
-                                <td class="text-end">&#8377; ${feeSubmission.discountAmount}</td>-->
+                                <td class="text-end">₹ ${formatINR(feeSubmission.totalAmount)}</td>
+                                <td class="text-end">₹ ${formatINR(feeSubmission.balanceAmount)}</td>
+                                <td class="text-end">₹ ${formatINR(feeSubmission.paidAmount)}</td>
+                                <!--<td class="text-end">₹ ${formatINR(feeSubmission.fineAmount)}</td>
+                                <td class="text-end">₹ ${formatINR(feeSubmission.discountAmount)}</td>-->
                                 <td>${escHtml(feeSubmission.createdByName)}</td>
 
                             </tr>`;
@@ -209,8 +209,8 @@
                   });
                   tblData+=`</tbody><tfoot>
                         <tr>
-                            <td colspan="6" class="text-center">Total Amount: <strong>&#8377; ${totalAmount}</strong></td>
-                            <td colspan="7" class="text-center">Total Paid Amount: <strong>&#8377; ${totalPaidAmount}</strong></td>
+                            <td colspan="6" class="text-center">Total Amount: <strong>₹ ${formatINR(totalAmount)}</strong></td>
+                            <td colspan="7" class="text-center">Total Paid Amount: <strong>₹ ${formatINR(totalPaidAmount)}</strong></td>
                         </tr>
                     </tfoot></table>`;
                   $("#userwise-collection-data").html(tblData);
