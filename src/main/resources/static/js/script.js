@@ -273,3 +273,36 @@ $(document).ajaxError(function(event, xhr) {
     });
 
 })();
+
+/* ============================================================================
+   showMsg — canonical toast helper.
+
+   This exact function was copy-pasted into 73 templates (with three slightly
+   different parameter names but identical bodies). Defining it once here means
+   templates can just call showMsg(...) - script.js is loaded last by base.html,
+   so it is always available by the time any event handler or AJAX callback runs.
+
+   Kept the original signature and toastr options byte-for-byte so behaviour,
+   timing and positioning are unchanged.
+   ============================================================================ */
+function showMsg(msgType, msg, headerValue) {
+    if (typeof toastr === "undefined") { console.warn("toastr not loaded:", msg); return; }
+    toastr.options = {
+        "closeButton": true,
+        "debug": false,
+        "newestOnTop": false,
+        "progressBar": false,
+        "positionClass": "toast-top-right",
+        "preventDuplicates": false,
+        "onclick": null,
+        "showDuration": "600",
+        "hideDuration": "1000",
+        "timeOut": "5000",
+        "extendedTimeOut": "1000",
+        "showEasing": "swing",
+        "hideEasing": "linear",
+        "showMethod": "fadeIn",
+        "hideMethod": "fadeOut"
+    };
+    toastr[msgType](msg, headerValue);
+}
