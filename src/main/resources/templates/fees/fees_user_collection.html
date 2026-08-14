@@ -9,8 +9,8 @@
 
   <div class="container-fluid px-3">
     <div class="col-md-12 ">
-      <div class="card-header fs-3">User(s) Collection</div>
-      <hr/>
+      <div th:replace="~{components/ui :: page-header('User(s) Collection')}"></div>
+
     </div>
     <div class="row justify-content-center">
         <div class="col-md-12">
@@ -80,7 +80,8 @@
       </div>
     <div class="col-md-12 " id="printable-div" style="display: none">
 
-        <div class="card-header fs-3">Collection Summary</div><hr/>
+        <div th:replace="~{components/ui :: page-header('Collection Summary')}"></div>
+
             <div class="row">
                   <div class="col-md-12">
                       <div class="userwise-collection-info" id="userwise-collection-info">
@@ -93,7 +94,8 @@
                       </div>
                   </div>-->
            </div>
-        <div class="card-header fs-3">Cancelled Fee Summary</div><hr/>
+        <div th:replace="~{components/ui :: page-header('Cancelled Fee Summary')}"></div>
+
            <div class="row">
                 <div class="col-md-12">
                     <div id="cancelled-fee-summary-info"></div>
@@ -105,7 +107,8 @@
                     <div id="cancelled-fee-details-panel" style="max-height:320px; overflow-y:auto; border:1px solid #dee2e6; border-radius:4px;"></div>
                 </div>
            </div>
-        <div class="card-header fs-3">Collection Data</div><hr/>
+        <div th:replace="~{components/ui :: page-header('Collection Data')}"></div>
+
            <div id="collection-data-dates" style="display:flex; flex-wrap:nowrap; align-items:center; margin-bottom:0.5rem;">
                 <div style="width:auto; margin-right:2rem; white-space:nowrap;"><strong>Start Date:</strong> <span id="collectionStartDateLabel"></span></div>
                 <div style="width:auto; white-space:nowrap;"><strong>End Date:</strong> <span id="collectionEndDateLabel"></span></div>

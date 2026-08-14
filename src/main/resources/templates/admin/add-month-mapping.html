@@ -8,8 +8,8 @@
 
 <section class="container-fluid px-3">
     <div class="mt-2 gy-5 mb-5">
-        <div class="card-header fs-3">Month-Mapping Form</div>
-        <hr/>
+        <div th:replace="~{components/ui :: page-header('Month-Mapping Form')}"></div>
+
 
         <form th:action="@{/admin/month-mapping}" method="post" th:object="${monthMapping}">
             <div class="row g-2">
@@ -27,7 +27,7 @@
 
                 <hr/>
                 <div class="col-md-4">
-                    <a class="btn btn-info" th:href="@{/admin/month-mapping}"><i class="bi bi-arrow-left-circle-fill"></i>
+                    <a class="btn btn-outline-secondary btn-sm" th:href="@{/admin/month-mapping}"><i class="bi bi-arrow-left"></i>
                         Back to List</a>
                 </div>
                 <div class="col-md-6 mb-5">

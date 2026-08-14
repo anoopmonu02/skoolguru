@@ -12,8 +12,13 @@
   <div class="container-fluid px-3">
     <div class="row mt-2 ">
       <div class="col-md-10  offset-md-1 ">
-        <div class="card-header fs-3">Finehead List</div>
-        <hr/>
+        <div class="page-header page-header-row">
+          <h1 class="page-header-title">Finehead List</h1>
+          <div class="page-header-actions">
+            <a sms:access="GLOBAL_FINEHEAD:CREATE" class="btn btn-success btn-sm" th:href="@{/universal/finehead/add}"><i class="bi bi-plus-lg"></i> Add Finehead</a>
+          </div>
+        </div>
+
         <table class="table table-bordered table-striped table-hover table-sm" th:if="${hasFineheads}">
           <thead>
           <tr>
@@ -45,9 +50,6 @@
         </table>
         <div th:if="${!hasFineheads}">
           <p class="text-center">No Finehead found.</p>
-        </div>
-        <div class="pt-5">
-          <a sms:access="GLOBAL_FINEHEAD:CREATE" class="btn btn-success" th:href="@{/universal/finehead/add}"><i class="bi bi-node-plus-fill"></i> Add Finehead</a>
         </div>
       </div>
     </div>

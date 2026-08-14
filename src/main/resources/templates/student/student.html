@@ -36,8 +36,13 @@
   <div class="container-fluid px-3">
     <div class="row mt-2 ">
       <div class="col-md-12">
-        <div class="card-header fs-3">Student List</div>
-        <hr/>
+        <div class="page-header page-header-row">
+          <h1 class="page-header-title">Student List</h1>
+          <div class="page-header-actions" th:if="${hasSuperAdmin==null  || !hasSuperAdmin}">
+            <a class="btn btn-success btn-sm" sms:access="STUDENT_ADD:CREATE" th:href="@{/student/student/add}"><i class="bi bi-plus-lg"></i> Add Student</a>
+          </div>
+        </div>
+
         <input type="hidden" name="isSuperAdmin" id="isSuperAdmin" th:value="${hasSuperAdmin}">
         <table class="table table-bordered table-striped table-hover table-sm"
                id="student-list">
@@ -62,9 +67,6 @@
           <!-- rows injected by server-side DataTable AJAX -->
           </tbody>
         </table>
-        <div class="pt-5 mb-5" th:if="${hasSuperAdmin==null  || !hasSuperAdmin}">
-          <a class="btn btn-success" sms:access="STUDENT_ADD:CREATE" th:href="@{/student/student/add}"><i class="bi bi-node-plus-fill"></i> Add Student</a>
-        </div>
       </div>
     </div>
   </div>

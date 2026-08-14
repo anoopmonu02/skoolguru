@@ -11,8 +11,13 @@
   <div class="container-fluid px-3">
     <div class="row mt-2 ">
       <div class="col-md-12">
-        <div class="card-header fs-3">Student Discount List</div>
-        <hr/>
+        <div class="page-header page-header-row">
+          <h1 class="page-header-title">Student Discount List</h1>
+          <div class="page-header-actions">
+            <a sms:access="STUDENT_DISCOUNT_ASSIGN:CREATE" class="btn btn-success btn-sm" th:href="@{/student/assign-discount/add}"><i class="bi bi-plus-lg"></i> Assign Discount</a>
+          </div>
+        </div>
+
         <table id="student-discount-list" class="table table-bordered table-striped table-hover table-sm" th:if="${hasDiscounts}">
           <thead>
           <tr>
@@ -55,9 +60,6 @@
         </table>
         <div th:if="${!hasDiscounts}">
           <p class="text-center">No Student-Discount found.</p>
-        </div>
-        <div class="pt-5">
-          <a sms:access="STUDENT_DISCOUNT_ASSIGN:CREATE" class="btn btn-success" th:href="@{/student/assign-discount/add}"><i class="bi bi-node-plus-fill"></i> Assign Discount</a>
         </div>
       </div>
     </div>

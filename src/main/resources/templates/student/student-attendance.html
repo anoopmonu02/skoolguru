@@ -13,8 +13,8 @@
     <div class="container-fluid px-3">
         <div class="row mt-2 ">
             <div class="col-md-12">
-                <div class="card-header fs-3">Attendance List</div>
-                <hr/>
+                <div th:replace="~{components/ui :: page-header('Attendance List')}"></div>
+
                 <div class="row mb-4">
                     <div class="col-md-6">
                         <strong>Date: </strong><span th:text="${todayDate}"></span>

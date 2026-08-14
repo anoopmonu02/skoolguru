@@ -9,8 +9,8 @@
 
   <div class="container-fluid px-3">
     <div class="row ">
-      <div class="card-header fs-3">Student List(Garde-Wise)</div>
-      <hr/>
+      <div th:replace="~{components/ui :: page-header('Student List(Garde-Wise)')}"></div>
+
     </div>
     <div class="row justify-content-center">
       <div class="row">
@@ -48,7 +48,8 @@
       <hr/>
     </div>
     <div class="row " id="printable-div" style="display: none">
-      <div class="card-header fs-3">All Student Data</div><hr/>
+      <div th:replace="~{components/ui :: page-header('All Student Data')}"></div>
+
       <div class="row" id="graph-div">
         <div class="col-md-3" id="gender-div-parent">
           <canvas id="gender-div"></canvas>

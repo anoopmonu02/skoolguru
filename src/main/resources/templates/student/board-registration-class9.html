@@ -9,8 +9,8 @@
     <div class="container-fluid px-3">
         <div class="row mt-2">
             <div class="col-md-12">
-                <div class="card-header fs-3">Board Registration (Class 9)</div>
-                <hr/>
+                <div th:replace="~{components/ui :: page-header('Board Registration (Class 9)')}"></div>
+
             </div>
 
             <div class="col-12" th:if="${grade9 == null}">

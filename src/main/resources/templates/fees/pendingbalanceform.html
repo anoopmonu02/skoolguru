@@ -11,8 +11,8 @@
         <div class="row mt-2">
             <div class="col-md-12">
 
-                <div class="card-header fs-3">Collect Balance</div>
-                <hr/>
+                <div th:replace="~{components/ui :: page-header('Collect Balance')}"></div>
+
 
                 <!-- Flash messages -->
                 <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">

@@ -11,8 +11,9 @@
     <div class="row mt-2">
 
       <div class="col-md-6 offset-md-1">
-        <div class="card-header fs-3">Bank Form</div>
-        <hr/>
+        <!-- Title-only page header, pulled from the shared fragment. This is the
+             pattern that will replace `card-header fs-3` across the other templates. -->
+        <div th:replace="~{components/ui :: page-header('Bank Form')}"></div>
         <div class="form pt-3">
           <form th:action="@{/universal/bank}" th:object="${bank}" method="post">
             <div class="mb-3">
@@ -27,7 +28,7 @@
         </div>
       </div>
       <div class="col-md-6  offset-md-1 ">
-        <a class="btn btn-info" th:href="@{/universal/bank}"><i class="bi bi-arrow-left-circle-fill"></i> Back to List</a>
+        <a th:replace="~{components/ui :: back-link('/universal/bank', 'Back to List')}"></a>
       </div>
     </div>
   </div>

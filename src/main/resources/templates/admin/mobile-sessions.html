@@ -11,8 +11,8 @@
   <div class="container-fluid px-3">
     <div class="row mt-2">
       <div class="col-md-12">
-        <div class="card-header fs-3">Mobile App Sessions (Refresh Tokens)</div>
-        <p class="text-muted mb-3">
+        <div th:replace="~{components/ui :: page-header('Mobile App Sessions (Refresh Tokens)')}"></div>
+<p class="text-muted mb-3">
           Every mobile login creates one refresh-token record so the app can
           silently renew its session without asking a parent to log in every day. Rows are
           rotated (replaced) on each renewal, and revoked on logout. This page shows the

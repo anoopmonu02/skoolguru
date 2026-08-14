@@ -10,8 +10,8 @@
 
   <div class="container-fluid px-3">
     <div class="mt-2 gy-5 mb-5">
-      <div class="card-header fs-3">Student Registration Form</div>
-      <hr/>
+      <div th:replace="~{components/ui :: page-header('Student Registration Form')}"></div>
+
       <form th:action="@{/student/student}" th:object="${student}" method="post" class="row g-3" enctype="multipart/form-data" id="myForm">
         <!-- Personal Info -->
         <div class="col-12">
@@ -408,7 +408,7 @@
         <!-- Submit Button -->
         <hr/>
         <div class="col-md-4">
-          <a class="btn btn-info" th:href="@{/student/student}"><i class="bi bi-arrow-left-circle-fill"></i> Back to List</a>
+          <a class="btn btn-outline-secondary btn-sm" th:href="@{/student/student}"><i class="bi bi-arrow-left"></i> Back to List</a>
         </div>
         <div class="col-md-6 mb-5">
           <button type="submit" class="btn btn-primary"><i class="bi bi-save2-fill"></i> Save</button>

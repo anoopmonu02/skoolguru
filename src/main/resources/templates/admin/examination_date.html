@@ -12,8 +12,13 @@
   <div class="container-fluid px-3">
     <div class="row mt-2 ">
       <div class="col-md-12 ">
-        <div class="card-header fs-3">Examination Declared Date</div>
-        <hr/>
+        <div class="page-header page-header-row">
+          <h1 class="page-header-title">Examination Declared Date</h1>
+          <div class="page-header-actions">
+            <a sms:access="ADMIN_EXAM_DATE:CREATE" class="btn btn-success btn-sm" th:href="@{/admin/examination-details/add}"><i class="bi bi-plus-lg"></i> Add Examination Details</a>
+          </div>
+        </div>
+
         <table class="table table-bordered table-striped table-hover table-sm" th:if="${isExamination}" id="feeDateTable">
           <thead>
           <tr>
@@ -40,9 +45,6 @@
         </table>
         <div th:if="${!isExamination}">
           <p class="text-center">No Examination Details found.</p>
-        </div>
-        <div class="pt-5">
-          <a sms:access="ADMIN_EXAM_DATE:CREATE" class="btn btn-success" th:href="@{/admin/examination-details/add}"><i class="bi bi-node-plus-fill"></i> Add Examination Details</a>
         </div>
       </div>
     </div>

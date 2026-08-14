@@ -9,8 +9,8 @@
 
 <section class="container-fluid px-3">
   <div class="mt-2 gy-5 mb-5">
-    <div class="card-header fs-3">Discount-Grade Mapping Form</div>
-    <hr/>
+    <div th:replace="~{components/ui :: page-header('Discount-Grade Mapping Form')}"></div>
+
 
     <div class="row g-5">
       <div class="col-auto">
@@ -57,7 +57,7 @@
 
         <hr/>
         <div class="col-md-4">
-          <a class="btn btn-info" th:href="@{/admin/discount-class}"><i class="bi bi-arrow-left-circle-fill"></i> Back to List</a>
+          <a class="btn btn-outline-secondary btn-sm" th:href="@{/admin/discount-class}"><i class="bi bi-arrow-left"></i> Back to List</a>
         </div>
         <div class="col-md-6 mb-5">
           <button id="savebtn"  disabled="disabled" type="submit" class="btn btn-primary"><i class="bi bi-save2-fill"></i> Save</button>

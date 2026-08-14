@@ -13,8 +13,8 @@
   <div class="container-fluid px-3">
     <div class="row mt-2 ">
       <div class="col-md-12">
-        <div class="card-header fs-3">Removed Student List</div>
-        <hr/>
+        <div th:replace="~{components/ui :: page-header('Removed Student List')}"></div>
+
         <table id="students-deleted" class="table table-bordered table-striped table-hover table-sm" th:if="${hasStudent}">
           <thead>
           <tr>

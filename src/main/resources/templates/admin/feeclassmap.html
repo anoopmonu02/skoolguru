@@ -12,8 +12,13 @@
   <div class="container-fluid px-3">
     <div class="row mt-2 ">
       <div class="col-md-12 ">
-        <div class="card-header fs-3">Fee-Grade Mapping List</div>
-        <hr/>
+        <div class="page-header page-header-row">
+          <h1 class="page-header-title">Fee-Grade Mapping List</h1>
+          <div class="page-header-actions">
+            <a sms:access="ADMIN_FEE_CLASS:CREATE" class="btn btn-success btn-sm" th:href="@{/admin/fee-class/add}"><i class="bi bi-plus-lg"></i> Add Fee-Grade Mapping</a>
+          </div>
+        </div>
+
         <table class="table table-bordered table-striped table-hover table-sm" th:if="${hasFeeClassMap}" id="feeDateTable">
           <thead>
           <tr>
@@ -45,9 +50,6 @@
         </table>
         <div th:if="${!hasFeeClassMap}">
           <p class="text-center">No Fee-Grade Mapping found.</p>
-        </div>
-        <div class="pt-5 mb-5">
-          <a sms:access="ADMIN_FEE_CLASS:CREATE" class="btn btn-success" th:href="@{/admin/fee-class/add}"><i class="bi bi-node-plus-fill"></i> Add Fee-Grade Mapping</a>
         </div>
       </div>
     </div>

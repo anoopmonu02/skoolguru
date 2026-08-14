@@ -125,6 +125,13 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 //
 // Never commit that file. Real secrets stay out of source control.
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+    // Serve templates/static straight from src/main/resources instead of the
+    // copies under build/resources/main. Without this, editing a .html or .css
+    // has NO effect on the running app until `processResources` re-runs - which
+    // is confusing, because under Maven + IntelliJ that copy happened for you.
+    // With this, DevTools picks up template edits on the next page refresh.
+    sourceResources(sourceSets["main"])
+
     val envFile = rootProject.file("local.env.properties")
     if (envFile.exists()) {
         envFile.readLines()

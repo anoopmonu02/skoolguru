@@ -12,8 +12,8 @@
     <div class="row mt-2">
       <div class="col-md-12">
 
-        <div class="card-header fs-3">Balance Payment Receipt</div>
-        <div th:if="${error != null}">
+        <div th:replace="~{components/ui :: page-header('Balance Payment Receipt')}"></div>
+<div th:if="${error != null}">
           <p class="text-center text-danger" th:text="${error}"></p>
         </div>
         <hr/>
@@ -25,8 +25,8 @@
                 </button>
             </div>
             <div class="col-md-3">
-                <a class="btn btn-info" th:href="@{/fees/collect-balance}">
-                    <i class="bi bi-arrow-left-circle-fill"></i> Back to Collect Balance
+                <a class="btn btn-outline-secondary btn-sm" th:href="@{/fees/collect-balance}">
+                    <i class="bi bi-arrow-left"></i> Back to Collect Balance
                 </a>
             </div>
         </div>

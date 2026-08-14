@@ -10,8 +10,8 @@
   <div class="container-fluid px-3">
       <div class="row mt-2 ">
           <div class="col-md-12">
-              <div class="card-header fs-3">Fee Receipt(s) List - Student</div>
-              <hr/>
+              <div th:replace="~{components/ui :: page-header('Fee Receipt(s) List - Student')}"></div>
+
               <!--Search box-->
               <div class="search-container my-3">
                   <input class="form-control" id="search-input" onkeyup="searchStuName()" placeholder="Search student name" type="text">

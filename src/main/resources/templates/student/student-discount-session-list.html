@@ -9,8 +9,8 @@
     <div class="container-fluid px-3">
         <div class="row mt-2 ">
             <div class="col-md-12">
-                <div class="card-header fs-3">Students Eligible For Discount</div>
-                <hr/>
+                <div th:replace="~{components/ui :: page-header('Students Eligible For Discount')}"></div>
+
                 <div>
                     <div class="row mt-3">
                         <div class="col-md-3">
@@ -32,7 +32,8 @@
                 </div>
                 <hr/>
                 <div class="row" id="printable-div" style="display: none">
-                    <div class="card-header fs-3">Eligible Students List</div><hr/>
+                    <div th:replace="~{components/ui :: page-header('Eligible Students List')}"></div>
+
 
                     <div class="row">
                         <div class="student-details" id="student-collection-data">

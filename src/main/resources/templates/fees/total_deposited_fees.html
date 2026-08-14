@@ -9,8 +9,8 @@
     <div class="container-fluid px-3">
         <div class="row mt-2 ">
             <div class="col-md-12">
-                <div class="card-header fs-3">Total Deposited Fee</div>
-                <hr/>
+                <div th:replace="~{components/ui :: page-header('Total Deposited Fee')}"></div>
+
                 <div>
                     <div class="row mt-3">
                         <div class="col-md-2">
@@ -51,7 +51,8 @@
                 </div>
 
                 <div class="row" id="printable-div" style="display: none">
-                    <div class="card-header fs-3">Deposited Fee(s) Detail</div><hr/>
+                    <div th:replace="~{components/ui :: page-header('Deposited Fee(s) Detail')}"></div>
+
 
                     <div class="row">
                         <div class="student-details" id="student-collection-data">

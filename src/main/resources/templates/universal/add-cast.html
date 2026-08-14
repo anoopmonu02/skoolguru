@@ -11,8 +11,8 @@
         <div class="row mt-2">
 
             <div class="col-md-6 offset-md-1">
-                <div class="card-header fs-3">Cast Form</div>
-                <hr/>
+                <div th:replace="~{components/ui :: page-header('Cast Form')}"></div>
+
                 <div class="form pt-3">
                     <form th:action="@{/universal/cast}" th:object="${cast}" method="post">
                         <div class="mb-3">
@@ -27,7 +27,7 @@
                 </div>
             </div>
             <div class="col-md-6  offset-md-1 ">
-                <a class="btn btn-info" th:href="@{/universal/cast}"><i class="bi bi-arrow-left-circle-fill"></i> Back to List</a>
+                <a class="btn btn-outline-secondary btn-sm" th:href="@{/universal/cast}"><i class="bi bi-arrow-left"></i> Back to List</a>
             </div>
         </div>
     </div>

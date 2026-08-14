@@ -11,8 +11,8 @@
 
     <div class="container-fluid px-3">
         <div class="mt-2 gy-5 mb-5">
-            <div class="card-header fs-3">Student Detail</div>
-            <hr/>
+            <div th:replace="~{components/ui :: page-header('Student Detail')}"></div>
+
             <div class="row g-3">
                 <!-- Personal Info -->
                 <div class="col-12">
@@ -331,12 +331,12 @@
                 <hr/>
                 <div th:if="${!fromDelete}">
                     <div class="col-md-4">
-                        <a class="btn btn-info" th:href="@{/student/student}"><i class="bi bi-arrow-left-circle-fill"></i> Back to List</a>
+                        <a class="btn btn-outline-secondary btn-sm" th:href="@{/student/student}"><i class="bi bi-arrow-left"></i> Back to List</a>
                     </div>
                 </div>
                 <div th:if="${fromDelete}">
                     <div class="col-md-4">
-                        <a class="btn btn-info" th:href="@{/student/stu-deleted-list}"><i class="bi bi-arrow-left-circle-fill"></i> Back to List</a>
+                        <a class="btn btn-outline-secondary btn-sm" th:href="@{/student/stu-deleted-list}"><i class="bi bi-arrow-left"></i> Back to List</a>
                     </div>
                 </div>
 

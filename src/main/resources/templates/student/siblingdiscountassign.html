@@ -9,8 +9,8 @@
     <div class="container-fluid px-3">
         <div class="row mt-2">
             <div class="col-md-12">
-                <div class="card-header fs-3">Assign Sibling Group Discount</div>
-                <hr/>
+                <div th:replace="~{components/ui :: page-header('Assign Sibling Group Discount')}"></div>
+
                 <div class="row">
                     <div class="col-md-2"><label class="form-label">Select Group</label> </div>
                     <div class="col-md-4">
@@ -44,7 +44,7 @@
                         </div>
                         <div class="row">
                             <div class="col-md-5">
-                                <a class="btn btn-info" th:href="@{/sibling/sibling-group}"><i class="bi bi-arrow-left-circle-fill"></i> Back to List</a>
+                                <a class="btn btn-outline-secondary btn-sm" th:href="@{/sibling/sibling-group}"><i class="bi bi-arrow-left"></i> Back to List</a>
                             </div>
                             <div class="col-md-6 mb-5">
                                 <button type="button" onclick="checkData()" class="btn btn-primary" id="siblingSubmitBtn"><i class="bi bi-save2-fill"></i> Save</button>

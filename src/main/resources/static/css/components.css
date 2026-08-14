@@ -1,0 +1,78 @@
+/* ============================================================================
+   components.css — styling for the shared fragments in templates/components/.
+
+   Consumes variables from tokens.css, so it follows the design system
+   automatically (and will follow a dark theme once one is added).
+
+   Replaces the ad-hoc `<div class="card-header fs-3">Title</div><hr/>` pattern
+   that appears in 125 of 151 templates. That produced a grey Bootstrap card bar
+   at 1.75rem followed by a horizontal rule — visually heavy and inconsistent,
+   since spacing around it drifted from page to page.
+   ============================================================================ */
+
+/* ── Page header ──────────────────────────────────────────────────────────── */
+.page-header {
+    padding: 2px 0 12px;
+    margin: 4px 0 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Title + actions on one row (e.g. a list page with an "Add" button) */
+.page-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.page-header-title {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+    line-height: 1.3;
+}
+
+.page-header-subtitle {
+    margin: 3px 0 0;
+    font-size: .85rem;
+    color: var(--text-muted);
+}
+
+.page-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ── Empty state ──────────────────────────────────────────────────────────── */
+/* Replaces `<p class="text-center">No X found.</p>` — a bare sentence in an
+   otherwise blank area, which reads as "something is broken" rather than
+   "there is nothing here yet". */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 44px 20px;
+    background: var(--card-bg);
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius-lg);
+    text-align: center;
+}
+
+.empty-state-icon {
+    font-size: 34px;
+    line-height: 1;
+    color: var(--text-muted);
+    opacity: .45;
+}
+
+.empty-state-text {
+    margin: 0;
+    font-size: .92rem;
+    color: var(--text-muted);
+}

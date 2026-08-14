@@ -12,8 +12,13 @@
     <div class="container-fluid px-3">
         <div class="row mt-2 ">
             <div class="col-md-6  offset-md-1 ">
-                <div class="card-header fs-3">Cast List</div>
-                <hr/>
+                <div class="page-header page-header-row">
+                  <h1 class="page-header-title">Cast List</h1>
+                  <div class="page-header-actions">
+                    <a sms:access="GLOBAL_CAST:CREATE" class="btn btn-success btn-sm" th:href="@{/universal/cast/add}"><i class="bi bi-plus-lg"></i> Add Cast</a>
+                  </div>
+                </div>
+
                 <table id="castTable" class="table table-bordered table-striped table-hover table-sm" th:if="${hasCasts}">
                     <thead>
                     <tr>
@@ -42,9 +47,6 @@
                 </table>
                 <div th:if="${!hasCasts}">
                     <p class="text-center">No Cast found.</p>
-                </div>
-                <div class="pt-5">
-                    <a sms:access="GLOBAL_CAST:CREATE" class="btn btn-success" th:href="@{/universal/cast/add}"><i class="bi bi-node-plus-fill"></i> Add Cast</a>
                 </div>
             </div>
         </div>

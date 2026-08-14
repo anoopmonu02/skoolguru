@@ -9,8 +9,8 @@
     <div class="container-fluid px-3">
         <div class="row mt-2 ">
             <div class="col-md-12">
-                <div class="card-header fs-3">Fee Reminder</div>
-                <hr/>
+                <div th:replace="~{components/ui :: page-header('Fee Reminder')}"></div>
+
                 <div>
                     <div class="row">
                         <div class="col-md-2" th:each="mon : ${monthmapping}">

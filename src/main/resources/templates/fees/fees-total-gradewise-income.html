@@ -10,8 +10,8 @@
     <div class="container-fluid px-3">
         <div class="row mt-2 ">
             <div class="col-md-12">
-                <div class="card-header fs-3">Garde-wise Fees Income</div>
-                <hr/>
+                <div th:replace="~{components/ui :: page-header('Garde-wise Fees Income')}"></div>
+
                 <table id="student-discount-list" class="table table-bordered table-striped table-hover table-sm" th:if="${hasData}">
                     <thead>
                     <tr>

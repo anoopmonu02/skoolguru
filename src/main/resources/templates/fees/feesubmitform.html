@@ -11,8 +11,8 @@
     <div class="container-fluid px-3">
         <div class="row mt-2 ">
             <div class="col-md-12">
-                <div class="card-header fs-3">Fee Submission</div>
-                <hr/>
+                <div th:replace="~{components/ui :: page-header('Fee Submission')}"></div>
+
                 <!--Search box-->
                 <div class="search-container my-3">
                     <input oninput="searchStuName()" type="text" class="form-control" id="search-input" placeholder="Search student name">
@@ -212,7 +212,7 @@
                     <hr/>
                     <div class="row">
                         <div class="col-md-5">
-                            <!--<a class="btn btn-info" href="/student/student"><i class="bi bi-arrow-left-circle-fill"></i> Back to List</a>-->
+                            <!--<a class="btn btn-outline-secondary btn-sm" href="/student/student"><i class="bi bi-arrow-left"></i> Back to List</a>-->
                         </div>
                         <div class="col-md-6 mb-5">
                             <button sms:access="FEE_SUBMIT:CREATE" onclick="checkMonths()" class="btn btn-primary" id="feeSubmitBtn"><i class="bi bi-save2-fill"></i> Submit Fee</button>

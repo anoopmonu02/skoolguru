@@ -11,8 +11,8 @@
         <div class="row mt-2">
 
             <div class="col-md-6 offset-md-1">
-                <div class="card-header fs-3">Edit Section</div>
-                <hr/>
+                <div th:replace="~{components/ui :: page-header('Edit Section')}"></div>
+
                 <div class="form pt-3">
                     <form th:action="@{/universal/section/{id}(id=${section.id})}" th:object="${section}" method="post">
                         <div class="mb-3">
@@ -27,7 +27,7 @@
                 </div>
             </div>
             <div class="col-md-6  offset-md-1 ">
-                <a class="btn btn-info" th:href="@{/universal/section}"><i class="bi bi-arrow-left-circle-fill"></i> Back to List</a>
+                <a class="btn btn-outline-secondary btn-sm" th:href="@{/universal/section}"><i class="bi bi-arrow-left"></i> Back to List</a>
             </div>
         </div>
     </div>

@@ -13,8 +13,13 @@
     <div class="container-fluid px-3">
         <div class="row mt-2 ">
             <div class="col-md-12">
-                <div class="card-header fs-3">Employee List</div>
-                <hr/>
+                <div class="page-header page-header-row">
+                  <h1 class="page-header-title">Employee List</h1>
+                  <div class="page-header-actions">
+                    <a sms:access="EMPLOYEE_ADD:CREATE" class="btn btn-success btn-sm" th:href="@{/employee/employee-add}"><i class="bi bi-plus-lg"></i> Add Employee</a>
+                  </div>
+                </div>
+
                 <table class="table table-bordered table-striped table-hover table-sm" th:if="${hasEmployee}" id="employee-list">
                     <thead>
                         <tr>
@@ -56,9 +61,6 @@
                 </table>
                 <div th:if="${!hasEmployee}">
                     <p class="text-center">No Employee found.</p>
-                </div>
-                <div class="pt-5 mb-5">
-                    <a sms:access="EMPLOYEE_ADD:CREATE" class="btn btn-success" th:href="@{/employee/employee-add}"><i class="bi bi-node-plus-fill"></i> Add Employee</a>
                 </div>
             </div>
         </div>

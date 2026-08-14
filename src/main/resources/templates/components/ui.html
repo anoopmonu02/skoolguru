@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!--
+  ============================================================================
+  components/ui.html — shared UI fragments.
+
+  This file is never rendered on its own. Pages pull pieces out of it with
+  th:replace, e.g.
+
+      <div th:replace="~{components/ui :: page-header('Bank List')}"></div>
+
+  Why: the same markup was hand-written across the template set —
+  `<div th:replace="~{components/ui :: page-header('…')}"></div>
+` appears in 125 of 151 templates,
+  each free to drift in spacing, size and wording. Defining it once means a
+  change to the page-header design happens in ONE place.
+
+  Styling lives in static/css/components.css and uses the variables from
+  tokens.css, so these respect the design system automatically.
+  ============================================================================
+-->
+<body>
+
+<!-- ── Page header ─────────────────────────────────────────────────────────
+     Replaces:  <div th:replace="~{components/ui :: page-header('Bank List')}"></div>
+
+     Usage:     <div th:replace="~{components/ui :: page-header('Bank List')}"></div>
+-->
+<div th:fragment="page-header(title)" class="page-header">
+    <h1 class="page-header-title" th:text="${title}">Page title</h1>
+</div>
+
+<!-- ── Page header with a subtitle ─────────────────────────────────────────
+     Usage: ~{components/ui :: page-header-sub('Fee Submission','Session 2026-27')}
+-->
+<div th:fragment="page-header-sub(title, subtitle)" class="page-header">
+    <h1 class="page-header-title" th:text="${title}">Page title</h1>
+    <p class="page-header-subtitle" th:text="${subtitle}">Subtitle</p>
+</div>
+
+<!-- ── Page header with right-aligned actions ──────────────────────────────
+     Usage in the page:
+        <div th:replace="~{components/ui :: page-header-actions('Bank List', ~{::pageActions})}"></div>
+        ...
+        <div th:fragment="pageActions">
+          <a class="btn btn-success" th:href="@{/universal/bank/add}">Add Bank</a>
+        </div>
+-->
+<div th:fragment="page-header-actions(title, actions)" class="page-header page-header-row">
+    <h1 class="page-header-title" th:text="${title}">Page title</h1>
+    <div class="page-header-actions" th:replace="${actions}"></div>
+</div>
+
+<!-- ── Empty state ─────────────────────────────────────────────────────────
+     Replaces:  <p class="text-center">No Bank found.</p>
+     Usage:     ~{components/ui :: empty-state('No banks yet','bi-bank')}
+-->
+<div th:fragment="empty-state(message, icon)" class="empty-state">
+    <i class="empty-state-icon bi" th:classappend="${icon}"></i>
+    <p class="empty-state-text" th:text="${message}">Nothing here yet.</p>
+</div>
+
+<!-- ── Empty state with a call to action ───────────────────────────────────
+     Usage: ~{components/ui :: empty-state-cta('No banks yet','bi-bank','Add Bank','/universal/bank/add')}
+-->
+<div th:fragment="empty-state-cta(message, icon, ctaLabel, ctaHref)" class="empty-state">
+    <i class="empty-state-icon bi" th:classappend="${icon}"></i>
+    <p class="empty-state-text" th:text="${message}">Nothing here yet.</p>
+    <a class="btn btn-success btn-sm" th:href="@{${ctaHref}}">
+        <i class="bi bi-plus-lg"></i> <span th:text="${ctaLabel}">Add</span>
+    </a>
+</div>
+
+<!-- ── Back link ───────────────────────────────────────────────────────────
+     Usage: ~{components/ui :: back-link('/universal/bank','Back to List')}
+-->
+<a th:fragment="back-link(href, label)" class="btn btn-outline-secondary btn-sm"
+   th:href="@{${href}}">
+    <i class="bi bi-arrow-left"></i> <span th:text="${label}">Back</span>
+</a>
+
+</body>
+</html>

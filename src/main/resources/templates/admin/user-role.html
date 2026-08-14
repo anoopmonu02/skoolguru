@@ -9,8 +9,13 @@
 <section>
     <div class="container-fluid px-3">
         <div class="mt-2 gy-5 mb-5">
-            <div class="card-header fs-3">Users Role List</div>
-            <hr/>
+            <div class="page-header page-header-row">
+              <h1 class="page-header-title">Users Role List</h1>
+              <div class="page-header-actions">
+                <a sms:access="ADMIN_USERROLE:CREATE" class="btn btn-success btn-sm" th:href="@{/admin/add-user-to-role}"><i class="bi bi-plus-lg"></i> Assign Role to User</a>
+              </div>
+            </div>
+
             <table class="table table-bordered table-striped table-hover table-sm" th:if="${hasUserRoleMapping}">
                 <thead>
                     <tr>
@@ -50,9 +55,6 @@
             </table>
             <div th:if="${!hasUserRoleMapping}">
                 <p class="text-center">No User-Role found.</p>
-            </div>
-            <div class="pt-5">
-                <a sms:access="ADMIN_USERROLE:CREATE" class="btn btn-success" th:href="@{/admin/add-user-to-role}"><i class="bi bi-node-plus-fill"></i> Assign Role to User</a>
             </div>
         </div>
     </div>

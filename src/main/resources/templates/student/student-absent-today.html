@@ -11,14 +11,14 @@
     <div class="container-fluid px-3">
         <div class="row mt-2 ">
             <div class="col-md-12">
-                <div class="card-header fs-3">Absent Students Today</div>
-                <hr/>
+                <div th:replace="~{components/ui :: page-header('Absent Students Today')}"></div>
+
                 <div class="row mb-4">
                     <div class="col-md-6">
                         <strong>Date: </strong><span th:text="${todayDate}"></span>
                     </div>
                     <div class="col-md-6 text-end">
-                        <a class="btn btn-info" th:href="@{/student/student-attendance}"><i class="bi bi-arrow-left-circle-fill"></i> Back to Attendance List</a>
+                        <a class="btn btn-outline-secondary btn-sm" th:href="@{/student/student-attendance}"><i class="bi bi-arrow-left"></i> Back to Attendance List</a>
                     </div>
                 </div>
                 <hr/>

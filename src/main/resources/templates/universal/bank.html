@@ -12,8 +12,19 @@
   <div class="container-fluid px-3">
     <div class="row mt-2 ">
       <div class="col-md-6  offset-md-1 ">
-        <div class="card-header fs-3">Bank List</div>
-        <hr/>
+        <!-- Page header. Title + actions on one row, using the shared classes from
+             components.css. The "Add Bank" button moved up here from the bottom of
+             the page - it is the primary action, so it belongs next to the title
+             rather than below the table where it was easy to miss. -->
+        <div class="page-header page-header-row">
+          <h1 class="page-header-title">Bank List</h1>
+          <div class="page-header-actions">
+            <a sms:access="GLOBAL_BANK:CREATE" class="btn btn-success btn-sm"
+               th:href="@{/universal/bank/add}">
+              <i class="bi bi-plus-lg"></i> Add Bank
+            </a>
+          </div>
+        </div>
         <table class="table table-bordered table-striped table-hover table-sm" th:if="${hasBanks}">
           <thead>
           <tr>
@@ -41,12 +52,14 @@
           </tr>
           </tbody>
         </table>
-        <div th:if="${!hasBanks}">
-          <p class="text-center">No Bank found.</p>
-        </div>
-        <div class="pt-5">
-          <a sms:access="GLOBAL_BANK:CREATE" class="btn btn-success" th:href="@{/universal/bank/add}"><i class="bi bi-node-plus-fill"></i> Add Bank</a>
-        </div>
+        <!-- NOTE: th:if and th:replace must NOT sit on the same element. Thymeleaf
+             gives th:replace higher precedence (100) than th:if (300), so the
+             fragment replaces the element BEFORE the condition is evaluated - and
+             the empty state renders even when rows exist. The condition has to go
+             on an enclosing th:block. -->
+        <th:block th:if="${!hasBanks}">
+          <div th:replace="~{components/ui :: empty-state('No banks have been added yet.', 'bi-bank')}"></div>
+        </th:block>
       </div>
     </div>
   </div>
