@@ -5,6 +5,10 @@
   <meta charset="UTF-8">
   <title>Student Portal</title>
   <link th:href="@{/css/bootstrap.min.css}" rel="stylesheet"/>
+    <!-- Standalone page (not wrapped by base::Layout), so it must link the
+         design tokens itself - otherwise every var(--...) below resolves to
+         nothing and backgrounds fall back to transparent. -->
+    <link rel="stylesheet" th:href="@{/css/tokens.css}">
   <style>
     body { background: var(--body-bg); display: flex; align-items: center;
       justify-content: center; min-height: 100vh; }

@@ -97,3 +97,36 @@
     border-color: var(--accent);
     color: var(--accent);
 }
+
+/* ── Skeleton loader ──────────────────────────────────────────────────────────
+   Replaces the full-screen white curtain that used to cover the page while a
+   server-side DataTable loaded. A curtain hides the layout and makes the wait
+   feel like a stall; a skeleton shows the shape of what is coming, so the same
+   wait reads as faster. Nothing about actual load time changes.
+   ---------------------------------------------------------------------------- */
+.skeleton-table { padding: 4px 0 8px; }
+
+.skeleton-row {
+    height: 34px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+    background: linear-gradient(90deg,
+        var(--skeleton-base) 0%,
+        var(--skeleton-sheen) 50%,
+        var(--skeleton-base) 100%);
+    background-size: 200% 100%;
+    animation: skeleton-sheen 1.3s ease-in-out infinite;
+}
+.skeleton-row.skeleton-head { height: 40px; margin-bottom: 12px; opacity: .85; }
+.skeleton-row:nth-child(even) { opacity: .82; }
+.skeleton-row:nth-child(3n)   { opacity: .74; }
+
+@keyframes skeleton-sheen {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Respect users who have asked for less motion */
+@media (prefers-reduced-motion: reduce) {
+    .skeleton-row { animation: none; }
+}
