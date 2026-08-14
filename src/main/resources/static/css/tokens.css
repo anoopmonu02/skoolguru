@@ -1,0 +1,65 @@
+/* ============================================================================
+   tokens.css — the single source of truth for SkoolGuru's visual language.
+
+   Extracted VERBATIM from the inline <style> block in templates/base.html.
+   Nothing here is new; the values are exactly what was already rendering.
+
+   Why this file exists: these variables previously lived inside base.html,
+   while 28 other templates carried their own <style> blocks re-declaring the
+   same colours and spacing. Changing the brand colour meant editing ~29 files.
+   Now it means editing this one.
+
+   This also makes two things cheap that were previously expensive:
+     - dark mode  -> a second token set under [data-bs-theme="dark"]
+     - per-school white-labelling -> override a handful of vars at runtime
+
+   Load order matters: this must come BEFORE layout.css and any page styles.
+   ============================================================================ */
+/* =========================================
+   CSS VARIABLES & RESET
+========================================= */
+:root {
+    --sidebar-width: 260px;
+    --sidebar-collapsed-width: 68px;
+    --topbar-height: 62px;
+
+    /* Brand palette — Slate Gray + Sky Blue accent */
+    --brand-50:  #f0f9ff;
+    --brand-100: #e0f2fe;
+    --brand-200: #bae6fd;
+    --brand-500: #0ea5e9;
+    --brand-600: #0284c7;
+    --brand-700: #0369a1;
+    --brand-800: #075985;
+    --brand-900: #0c4a6e;
+
+    --accent:    #0ea5e9;
+    --accent-light: #e0f2fe;
+
+    --sidebar-bg:      #1e293b;
+    --sidebar-text:    #94a3b8;
+    --sidebar-text-active: #ffffff;
+    --sidebar-hover-bg: rgba(14,165,233,0.12);
+    --sidebar-active-bg: rgba(14,165,233,0.20);
+    --sidebar-active-border: #38bdf8;
+    --sidebar-header-text: #64748b;
+
+    --topbar-bg: #ffffff;
+    --topbar-border: #e2e8f0;
+
+    --body-bg: #f1f5f9;
+    --card-bg: #ffffff;
+    --text-primary: #0f172a;
+    --text-muted: #64748b;
+    --border-color: #e2e8f0;
+
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+
+    --shadow-xs: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    --shadow-sm: 0 2px 8px rgba(0,0,0,.08);
+    --shadow-md: 0 4px 16px rgba(0,0,0,.10);
+
+    --transition: 0.22s cubic-bezier(.4,0,.2,1);
+}

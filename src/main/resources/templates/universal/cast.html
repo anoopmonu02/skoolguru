@@ -67,28 +67,6 @@
             });
         });
     </script>
-    <script type="text/javascript" th:inline="javascript">
-        const successMessage = [[${success}]];
-        if (successMessage) { showMsg("success", successMessage, "Success"); }
-
-        const infoMessage = [[${info}]];
-        if (infoMessage) { showMsg("info", infoMessage, "Info"); }
-
-        const errorMessage = [[${error}]];
-        if (errorMessage) { showMsg("error", errorMessage, "Error"); }
-
-        function showMsg(msgType, msg, headerValue){
-            toastr.options = {
-                "closeButton": true,
-                "progressBar": false,
-                "positionClass": "toast-top-right",
-                "timeOut": "5000",
-                "showMethod": "fadeIn",
-                "hideMethod": "fadeOut"
-            };
-            toastr[msgType](msg, headerValue);
-        }
-    </script>
 </section>
 </body>
 </html>

@@ -62,41 +62,13 @@
     <script th:src="@{/js/toastr.min.js}"></script>
     <script type="text/javascript" th:inline="javascript">
         const contextPath = /*[[@{/}]]*/ '/';
-        const successMessage = [[${success}]];
-        if (successMessage) {
-            showMsg("success", successMessage, "Success");
-        }
+        
 
-        const infoMessage = [[${info}]];
-        if (infoMessage) {
-            showMsg("info", infoMessage, "Info");
-        }
+        
 
-        const errorMessage = [[${error}]];
-        if (errorMessage) {
-            showMsg("error", errorMessage, "Error");
-        }
+        
 
-        function showMsg(msgType, msg, headerValue){
-            toastr[msgType](msg,headerValue);
-            toastr.options = {
-                "closeButton": true,
-                "debug": false,
-                "newestOnTop": false,
-                "progressBar": false,
-                "positionClass": "toast-top-right",
-                "preventDuplicates": false,
-                "onclick": null,
-                "showDuration": "500",
-                "hideDuration": "1000",
-                "timeOut": "5000",
-                "extendedTimeOut": "1000",
-                "showEasing": "swing",
-                "hideEasing": "linear",
-                "showMethod": "fadeIn",
-                "hideMethod": "fadeOut"
-            }
-        }
+        
 
         let deleteId = null;
 

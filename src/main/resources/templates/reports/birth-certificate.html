@@ -98,14 +98,7 @@
         const ESTABLISHED_TEXT = 'Established 1979';
         const RECOGNIZED_TEXT  = 'Recognized by U.P. Government';
 
-        function showMsg(type, msg, header) {
-            toastr.options = {
-                closeButton: true, progressBar: false,
-                positionClass: 'toast-top-right',
-                timeOut: '4000', showMethod: 'fadeIn', hideMethod: 'fadeOut'
-            };
-            toastr[type](msg, header);
-        }
+        
 
         function escHtml(str) {
             if (!str) return '';

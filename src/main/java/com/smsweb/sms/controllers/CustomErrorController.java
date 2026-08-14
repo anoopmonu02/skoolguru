@@ -1,6 +1,9 @@
 package com.smsweb.sms.controllers;
 
-import org.springframework.boot.web.servlet.error.ErrorController;
+// MOVED in Spring Boot 4: org.springframework.boot.web.servlet.error.ErrorController
+// -> org.springframework.boot.webmvc.error.ErrorController, part of Boot 4's
+// repackaging into org.springframework.boot.<technology> modules.
+import org.springframework.boot.webmvc.error.ErrorController;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;

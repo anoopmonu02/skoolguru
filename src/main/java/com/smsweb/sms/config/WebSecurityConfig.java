@@ -20,7 +20,7 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.savedrequest.NullRequestCache;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 
 /**
  * WebSecurityConfig — dual security chains.
@@ -214,7 +214,15 @@ public class WebSecurityConfig {
                         .permitAll()
                 )
                 .logout(logout -> logout
-                        .logoutRequestMatcher(new AntPathRequestMatcher("/logout"))
+                        // AntPathRequestMatcher is deprecated-for-removal in Spring Security 7
+                        // (gone in Spring Boot 4.x). PathPatternRequestMatcher is the replacement.
+                        //
+                        // NOTE: no HTTP method is specified here, deliberately. Every logout in
+                        // this app is a plain <a th:href="@{/logout}"> GET link (base.html,
+                        // header.html, access-denied.html, student-portal/home.html, baseOld.html).
+                        // Using .logoutUrl("/logout") instead would require POST once CSRF is
+                        // enabled and would silently break all of them.
+                        .logoutRequestMatcher(PathPatternRequestMatcher.withDefaults().matcher("/logout"))
                         .logoutSuccessUrl("/login?logout=true")
                         .permitAll()
                 )

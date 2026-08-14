@@ -329,11 +329,7 @@
         const contextPath = /*[[@{/}]]*/ '/';
 
         // ── Toast ──────────────────────────────────────────────────────
-        function showMsg(type, msg, title) {
-            toastr.options = { closeButton:true, progressBar:true,
-                positionClass:"toast-top-right", timeOut:"4000" };
-            toastr[type](msg, title);
-        }
+        
 
         // ── Select-All wiring (generic) ────────────────────────────────
         function wireSelectAll(masterId, childClass) {
