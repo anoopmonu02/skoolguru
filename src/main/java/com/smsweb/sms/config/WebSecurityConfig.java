@@ -46,6 +46,9 @@ public class WebSecurityConfig {
     @Autowired
     private UserDetailsServiceImpl userDetailsServiceImpl;
 
+    @Autowired
+    private com.smsweb.sms.services.users.WebLoginAttemptService webLoginAttemptService;
+
     // ── Shared beans ──────────────────────────────────────────────────────────
 
     @Bean
@@ -137,6 +140,9 @@ public class WebSecurityConfig {
                 // on every response (not lazily). Without this, Firefox can miss the cookie
                 // on the very first page load and the first form POST silently fails CSRF.
                 .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
+                // Blocks POST /login while locked out, before any password check.
+                .addFilterBefore(new LoginRateLimitFilter(webLoginAttemptService),
+                                 UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(requests -> requests
                         // Public assets (classpath:/static/images — logos, icons, etc.)
                         // NOTE: student/employee photos are NOT under here — they're served
@@ -217,12 +223,16 @@ public class WebSecurityConfig {
                         // AntPathRequestMatcher is deprecated-for-removal in Spring Security 7
                         // (gone in Spring Boot 4.x). PathPatternRequestMatcher is the replacement.
                         //
-                        // NOTE: no HTTP method is specified here, deliberately. Every logout in
-                        // this app is a plain <a th:href="@{/logout}"> GET link (base.html,
-                        // header.html, access-denied.html, student-portal/home.html, baseOld.html).
-                        // Using .logoutUrl("/logout") instead would require POST once CSRF is
-                        // enabled and would silently break all of them.
-                        .logoutRequestMatcher(PathPatternRequestMatcher.withDefaults().matcher("/logout"))
+                        // POST-only. Logout changes state, so it must not be reachable by GET:
+                        // a GET logout can be triggered by anything that fetches a URL with the
+                        // user's cookies attached - <img src=".../logout"> on any page, a browser
+                        // prefetcher, an antivirus page scanner - and CSRF protection does not
+                        // apply to GET at all.
+                        //
+                        // All five logout links are now <form method="post"> with the CSRF token
+                        // that Thymeleaf injects into any th:action form.
+                        .logoutRequestMatcher(PathPatternRequestMatcher.withDefaults()
+                                .matcher(org.springframework.http.HttpMethod.POST, "/logout"))
                         .logoutSuccessUrl("/login?logout=true")
                         .permitAll()
                 )
@@ -242,7 +252,7 @@ public class WebSecurityConfig {
 
     @Bean
     public CustomAuthenticationFailureHandler customAuthenticationFailureHandler() {
-        return new CustomAuthenticationFailureHandler();
+        return new CustomAuthenticationFailureHandler(webLoginAttemptService);
     }
 
 

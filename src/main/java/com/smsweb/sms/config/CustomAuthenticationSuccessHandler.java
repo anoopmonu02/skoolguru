@@ -36,11 +36,16 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
     private UserRepository userRepository;
     @Autowired
     private AcademicyearService academicYearService;
+    @Autowired
+    private com.smsweb.sms.services.users.WebLoginAttemptService loginAttempts;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                         Authentication authentication) throws IOException, ServletException {
         log.info("Inside onAuthenticationSuccess");
+
+        // Clear this username's failure counter now that the password was correct.
+        loginAttempts.recordSuccess(authentication.getName());
 
         // ── STUDENT login → restricted portal only ────────────────────────────────
         boolean isStudent = authentication.getAuthorities().stream()

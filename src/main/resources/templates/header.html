@@ -128,7 +128,11 @@
           <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
             <li><a class="dropdown-item" th:href="@{'/fees/fee-submit-form'}"><i class="bi bi-pencil-fill"></i> Change Password </a></li>
             <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item" th:href="@{/logout}"><i class="bi bi-box-arrow-left"></i> Logout </a></li>
+            <li>
+              <form th:action="@{/logout}" method="post" class="logout-form">
+                <button type="submit" class="logout-btn dropdown-item"><i class="bi bi-box-arrow-left"></i> Logout </button>
+              </form>
+            </li>
           </ul>
         </li>
       </ul>

@@ -218,9 +218,11 @@
                 <a th:href="@{/dashboard}" class="btn-dashboard">
                     <i class="bi bi-house-door me-1"></i> Go to Dashboard
                 </a>
-                <a th:href="@{/logout}" class="btn-logout">
-                    <i class="bi bi-box-arrow-right me-1"></i> Logout
-                </a>
+                <form th:action="@{/logout}" method="post" class="logout-form">
+                    <button type="submit" class="logout-btn btn-logout">
+                        <i class="bi bi-box-arrow-right me-1"></i> Logout
+                    </button>
+                </form>
             </div>
         </div>
 

@@ -130,3 +130,36 @@
 @media (prefers-reduced-motion: reduce) {
     .skeleton-row { animation: none; }
 }
+
+/* ── Logout form/button ───────────────────────────────────────────────────────
+   Logout is a state change, so it must be a POST, not a GET link. A GET logout
+   can be triggered by anything that fetches a URL with the user's cookies —
+   <img src=".../logout"> on any page, a browser prefetcher, an antivirus page
+   scanner — and CSRF protection does not apply to GET.
+
+   The goal here is that a <button> inside a <form> is visually identical to the
+   <a> it replaced. Note there is NO width:100% — .sidebar-link already carries
+   `margin: 1px 6px`, and 100% + margin overflows the sidebar, which pushed the
+   red Logout row out past the panel edge.
+   ---------------------------------------------------------------------------- */
+.logout-form { display: contents; }        /* the form must not affect layout */
+
+button.logout-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    background-color: transparent;
+    border: 0;
+    box-shadow: none;
+    box-sizing: border-box;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+/* When standing in for a .sidebar-link, inherit its box model exactly. */
+button.logout-btn.sidebar-link { width: auto; }
+
+/* Dropdown items DO want full width (Bootstrap's .dropdown-item is display:block
+   with its own padding, and the parent <li> supplies the bounds). */
+button.logout-btn.dropdown-item { width: 100%; }

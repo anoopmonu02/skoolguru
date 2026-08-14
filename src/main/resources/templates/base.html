@@ -417,11 +417,13 @@
                 <i class="bi bi-key-fill"></i>
                 <span>Change Password</span>
             </a>
-            <a th:href="@{/logout}" class="sidebar-link" data-tip="Logout"
-               style="color: #f87171;">
-                <i class="bi bi-box-arrow-left"></i>
-                <span>Logout</span>
-            </a>
+            <form th:action="@{/logout}" method="post" class="logout-form">
+                <button type="submit" class="logout-btn sidebar-link" data-tip="Logout"
+                        style="color: #f87171;">
+                    <i class="bi bi-box-arrow-left"></i>
+                    <span>Logout</span>
+                </button>
+            </form>
 
         </div>
 
@@ -487,9 +489,11 @@
                         </li>
                         <li><hr class="dropdown-divider my-1"></li>
                         <li>
-                            <a class="dropdown-item text-danger" th:href="@{/logout}">
-                                <i class="bi bi-box-arrow-right me-2"></i>Logout
-                            </a>
+                            <form th:action="@{/logout}" method="post" class="logout-form">
+                                <button type="submit" class="logout-btn dropdown-item text-danger">
+                                    <i class="bi bi-box-arrow-right me-2"></i>Logout
+                                </button>
+                            </form>
                         </li>
                     </ul>
                 </div>

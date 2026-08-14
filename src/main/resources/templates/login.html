@@ -240,7 +240,10 @@
 
         /* Alert boxes */
         .alert-error {
-            background: var(--card-bg);
+            /* rgba tint rather than a solid hex: keeps the red wash readable on both
+               the light and dark themes. Was a flat #fef2f2, which my colour pass
+               mapped to var(--card-bg) and flattened to plain white. */
+            background: rgba(220, 38, 38, .08);
             border: 1px solid #fecaca;
             color: #b91c1c;
             border-radius: 8px;
@@ -376,6 +379,18 @@
             </div>
 
             <!-- Logout message -->
+            <!-- Shown when the rate limiter blocked the attempt. Deliberately does NOT
+                 say whether the username exists - only that attempts are paused. -->
+            <div th:if="${param.locked}" class="alert-error">
+                <i class="bi bi-shield-lock"></i>
+                <!-- The whole sentence must be ONE flex child: .alert-error is
+                     display:flex with a gap, so a bare <span> around the number
+                     becomes its own flex item and gets pushed away from the text. -->
+                <span th:text="|Too many failed attempts. Please try again in ${param.locked[0]} minute(s).|">
+                    Too many failed attempts. Please try again in 15 minute(s).
+                </span>
+            </div>
+
             <div th:if="${param.logout}" class="alert-logout">
                 <i class="bi bi-check-circle-fill"></i>
                 You have been logged out successfully.
