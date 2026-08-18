@@ -11,47 +11,113 @@
 
   <div class="container-fluid px-3">
     <div class="row mt-2 ">
-      <div class="col-md-6  offset-md-1 ">
-        <!-- Page header. Title + actions on one row, using the shared classes from
-             components.css. The "Add Bank" button moved up here from the bottom of
-             the page - it is the primary action, so it belongs next to the title
-             rather than below the table where it was easy to miss. -->
+      <div class="col-md-8 offset-md-2">
+        <!-- Page header. "Add Bank" now toggles the inline panel below instead of
+             navigating to a separate /bank/add page - see toggleAddPanel(). -->
         <div class="page-header page-header-row">
-          <h1 class="page-header-title">Bank List</h1>
+          <h1 class="page-header-title">Bank List
+            <span class="header-count-badge" th:text="${#lists.size(banks)}">0</span>
+          </h1>
           <div class="page-header-actions">
-            <a sms:access="GLOBAL_BANK:CREATE" class="btn btn-success btn-sm"
-               th:href="@{/universal/bank/add}">
+            <button sms:access="GLOBAL_BANK:CREATE" type="button" class="btn-cta"
+                    onclick="toggleAddPanel()">
               <i class="bi bi-plus-lg"></i> Add Bank
-            </a>
+            </button>
           </div>
         </div>
-        <table class="table table-bordered table-striped table-hover table-sm" th:if="${hasBanks}">
-          <thead>
-          <tr>
-            <th>#</th>
-            <th>Name</th>
-            <th>Actions</th>
-          </tr>
-          </thead>
-          <tbody>
 
-          <tr th:each="bank, iter : ${banks}">
-            <td th:text="${iter.index+1}"></td>
-            <td th:text="${bank.bankName}"></td>
-            <td>
-              <a sms:access="GLOBAL_BANK:EDIT" class="btn btn-primary" th:href="@{/universal/bank/edit/{id}(id=${bank.id})}">
-                <i class="bi bi-pencil-square"></i> </a>
-              <!--<a class="btn btn-danger" th:href="@{/universal/bank/delete/{id}(id=${bank.id})}" onclick="return confirm('Are you sure? its not recoverable.')">
-                <i class="bi bi-trash3-fill"></i> </a>-->
-              <form sms:access="GLOBAL_BANK:DELETE" th:action="@{/universal/bank/delete/{id}(id=${bank.id})}" method="post" style="display:inline;">
-                <!--<input type="hidden" name="_method" value="DELETE"> -->
-                <input type="hidden" name="id" th:value="${bank.id}">
-                <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure? its not recoverable.')"> <i class="bi bi-trash3-fill"></i> </button>
+        <!-- ── Inline "quick add" panel ──────────────────────────────────────
+             Collapsed by default. Same form/action/field as the old add-bank.html
+             page, just embedded here so adding a bank never leaves this list.
+             NOTE: on a validation error or duplicate-name error, the controller
+             still returns the standalone "Add Bank" page (universal/add-bank) -
+             the user briefly leaves the list to see/fix that error, then lands
+             back here on success. Fixing that fully (server always re-rendering
+             the list inline, even on error) needs a small controller change and
+             was deliberately left out of this first pass to keep the change
+             template-only; happy to add it as a follow-up if you'd like the
+             fully seamless version. -->
+        <div class="inline-panel" id="addPanel" sms:access="GLOBAL_BANK:CREATE">
+          <div class="inline-panel-body">
+            <div class="inline-panel-icon"><i class="bi bi-bank"></i></div>
+            <!-- Errors from this form never actually render here: on a validation
+                 failure the controller returns the standalone add-bank page (see
+                 the note above), not this template, so #fields.hasErrors would
+                 never be true on a GET /bank render. No error markup needed here. -->
+            <form th:action="@{/universal/bank}" th:object="${bank}" method="post" class="inline-panel-form">
+              <input type="text" class="form-control form-control-sm" id="bank_name" placeholder="Bank name, e.g. ICICI Bank"
+                     autocomplete="off" th:field="*{bankName}" />
+              <button type="submit" class="btn-accent-solid"><i class="bi bi-check2"></i> Save</button>
+              <button type="button" class="btn-accent-ghost" onclick="toggleAddPanel()">Cancel</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- ── List card ──────────────────────────────────────────────────────
+             The modern list look from the design mockups: one card, dividers
+             instead of a bordered/striped grid, an icon chip per row, and small
+             outlined icon buttons for row actions. See components.css. -->
+        <div class="config-list-card" th:if="${hasBanks}">
+          <div class="config-list-toolbar">
+            <div class="config-search-wrap">
+              <i class="bi bi-search"></i>
+              <input type="text" class="form-control form-control-sm" id="bankSearch"
+                     placeholder="Search banks..." oninput="filterList(this.value, 'bankListBody')">
+            </div>
+            <button type="button" class="config-sort-btn" title="Sort A-Z / Z-A"
+                    onclick="toggleSort('bankListBody', this)">
+              <i class="bi bi-sort-alpha-down"></i>
+            </button>
+          </div>
+
+          <div id="bankListBody">
+          <th:block th:each="bank, iter : ${banks}">
+            <div class="config-row row-view" th:attr="data-name=${#strings.toLowerCase(bank.bankName)}">
+              <div class="config-row-icon"><i class="bi bi-bank"></i></div>
+              <div class="config-row-name" th:text="${bank.bankName}"></div>
+              <div class="config-row-actions">
+                <button sms:access="GLOBAL_BANK:EDIT" type="button" class="config-icon-btn" title="Edit"
+                        th:attr="onclick=|toggleEditRow(${bank.id})|">
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <form sms:access="GLOBAL_BANK:DELETE" th:action="@{/universal/bank/delete/{id}(id=${bank.id})}" method="post" style="display:contents;">
+                  <input type="hidden" name="id" th:value="${bank.id}">
+                  <button type="submit" class="config-icon-btn danger" title="Delete"
+                          onclick="return confirm('Are you sure? its not recoverable.')">
+                    <i class="bi bi-trash3"></i>
+                  </button>
+                </form>
+              </div>
+            </div>
+            <!-- Hidden edit row - swapped in for the row above when the pencil icon
+                 is clicked. Same endpoint/fields as the old edit-bank.html page,
+                 just inline. Same error-page caveat as the add panel above applies
+                 here too on a validation/duplicate error. -->
+            <div sms:access="GLOBAL_BANK:EDIT" th:id="'edit-row-' + ${bank.id}" class="config-row row-edit d-none">
+              <div class="config-row-icon"><i class="bi bi-pencil"></i></div>
+              <!-- Deliberately NOT th:object/th:field here. This form sits inside
+                   th:each="bank, iter : ${banks}", and the page ALSO has a
+                   top-level "bank" model attribute (the empty one the Add panel
+                   above binds to). Thymeleaf/Spring's bind-status resolution for
+                   th:field can key off that model attribute name rather than the
+                   per-row loop variable, which is what made every edit row show
+                   a blank input regardless of which bank you clicked. A plain
+                   name="bankName" + th:value sidesteps that resolution entirely
+                   and binds via Spring's normal @ModelAttribute reflection, same
+                   as th:field would have generated anyway. -->
+              <form th:action="@{/universal/bank/{id}(id=${bank.id})}" method="post" class="inline-panel-form">
+                <input type="text" class="form-control form-control-sm" name="bankName" th:value="${bank.bankName}"
+                       autocomplete="off" required />
+                <button type="submit" class="btn-accent-solid"><i class="bi bi-check2"></i> Save</button>
+                <button type="button" class="btn-accent-ghost" th:attr="onclick=|toggleEditRow(${bank.id})|">Cancel</button>
               </form>
-            </td>
-          </tr>
-          </tbody>
-        </table>
+            </div>
+          </th:block>
+          </div>
+
+          <div class="config-list-footer"
+               th:text="|${#lists.size(banks)} bank${#lists.size(banks) != 1 ? 's' : ''} configured|">N banks configured</div>
+        </div>
         <!-- NOTE: th:if and th:replace must NOT sit on the same element. Thymeleaf
              gives th:replace higher precedence (100) than th:if (300), so the
              fragment replaces the element BEFORE the condition is evaluated - and
@@ -63,10 +129,78 @@
       </div>
     </div>
   </div>
-  <!-- Removed: page-local jQuery + CDN jQuery + toastr script tags, a duplicate
-       copy of showMsg(), and the three flash-message checks. All of that is now
-       handled once in base.html (which renders it after script.js has loaded).
-       This page has no other JavaScript. -->
+
+  <!-- Toggle helpers - plain DOM, no jQuery dependency, safe to run at parse
+       time since every element they touch is already above this script tag. -->
+  <script th:inline="none">
+    function toggleAddPanel() {
+      document.getElementById('addPanel').classList.toggle('open');
+    }
+    function toggleEditRow(id) {
+      var editRow = document.getElementById('edit-row-' + id);
+      var viewRow = editRow.previousElementSibling;
+      var opening = editRow.classList.contains('d-none');
+      editRow.classList.toggle('d-none');
+      viewRow.classList.toggle('d-none');
+      if (opening) {
+        var input = editRow.querySelector('input[type="text"]');
+        if (input) { input.focus(); }
+      }
+    }
+    function filterList(query, listId) {
+      query = query.trim().toLowerCase();
+      document.querySelectorAll('#' + listId + ' > div.row-view').forEach(function (row) {
+        var match = row.getAttribute('data-name').indexOf(query) !== -1;
+        row.style.display = match ? '' : 'none';
+        var editRow = row.nextElementSibling;
+        if (!match && editRow && editRow.classList.contains('row-edit')) {
+          editRow.classList.add('d-none');
+          row.classList.remove('d-none');
+        }
+      });
+    }
+    // Sorts the view/edit row pairs alphabetically by their data-name, toggling
+    // A-Z / Z-A on repeat clicks. appendChild on an existing node moves it
+    // rather than duplicating it, so re-appending in sorted order is enough to
+    // reorder the actual DOM - no rebuild, no re-fetch.
+    function toggleSort(listId, btn) {
+      var container = document.getElementById(listId);
+      var pairs = [];
+      Array.from(container.children).forEach(function (el) {
+        if (!el.classList.contains('row-view')) { return; }
+        var editRow = el.nextElementSibling && el.nextElementSibling.classList.contains('row-edit')
+          ? el.nextElementSibling : null;
+        pairs.push({ view: el, edit: editRow, key: el.getAttribute('data-name') || '' });
+      });
+      var desc = btn.getAttribute('data-dir') === 'asc';
+      pairs.sort(function (a, b) {
+        if (a.key < b.key) { return desc ? 1 : -1; }
+        if (a.key > b.key) { return desc ? -1 : 1; }
+        return 0;
+      });
+      pairs.forEach(function (p) {
+        container.appendChild(p.view);
+        if (p.edit) { container.appendChild(p.edit); }
+      });
+      btn.setAttribute('data-dir', desc ? 'desc' : 'asc');
+      btn.classList.add('active');
+      btn.querySelector('i').className = desc ? 'bi bi-sort-alpha-down' : 'bi bi-sort-alpha-up';
+    }
+  </script>
+
+  <!-- Flash toast for Save/Edit/Delete - same pattern already used on pages
+       like admin/permission.html. This list previously had no flash handling
+       at all after its old local showMsg() copy was removed in an earlier
+       cleanup pass, so success/error messages were silently not shown; this
+       restores them. -->
+  <script type="text/javascript" th:inline="javascript">
+    const bankSuccessMessage = [[${success}]];
+    const bankErrorMessage   = [[${error}]];
+    $(document).ready(function () {
+      if (bankSuccessMessage) showMsg("success", bankSuccessMessage, "Success");
+      if (bankErrorMessage)   showMsg("error",   bankErrorMessage,   "Error");
+    });
+  </script>
 </section>
 </body>
 </html>

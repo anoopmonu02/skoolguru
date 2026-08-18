@@ -8,402 +8,360 @@
 <body>
 <section>
 
+  <style>
+    /* ============================================================
+       Student Detail — Sidebar Identity + Sectioned Detail (Option B)
+       Reuses app-wide tokens (--accent, --card-bg, --border-color,
+       --radius-*, --shadow-*, --text-*) and the already-global
+       .mask-cell/.mask-text/.mask-toggle classes from components.css
+       (same masking pattern as the Student List page) — page-scoped
+       otherwise, nothing here leaks to other templates.
+       ============================================================ */
+    .sd-wrap { max-width: 1180px; margin: 4px auto 40px; display: grid; grid-template-columns: 250px 1fr; gap: 24px; }
+    @media (max-width: 900px) { .sd-wrap { grid-template-columns: 1fr; } }
 
-    <div class="container-fluid px-3">
-        <div class="mt-2 gy-5 mb-5">
-            <div th:replace="~{components/ui :: page-header('Student Detail')}"></div>
+    .sd-sidebar { position: sticky; top: 16px; align-self: start; }
+    .sd-id-card {
+      background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm); padding: 24px 20px 20px; text-align: center; margin-bottom: 14px;
+      position: relative; overflow: hidden;
+    }
+    .sd-id-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 5px;
+      background: linear-gradient(90deg, #0ea5e9, #8b5cf6, #ec4899, #f59e0b);
+    }
+    .sd-avatar {
+      width: 76px; height: 76px; border-radius: 50%; object-fit: cover;
+      border: 3px solid var(--accent-light); margin: 12px auto 12px; display: block;
+      box-shadow: 0 0 0 3px rgba(14,165,233,.15);
+    }
+    .sd-avatar-fallback {
+      width: 76px; height: 76px; border-radius: 50%; margin: 12px auto 12px;
+      background: linear-gradient(135deg, var(--accent-light), rgba(139,92,246,.18)); color: var(--accent); font-size: 30px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .sd-id-card .sd-name { font-size: 16px; font-weight: 800; margin: 0 0 4px; color: var(--text-primary); }
+    .sd-id-card .sd-sub { font-size: 12.5px; color: var(--text-muted); margin-bottom: 10px; }
+    .sd-badge {
+      display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; border-radius: 999px;
+      font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em;
+    }
+    .sd-badge-active { background: rgba(22,163,74,.10); color: #16a34a; }
+    .sd-badge-inactive { background: rgba(220,38,38,.10); color: #dc2626; }
+    .sd-stat-row { display: flex; justify-content: center; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border-color); }
+    .sd-stat { text-align: center; flex: 1; min-width: 0; }
+    .sd-stat .n {
+      font-size: 11.5px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      border-radius: 7px; padding: 3px 5px; display: block;
+    }
+    .sd-stat:nth-child(1) .n { color: #f43f5e; background: rgba(244,63,94,.12); }
+    .sd-stat:nth-child(2) .n { color: #8b5cf6; background: rgba(139,92,246,.12); }
+    .sd-stat:nth-child(3) .n { color: #10b981; background: rgba(16,185,129,.12); }
+    .sd-stat .l { font-size: 9.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; margin-top: 4px; }
 
-            <div class="row g-3">
-                <!-- Personal Info -->
-                <div class="col-12">
-                    <h4>Personal Information</h4>
-                </div>
-                <div class="col-md-7">
-                    <input type="hidden" name="school_id" id="school_id" th:field="*{student.school.id}"/>
-                    <input type="hidden" name="academic_id" id="academic_id" th:field="*{student.academicYear.id}"/>
-                </div>
+    /* Section color accents — each of the 7 sections (and its matching nav
+       link) gets its own hue via a small utility class, instead of every
+       icon/border in the page being the same accent blue. Palette is defined
+       once here so it can be re-tuned in one place. */
+    .sd-c-blue    { --sdc: var(--accent); --sdc-bg: var(--accent-light); }
+    .sd-c-violet  { --sdc: #8b5cf6; --sdc-bg: rgba(139,92,246,.12); }
+    .sd-c-emerald { --sdc: #10b981; --sdc-bg: rgba(16,185,129,.12); }
+    .sd-c-rose    { --sdc: #f43f5e; --sdc-bg: rgba(244,63,94,.12); }
+    .sd-c-amber   { --sdc: #f59e0b; --sdc-bg: rgba(245,158,11,.12); }
+    .sd-c-indigo  { --sdc: #6366f1; --sdc-bg: rgba(99,102,241,.12); }
+    .sd-c-pink    { --sdc: #ec4899; --sdc-bg: rgba(236,72,153,.12); }
 
-                <div class="col-md-6">
-                    <label for="studentName" class="form-label">Student Name</label>
-                    <input type="text" readonly disabled  id="studentName" class="form-control" th:field="*{student.studentName}">
-                </div>
+    .sd-nav { display: flex; flex-direction: column; gap: 2px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); padding: 8px; }
+    .sd-nav a { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 9px; font-size: 13px; font-weight: 600; color: var(--text-muted); text-decoration: none; border-left: 2px solid transparent; transition: background var(--transition), color var(--transition), border-color var(--transition); }
+    .sd-nav a i { font-size: 14px; width: 16px; text-align: center; color: var(--sdc, var(--text-muted)); transition: color var(--transition); }
+    .sd-nav a:hover { background: var(--sdc-bg, var(--accent-light)); color: var(--sdc, var(--accent)); }
+    .sd-nav a.active { background: var(--sdc-bg, var(--accent-light)); color: var(--sdc, var(--accent)); border-left-color: var(--sdc, var(--accent)); }
+    .sd-nav a.active i { color: var(--sdc, var(--accent)); }
 
-                <div class="col-md-3">
-                    <label for="dob" class="form-label">Date of Birth</label>
-                    <input type="text" readonly disabled  id="dob" class="form-control" th:field="*{student.dob}">
-                </div>
+    .sd-back-link {
+      display: inline-flex; align-items: center; gap: 6px; color: #fff; text-decoration: none;
+      font-size: 13px; font-weight: 700; padding: 9px 16px; border: none;
+      border-radius: 10px; background: linear-gradient(135deg, var(--accent), #0284c7);
+      box-shadow: 0 2px 8px rgba(14,165,233,.35);
+      transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
+    }
+    .sd-back-link:hover { color: #fff; opacity: .93; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(14,165,233,.45); }
 
-                <div class="col-md-3">
+    .sd-section { background: var(--card-bg); border: 1px solid var(--border-color); border-top: 3px solid var(--sdc, var(--accent)); border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); padding: 22px 26px; margin-bottom: 16px; scroll-margin-top: 16px; }
+    .sd-section h3 { display: flex; align-items: center; gap: 11px; font-size: 15px; font-weight: 800; margin: 0 0 16px; color: var(--text-primary); }
+    .sd-h-icon { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: var(--sdc-bg, var(--accent-light)); color: var(--sdc, var(--accent)); font-size: 15px; flex-shrink: 0; }
+    .sd-fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px 20px; }
+    @media (max-width: 700px) { .sd-fields { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 480px) { .sd-fields { grid-template-columns: 1fr; } }
+    .sd-field .k { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 3px; }
+    .sd-field .v { font-size: 13.6px; font-weight: 600; color: var(--text-primary); word-break: break-word; }
+    .sd-field .v.empty { color: var(--text-muted); font-weight: 400; font-style: italic; }
+    .sd-field.span2 { grid-column: span 2; }
+    .sd-field.span3 { grid-column: span 3; }
+    @media (max-width: 700px) { .sd-field.span3 { grid-column: span 2; } }
+    @media (max-width: 480px) { .sd-field.span2, .sd-field.span3 { grid-column: span 1; } }
+  </style>
 
-                </div>
-
-
-                <div class="col-md-6">
-                    <label for="fatherName" class="form-label">Father Name</label>
-                    <input type="text" readonly disabled  id="fatherName" class="form-control" th:field="*{student.fatherName}">
-                </div>
-
-                <div class="col-md-3">
-                    <label for="fatherOccupation" class="form-label">Father Occupation</label>
-                    <input type="text" readonly disabled  id="fatherOccupation" class="form-control" th:field="*{student.fatherOccupation}">
-                </div>
-                <div class="col-md-3">
-                    <label for="fatherQualification" class="form-label">Father Qualification</label>
-                    <input type="text" readonly disabled id="fatherQualification" class="form-control" th:field="*{student.fatherQualification}">
-                </div>
-
-                <div class="col-md-6">
-                    <label for="motherName" class="form-label">Mother Name</label>
-                    <input type="text" readonly disabled  id="motherName" class="form-control" th:field="*{student.motherName}">
-                </div>
-
-                <div class="col-md-3">
-                    <label for="motherOccupation" class="form-label">Mother Occupation</label>
-                    <input type="text" readonly disabled  id="motherOccupation" class="form-control" th:field="*{student.motherOccupation}">
-                </div>
-                <div class="col-md-3">
-                    <label for="motherQualification" class="form-label">Mother Qualification</label>
-                    <input type="text" readonly disabled id="motherQualification" class="form-control" th:field="*{student.motherQualification}">
-                </div>
-
-                <div class="col-md-3">
-                    <label for="religion" class="form-label">Religion</label>
-                    <input type="text" readonly disabled  id="religion" class="form-control" th:field="*{student.religion}">
-                </div>
-
-
-                <div class="col-md-3">
-                    <label for="nationality" class="form-label">Nationality</label>
-                    <input type="text" readonly disabled  id="nationality" class="form-control" th:field="*{student.nationality}">
-                </div>
-
-                <div class="col-md-3">
-                    <label for="gender" class="form-label">Gender</label>
-                    <input type="text" readonly disabled  id="gender" class="form-control" th:field="*{student.gender}">                    
-                </div>
-                <div class="col-md-3">
-                </div>
-                <div class="col-md-3">
-                    <label for="category" class="form-label">Category</label>
-                    <input type="text" readonly disabled  id="category" class="form-control" th:field="*{student.category.categoryName}">                    
-                </div>
-
-                <div class="col-md-3">
-                    <label for="cast" class="form-label">Cast</label>
-                    <input type="text" readonly disabled  id="cast" class="form-control" th:field="*{student.cast.castName}">                    
-                </div>
-
-                <div class="col-md-7">
-                    <label for="description" class="form-label">Description</label>
-                    <div class="form-floating">
-                        <textarea id="description" readonly disabled placeholder="Add description here" class="form-control" name="description" style="height: 100px;" rows="4" cols="50" th:field="*{student.description}"></textarea>
-                        <label for="address">Add Description Here</label>
-                    </div>
-                </div>
-                <div class="col-md-5">
-                    &nbsp;
-                </div>
-
-                <div class="col-md-4">
-                    <div th:if="${student.pic!=null}">
-                        <img th:src="@{'/student/images/'+ *{student.pic}}" width="100px" height="140px"/>&nbsp;
-                    </div>
-                    <div th:if="not ${student.pic!=null}">
-                        &nbsp;
-                    </div>
-                </div>
-                <div class="col-md-8">
-
-                </div>
-
-                <!-- Physical Info -->
-                <div class="col-12">
-                    <h4>Physical Information</h4>
-                </div>
-                <div class="col-md-3">
-                    <label for="height" class="form-label">Height (cm)</label>
-                    <input type="number" readonly disabled  id="height" class="form-control" th:field="*{student.height}">
-                </div>
-                <div class="col-md-3">
-                </div>
-                <div class="col-md-3">
-                    <label for="weight" class="form-label">Weight (kg)</label>
-                    <input type="number" readonly disabled  id="weight" class="form-control" th:field="*{student.weight}">
-                </div>
-                <div class="col-md-3">
-                </div>
-                <div class="col-md-3">
-                    <label for="bloodGroup" class="form-label">Blood Group</label>
-                    <input type="text" readonly disabled  id="bloodGroup" class="form-control" th:field="*{student.bloodGroup}">
-                </div>
-                <div class="col-md-3">
-                </div>
-                <div class="col-md-3">
-                    <label for="bodyType" class="form-label">Body Type</label>
-                    <input type="text" readonly disabled  id="bodyType" class="form-control" th:field="*{student.bodyType}">
-                </div>
-                <div class="col-md-3">
-                </div>
-
-                <!-- Health Info (feature: student health info — sourced from student_health_info, not Student) -->
-                <div class="col-12">
-                    <h4>Health Information</h4>
-                </div>
-                <div class="col-md-3">
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="haveHealthIssues" disabled th:checked="${haveHealthIssues}">
-                        <label class="form-check-label" for="haveHealthIssues">Have Health Issues</label>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="haveEyeIssue" disabled th:checked="${haveEyeIssue}">
-                        <label class="form-check-label" for="haveEyeIssue">Have Eye Issue</label>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                </div>
-                <div class="col-md-7">
-                    <label for="healthIssueDescription" class="form-label">Health Issue Description</label>
-                    <div class="form-floating">
-                        <textarea id="healthIssueDescription" readonly disabled placeholder="No description" class="form-control" style="height: 100px;" rows="4" cols="50" th:text="${healthIssueDescription}"></textarea>
-                        <label for="healthIssueDescription">Health Issue Description</label>
-                    </div>
-                </div>
-
-                <!-- Contact Info -->
-                <div class="col-12">
-                    <h4>Contact Information</h4>
-                </div>
-                <div class="col-md-7">
-                    <label for="address" class="form-label">Address</label>
-                    <div class="form-floating">
-                        <textarea id="address" readonly disabled placeholder="Add address here" class="form-control" name="address" style="height: 100px;" rows="4" cols="50" th:field="*{student.address}"></textarea>
-                        <label for="address">Add Address</label>
-                    </div>
-                </div>
-                <div class="col-md-5"></div>
-                <div class="col-md-4">
-                    <label for="landmark" class="form-label">Landmark</label>
-                    <input type="text" readonly disabled  id="landmark" class="form-control" th:field="*{student.landmark}">
-                </div>
-                <div class="col-md-8"></div>
-                <div class="col-md-4">
-                    <label for="province" class="form-label">Province</label>
-                    <input type="text" readonly disabled  id="province" class="form-control intfields" th:field="*{student.province.provinceName}">
-                </div>
-                <div class="col-md-2"></div>
-                <div class="col-md-4">
-                    <label for="city" class="form-label">City</label>
-                    <input type="text" readonly disabled  id="city" class="form-control intfields" th:field="*{student.city.cityName}">
-                </div>
-                <div class="col-md-2"></div>
-                <div class="col-md-3">
-                    <label for="pincode" class="form-label">Pincode</label>
-                    <input type="text" readonly disabled  id="pincode" class="form-control intfields" th:field="*{student.pincode}">
-                </div>
-                <div class="col-md-9"></div>
-                <div class="col-md-3">
-                    <label for="mobile1" class="form-label">Mobile 1</label>
-                    <input type="text" readonly disabled  id="mobile1" class="form-control intfields" th:field="*{student.mobile1}">
-                </div>
-                <div class="col-md-3"></div>
-                <div class="col-md-3">
-                    <label for="mobile2" class="form-label">Mobile 2</label>
-                    <input type="text" readonly disabled  id="mobile2" class="form-control intfields" th:field="*{student.mobile2}">
-                </div>
-                <div class="col-md-3"></div>
-                <div class="col-md-4">
-                    <label for="email" class="form-label">Email</label>
-                    <input type="text" readonly disabled  id="email" class="form-control" th:field="*{student.userEntity.email}">
-                </div>
-                <div class="col-md-8"></div>
-
-                <!-- Previous Academic Details -->
-                <div class="col-12">
-                    <h4>Previous Academic Details</h4>
-                </div>
-                <div class="col-md-6">
-                    <label for="previousSchool" class="form-label">Previous School</label>
-                    <input type="text" readonly disabled  id="previousSchool" class="form-control" th:field="*{student.previousSchool}">
-                </div>
-                <div class="col-md-6">
-                    <label for="removalCause" class="form-label">Removal Cause</label>
-                    <input type="text" readonly disabled  id="removalCause" class="form-control" th:field="*{student.removalCause}">
-                </div>
-                <div class="col-md-3">
-                    <label for="previousClass" class="form-label">Previous Class</label>
-                    <input type="text" readonly disabled  id="previousClass" class="form-control" th:field="*{student.previousClass}">
-                </div><div class="col-md-1"></div>
-                <div class="col-md-3">
-                    <label for="tcNo" class="form-label">TC Number</label>
-                    <input type="text" readonly disabled  id="tcNo" class="form-control" th:field="*{student.tcNo}">
-                </div><div class="col-md-1"></div>
-
-                <div class="col-md-3">
-                    <label for="passingYear" class="form-label">Passing Year</label>
-                    <input type="number" readonly disabled  id="passingYear" class="form-control" th:field="*{student.passingYear}">
-                </div><div class="col-md-1"></div>
-
-                <!-- Emergency Contact -->
-                <div class="col-12">
-                    <h4>In Case of Emergency</h4>
-                </div>
-                <div class="col-md-6">
-                    <label for="personName" class="form-label">Contact Person Name</label>
-                    <input type="text" readonly disabled  id="personName" class="form-control" th:field="*{student.personName}">
-                </div>
-                <div class="col-md-3">
-                    <label for="personContact" class="form-label">Contact Person Number</label>
-                    <input type="text" readonly disabled  id="personContact" class="form-control intfields" th:field="*{student.personContact}">
-                </div>
-                <div class="col-md-3">
-                    <label for="relationship" class="form-label">Relationship</label>
-                    <input type="text" readonly disabled  id="relationship" class="form-control" th:field="*{student.relationship}">
-                </div>
-
-                <!-- Extra Information -->
-                <div class="col-12">
-                    <h4>Academic Registration Information</h4>
-                </div>
-                <div class="col-md-4">
-                    <label for="medium" class="form-label">Medium</label>
-                    <input type="text" readonly disabled  id="medium" class="form-control" th:field="*{student.medium.mediumName}">
-                </div>
-                <div class="col-md-4">
-                    <label for="grade" class="form-label">Grade</label>
-                    <input type="text" readonly disabled  id="grade" class="form-control" th:field="*{student.grade.gradeName}">
-                </div>
-                <div class="col-md-4">
-                    <label for="section" class="form-label">Section</label>
-                    <input type="text" readonly disabled  id="section" class="form-control" th:field="*{student.section.sectionName}">
-                </div>
-
-                <div class="col-md-4">
-                    <label for="studentType" class="form-label">Student Type</label>
-                    <input type="text" readonly disabled  id="studentType" class="form-control" th:field="*{student.studentType}">
-                </div>
-                <div class="col-md-4">
-                    <label for="schoolStatus" class="form-label">School Status</label>
-                    <input type="text" readonly disabled  id="schoolStatus" class="form-control" th:field="*{student.schoolStatus}">
-                </div>
-                <div class="col-md-2"></div>
-
-                <!--<div class="col-md-12">
-                  <label for="remark" class="form-label">Remark</label>
-                  <textarea id="remark" class="form-control" th:field="*{remark}"></textarea>
-                </div>-->
-                <div class="col-md-7">
-                    <label for="remark" class="form-label">Remark</label>
-                    <div class="form-floating">
-                        <textarea  readonly disabled id="remark" placeholder="Add Remark here, if any" class="form-control" name="remark" style="height: 100px;" rows="4" cols="50" th:field="*{student.remark}"></textarea>
-                        <label for="address">Add Remark</label>
-                    </div>
-                </div>
-                <div class="col-md-5"></div>
-
-                <!-- Bank & Aadhar Details -->
-                <div class="col-12">
-                    <h4>Bank & Aadhar Details</h4>
-                </div>
-                <div class="col-md-6">
-                    <label for="bank" class="form-label">Bank</label>
-                    <input type="text" readonly disabled  id="bank" class="form-control" th:field="*{student.bank.bankName}">
-                </div>
-                <div class="col-md-6">
-                    <label for="branchName" class="form-label">Branch Name</label>
-                    <input type="text" readonly disabled  id="branchName" class="form-control" th:field="*{student.branchName}">
-                </div>
-                <div class="col-md-4">
-                    <label for="ifscCode" class="form-label">IFSC Code</label>
-                    <input type="text" readonly disabled  id="ifscCode" class="form-control" th:field="*{student.ifscCode}">
-                </div>
-                <div class="col-md-4">
-                    <label for="accountNo" class="form-label">Account Number</label>
-                    <input type="text" readonly disabled  id="accountNo" class="form-control" th:field="*{student.accountNo}">
-                </div>
-                <div class="col-md-4">
-                    <label for="aadharNo" class="form-label">Aadhar Number</label>
-                    <input type="text" readonly disabled  id="aadharNo" class="form-control" th:field="*{student.aadharNo}">
-                </div>
-
-                <!-- Submit Button -->
-                <hr/>
-                <div th:if="${!fromDelete}">
-                    <div class="col-md-4">
-                        <a class="btn btn-outline-secondary btn-sm" th:href="@{/student/student}"><i class="bi bi-arrow-left"></i> Back to List</a>
-                    </div>
-                </div>
-                <div th:if="${fromDelete}">
-                    <div class="col-md-4">
-                        <a class="btn btn-outline-secondary btn-sm" th:href="@{/student/stu-deleted-list}"><i class="bi bi-arrow-left"></i> Back to List</a>
-                    </div>
-                </div>
-
-            </div>
+  <div class="container-fluid px-3">
+    <div class="mt-2 gy-5 mb-5">
+      <div class="page-header page-header-row">
+        <h1 class="page-header-title">Student Detail</h1>
+        <div class="page-header-actions">
+          <a th:if="${!fromDelete}" class="sd-back-link" th:href="@{/student/student}"><i class="bi bi-arrow-left"></i> Back to List</a>
+          <a th:if="${fromDelete}" class="sd-back-link" th:href="@{/student/stu-deleted-list}"><i class="bi bi-arrow-left"></i> Back to List</a>
         </div>
+      </div>
+
+      <div class="sd-wrap">
+        <div class="sd-sidebar">
+          <div class="sd-id-card">
+            <img th:if="${student.pic != null}" class="sd-avatar" th:src="@{'/student/images/' + ${student.pic}}" alt="Student photo">
+            <div th:if="${student.pic == null}" class="sd-avatar-fallback"><i class="bi bi-person"></i></div>
+
+            <div class="sd-name" th:text="${student.studentName}">Student Name</div>
+            <div class="sd-sub">
+              <span th:if="${student.grade != null}" th:text="${'Grade ' + student.grade.gradeName}">Grade</span>
+              <span th:if="${student.section != null}" th:text="${' - Section ' + student.section.sectionName}"> - Section</span>
+            </div>
+            <span class="sd-badge" th:classappend="${student.status == 'ACTIVE'} ? 'sd-badge-active' : 'sd-badge-inactive'">
+              <i class="bi bi-check-circle-fill" th:if="${student.status == 'ACTIVE'}"></i>
+              <i class="bi bi-x-circle-fill" th:if="${student.status != 'ACTIVE'}"></i>
+              <span th:text="${student.status == 'ACTIVE'} ? 'Active' : 'Inactive'">Active</span>
+            </span>
+            <div class="sd-stat-row">
+              <div class="sd-stat">
+                <div class="n" th:text="${student.bloodGroup ?: '—'}" th:title="${student.bloodGroup ?: ''}">—</div>
+                <div class="l">Blood</div>
+              </div>
+              <div class="sd-stat">
+                <div class="n" th:text="${student.studentType ?: '—'}" th:title="${student.studentType ?: ''}">—</div>
+                <div class="l">Type</div>
+              </div>
+              <div class="sd-stat">
+                <div class="n" th:text="${student.registrationNo ?: '—'}" th:title="${student.registrationNo ?: ''}">—</div>
+                <div class="l">Reg. No.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sd-nav" id="sdNav">
+            <a class="sd-c-blue active" href="#sd1"><i class="bi bi-person"></i> Personal</a>
+            <a class="sd-c-violet" href="#sd2"><i class="bi bi-people"></i> Family</a>
+            <a class="sd-c-emerald" href="#sd3"><i class="bi bi-geo-alt"></i> Contact</a>
+            <a class="sd-c-rose" href="#sd4"><i class="bi bi-heart-pulse"></i> Physical &amp; Health</a>
+            <a class="sd-c-amber" href="#sd5"><i class="bi bi-mortarboard"></i> Academic</a>
+            <a class="sd-c-indigo" href="#sd6"><i class="bi bi-journal-bookmark"></i> Previous &amp; Emergency</a>
+            <a class="sd-c-pink" href="#sd7"><i class="bi bi-shield-lock"></i> Bank &amp; IDs</a>
+          </div>
+        </div>
+
+        <div>
+
+          <!-- ============ PERSONAL ============ -->
+          <div class="sd-section sd-c-blue" id="sd1">
+            <h3><span class="sd-h-icon"><i class="bi bi-person"></i></span> Personal Information</h3>
+            <div class="sd-fields">
+              <div class="sd-field"><div class="k">Date of Birth</div><div class="v" th:text="${student.dob ?: '—'}">—</div></div>
+              <div class="sd-field"><div class="k">Gender</div><div class="v" th:text="${student.gender ?: '—'}">—</div></div>
+              <div class="sd-field"><div class="k">Religion</div><div class="v" th:text="${student.religion ?: '—'}">—</div></div>
+              <div class="sd-field"><div class="k">Nationality</div><div class="v" th:text="${student.nationality ?: '—'}">—</div></div>
+              <div class="sd-field"><div class="k">Category</div><div class="v" th:text="${student.category != null ? student.category.categoryName : '—'}">—</div></div>
+              <div class="sd-field"><div class="k">Caste</div><div class="v" th:text="${student.cast != null ? student.cast.castName : '—'}">—</div></div>
+              <div class="sd-field span3">
+                <div class="k">Description</div>
+                <div class="v" th:if="${!#strings.isEmpty(student.description)}" th:text="${student.description}">—</div>
+                <div class="v empty" th:if="${#strings.isEmpty(student.description)}">Not provided</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ============ FAMILY ============ -->
+          <div class="sd-section sd-c-violet" id="sd2">
+            <h3><span class="sd-h-icon"><i class="bi bi-people"></i></span> Family Details</h3>
+            <div class="sd-fields">
+              <div class="sd-field"><div class="k">Father Name</div><div class="v" th:text="${student.fatherName ?: '—'}">—</div></div>
+              <div class="sd-field"><div class="k">Father Occupation</div><div class="v" th:classappend="${#strings.isEmpty(student.fatherOccupation)} ? 'empty' : ''" th:text="${!#strings.isEmpty(student.fatherOccupation)} ? ${student.fatherOccupation} : 'Not provided'">—</div></div>
+              <div class="sd-field"><div class="k">Father Qualification</div><div class="v" th:classappend="${#strings.isEmpty(student.fatherQualification)} ? 'empty' : ''" th:text="${!#strings.isEmpty(student.fatherQualification)} ? ${student.fatherQualification} : 'Not provided'">—</div></div>
+              <div class="sd-field"><div class="k">Mother Name</div><div class="v" th:text="${student.motherName ?: '—'}">—</div></div>
+              <div class="sd-field"><div class="k">Mother Occupation</div><div class="v" th:classappend="${#strings.isEmpty(student.motherOccupation)} ? 'empty' : ''" th:text="${!#strings.isEmpty(student.motherOccupation)} ? ${student.motherOccupation} : 'Not provided'">—</div></div>
+              <div class="sd-field"><div class="k">Mother Qualification</div><div class="v" th:classappend="${#strings.isEmpty(student.motherQualification)} ? 'empty' : ''" th:text="${!#strings.isEmpty(student.motherQualification)} ? ${student.motherQualification} : 'Not provided'">—</div></div>
+            </div>
+          </div>
+
+          <!-- ============ CONTACT ============ -->
+          <div class="sd-section sd-c-emerald" id="sd3">
+            <h3><span class="sd-h-icon"><i class="bi bi-geo-alt"></i></span> Contact &amp; Address</h3>
+            <div class="sd-fields">
+              <div class="sd-field span3"><div class="k">Address</div><div class="v" th:text="${student.address ?: '—'}">—</div></div>
+              <div class="sd-field"><div class="k">Province</div><div class="v" th:text="${student.province != null ? student.province.provinceName : '—'}">—</div></div>
+              <div class="sd-field"><div class="k">City</div><div class="v" th:text="${student.city != null ? student.city.cityName : '—'}">—</div></div>
+              <div class="sd-field"><div class="k">Pincode</div><div class="v" th:text="${student.pincode ?: '—'}">—</div></div>
+              <div class="sd-field"><div class="k">Landmark</div><div class="v" th:classappend="${#strings.isEmpty(student.landmark)} ? 'empty' : ''" th:text="${!#strings.isEmpty(student.landmark)} ? ${student.landmark} : 'Not provided'">—</div></div>
+              <div class="sd-field">
+                <div class="k">Mobile 1</div>
+                <div class="v"><span class="mask-cell" th:if="${!#strings.isEmpty(student.mobile1)}"><span class="mask-text" data-field="mobile1" th:attr="data-full=${student.mobile1}">•••</span><button type="button" class="mask-toggle" title="Show"><i class="bi bi-eye"></i></button></span><span class="empty" th:if="${#strings.isEmpty(student.mobile1)}">Not provided</span></div>
+              </div>
+              <div class="sd-field">
+                <div class="k">Mobile 2</div>
+                <div class="v"><span class="mask-cell" th:if="${!#strings.isEmpty(student.mobile2)}"><span class="mask-text" data-field="mobile1" th:attr="data-full=${student.mobile2}">•••</span><button type="button" class="mask-toggle" title="Show"><i class="bi bi-eye"></i></button></span><span class="empty" th:if="${#strings.isEmpty(student.mobile2)}">Not provided</span></div>
+              </div>
+              <div class="sd-field"><div class="k">Email</div><div class="v" th:text="${student.userEntity != null and !#strings.isEmpty(student.userEntity.email)} ? ${student.userEntity.email} : '—'">—</div></div>
+            </div>
+          </div>
+
+          <!-- ============ PHYSICAL & HEALTH ============ -->
+          <div class="sd-section sd-c-rose" id="sd4">
+            <h3><span class="sd-h-icon"><i class="bi bi-heart-pulse"></i></span> Physical &amp; Health</h3>
+            <div class="sd-fields">
+              <div class="sd-field"><div class="k">Height</div><div class="v" th:text="${student.height != null} ? ${student.height + ' cm'} : '—'">—</div></div>
+              <div class="sd-field"><div class="k">Weight</div><div class="v" th:text="${student.weight != null} ? ${student.weight + ' kg'} : '—'">—</div></div>
+              <div class="sd-field"><div class="k">Blood Group</div><div class="v" th:text="${student.bloodGroup ?: '—'}">—</div></div>
+              <div class="sd-field"><div class="k">Body Type</div><div class="v" th:text="${student.bodyType ?: '—'}">—</div></div>
+              <div class="sd-field"><div class="k">Health Issues</div><div class="v" th:text="${haveHealthIssues} ? 'Yes' : 'No'">No</div></div>
+              <div class="sd-field"><div class="k">Eye Issue</div><div class="v" th:text="${haveEyeIssue} ? 'Yes' : 'No'">No</div></div>
+              <div class="sd-field span3">
+                <div class="k">Health Issue Description</div>
+                <div class="v" th:if="${!#strings.isEmpty(healthIssueDescription)}" th:text="${healthIssueDescription}">—</div>
+                <div class="v empty" th:if="${#strings.isEmpty(healthIssueDescription)}">No description</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ============ ACADEMIC ============ -->
+          <div class="sd-section sd-c-amber" id="sd5">
+            <h3><span class="sd-h-icon"><i class="bi bi-mortarboard"></i></span> Academic Details</h3>
+            <div class="sd-fields">
+              <div class="sd-field"><div class="k">Medium</div><div class="v" th:text="${student.medium != null ? student.medium.mediumName : '—'}">—</div></div>
+              <div class="sd-field"><div class="k">Grade</div><div class="v" th:text="${student.grade != null ? student.grade.gradeName : '—'}">—</div></div>
+              <div class="sd-field"><div class="k">Section</div><div class="v" th:text="${student.section != null ? student.section.sectionName : '—'}">—</div></div>
+              <div class="sd-field"><div class="k">Student Type</div><div class="v" th:text="${student.studentType ?: '—'}">—</div></div>
+              <div class="sd-field"><div class="k">School Status</div><div class="v" th:text="${student.schoolStatus ?: '—'}">—</div></div>
+              <div class="sd-field">
+                <div class="k">Remark</div>
+                <div class="v" th:if="${!#strings.isEmpty(student.remark)}" th:text="${student.remark}">—</div>
+                <div class="v empty" th:if="${#strings.isEmpty(student.remark)}">Not provided</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ============ PREVIOUS SCHOOL & EMERGENCY ============ -->
+          <div class="sd-section sd-c-indigo" id="sd6">
+            <h3><span class="sd-h-icon"><i class="bi bi-journal-bookmark"></i></span> Previous School &amp; Emergency Contact</h3>
+            <div class="sd-fields">
+              <div class="sd-field"><div class="k">Previous School</div><div class="v" th:classappend="${#strings.isEmpty(student.previousSchool)} ? 'empty' : ''" th:text="${!#strings.isEmpty(student.previousSchool)} ? ${student.previousSchool} : 'Not provided'">—</div></div>
+              <div class="sd-field"><div class="k">Previous Class</div><div class="v" th:classappend="${#strings.isEmpty(student.previousClass)} ? 'empty' : ''" th:text="${!#strings.isEmpty(student.previousClass)} ? ${student.previousClass} : 'Not provided'">—</div></div>
+              <div class="sd-field"><div class="k">Removal Cause</div><div class="v" th:classappend="${#strings.isEmpty(student.removalCause)} ? 'empty' : ''" th:text="${!#strings.isEmpty(student.removalCause)} ? ${student.removalCause} : 'Not provided'">—</div></div>
+              <div class="sd-field"><div class="k">TC Number</div><div class="v" th:classappend="${#strings.isEmpty(student.tcNo)} ? 'empty' : ''" th:text="${!#strings.isEmpty(student.tcNo)} ? ${student.tcNo} : 'Not provided'">—</div></div>
+              <div class="sd-field"><div class="k">Passing Year</div><div class="v" th:text="${student.passingYear != null} ? ${student.passingYear} : 'Not provided'">—</div></div>
+              <div class="sd-field"></div>
+              <div class="sd-field"><div class="k">Emergency Contact Name</div><div class="v" th:classappend="${#strings.isEmpty(student.personName)} ? 'empty' : ''" th:text="${!#strings.isEmpty(student.personName)} ? ${student.personName} : 'Not provided'">—</div></div>
+              <div class="sd-field">
+                <div class="k">Emergency Number</div>
+                <div class="v"><span class="mask-cell" th:if="${!#strings.isEmpty(student.personContact)}"><span class="mask-text" data-field="mobile1" th:attr="data-full=${student.personContact}">•••</span><button type="button" class="mask-toggle" title="Show"><i class="bi bi-eye"></i></button></span><span class="empty" th:if="${#strings.isEmpty(student.personContact)}">Not provided</span></div>
+              </div>
+              <div class="sd-field"><div class="k">Relationship</div><div class="v" th:classappend="${#strings.isEmpty(student.relationship)} ? 'empty' : ''" th:text="${!#strings.isEmpty(student.relationship)} ? ${student.relationship} : 'Not provided'">—</div></div>
+            </div>
+          </div>
+
+          <!-- ============ BANK & GOVERNMENT IDS ============ -->
+          <div class="sd-section sd-c-pink" id="sd7">
+            <h3><span class="sd-h-icon"><i class="bi bi-shield-lock"></i></span> Bank &amp; Government IDs</h3>
+            <div class="sd-fields">
+              <div class="sd-field"><div class="k">Bank</div><div class="v" th:text="${student.bank != null ? student.bank.bankName : '—'}">—</div></div>
+              <div class="sd-field"><div class="k">Branch Name</div><div class="v" th:classappend="${#strings.isEmpty(student.branchName)} ? 'empty' : ''" th:text="${!#strings.isEmpty(student.branchName)} ? ${student.branchName} : 'Not provided'">—</div></div>
+              <div class="sd-field"><div class="k">IFSC Code</div><div class="v" th:classappend="${#strings.isEmpty(student.ifscCode)} ? 'empty' : ''" th:text="${!#strings.isEmpty(student.ifscCode)} ? ${student.ifscCode} : 'Not provided'">—</div></div>
+              <div class="sd-field">
+                <div class="k">Account Number</div>
+                <div class="v"><span class="mask-cell" th:if="${!#strings.isEmpty(student.accountNo)}"><span class="mask-text" data-field="aadhar" th:attr="data-full=${student.accountNo}">•••</span><button type="button" class="mask-toggle" title="Show"><i class="bi bi-eye"></i></button></span><span class="empty" th:if="${#strings.isEmpty(student.accountNo)}">Not provided</span></div>
+              </div>
+              <div class="sd-field">
+                <div class="k">Aadhaar Number</div>
+                <div class="v"><span class="mask-cell" th:if="${!#strings.isEmpty(student.aadharNo)}"><span class="mask-text" data-field="aadhar" th:attr="data-full=${student.aadharNo}">•••</span><button type="button" class="mask-toggle" title="Show"><i class="bi bi-eye"></i></button></span><span class="empty" th:if="${#strings.isEmpty(student.aadharNo)}">Not provided</span></div>
+              </div>
+              <div class="sd-field"><div class="k">Apaar ID</div><div class="v" th:classappend="${#strings.isEmpty(student.apaarId)} ? 'empty' : ''" th:text="${!#strings.isEmpty(student.apaarId)} ? ${student.apaarId} : 'Not provided'">—</div></div>
+              <div class="sd-field"><div class="k">PEN Number</div><div class="v" th:classappend="${#strings.isEmpty(student.penNo)} ? 'empty' : ''" th:text="${!#strings.isEmpty(student.penNo)} ? ${student.penNo} : 'Not provided'">—</div></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
     </div>
+  </div>
 
+  <script type="text/javascript" th:inline="javascript">
+    $(document).ready(function () {
+      // Mask/reveal for Mobile 1/2, Emergency Number, Account Number, Aadhaar —
+      // same client-side-only pattern as the Student List page (masks the
+      // display, not a security boundary; the real value is already present
+      // in the page's HTML). data-field picks the masking style: 'mobile1'-
+      // style values get the 2-visible/2-visible treatment, 'aadhar'-style
+      // values get the last-4-digits treatment.
+      const maskMobile = function (raw) {
+        var v = String(raw || '');
+        if (v.length <= 4) { return v; }
+        return v.slice(0, 2) + 'x'.repeat(v.length - 4) + v.slice(-2);
+      };
+      const maskAadhaar = function (raw) {
+        var digits = String(raw || '').replace(/\D/g, '');
+        if (digits.length >= 4) {
+          return 'xxxx xxxx ' + digits.slice(-4);
+        }
+        var v = String(raw || '');
+        return v.length <= 4 ? v : 'x'.repeat(v.length - 4) + v.slice(-4);
+      };
 
-    <script type="text/javascript" th:inline="javascript">
-        $(document).ready(function() {
-            function loadCities(state, selectedCity) {
-                if (state) {
-                    $.ajax({
-                        type: 'GET',
-                        url: `${contextPath}student/student/cities`,
-                        data: { provinceId: state },
-                        success: function(cities) {
-                            console.log("cities: "+cities);
-                            let $citySelect = $('#city');
-                            $citySelect.empty();
-                            $citySelect.append('<option value="">Select City</option>');
-                            $.each(cities, function(index, city) {
-                                $citySelect.append('<option value="' + city.id + '">' + city.cityName + '</option>');
-                            });
-                            console.log("selectedCity "+selectedCity);
-                            // Set the previously selected city
-                            if (selectedCity) {
-                                $citySelect.val(selectedCity);
-                            }
-                        }
-                    });
-                }
-            }
+      $('.mask-text').each(function () {
+        var $t = $(this);
+        var full = $t.attr('data-full') || '';
+        var masked = $t.attr('data-field') === 'aadhar' ? maskAadhaar(full) : maskMobile(full);
+        $t.attr('data-masked', masked).attr('data-revealed', 'false').text(masked);
+      });
 
-            $('#province').change(function() {
-                let selectedState = $(this).val();
-                loadCities(selectedState);
-            });
+      $(document).on('click', '.mask-toggle', function () {
+        var $btn = $(this);
+        var $text = $btn.siblings('.mask-text');
+        var revealed = $text.attr('data-revealed') === 'true';
+        if (revealed) {
+          $text.text($text.attr('data-masked')).attr('data-revealed', 'false');
+          $btn.attr('title', 'Show').find('i').attr('class', 'bi bi-eye');
+        } else {
+          $text.text($text.attr('data-full')).attr('data-revealed', 'true');
+          $btn.attr('title', 'Hide').find('i').attr('class', 'bi bi-eye-slash');
+        }
+      });
 
-            // Trigger change to load cities if a state is already selected
-            let initialSelectedState = $('#province').val();
-            let initialSelectedNewCity = $('#hiddencity').val();
-            /*<![CDATA[*/
-            let initialSelectedCity = [[${student != null}]] ? '[[${student.city}]]' : '';
-            /*]]>*/
-            console.log("initialSelectedState:> "+initialSelectedState);
-            console.log("initialSelectedNewCity:> "+initialSelectedNewCity);
-            console.log("initial:> "+initialSelectedCity);
-            if (initialSelectedState) {
-                loadCities(initialSelectedState, initialSelectedNewCity);
-            }
-            $('.intfields').on('input', function() {
-                this.value = this.value.replace(/[^0-9]/g, '');
-            });
+      // Sidebar nav: highlight the section currently in view while scrolling.
+      // This layout has no inner scroll container (<main class="page-content">
+      // and .wrapper carry no overflow/height rules), so the page itself
+      // scrolls and binding on window is correct. rAF-throttled so it doesn't
+      // run once per scroll pixel, and run once immediately on load so the
+      // correct section is highlighted even before the first scroll event.
+      const sections = $('.sd-section').map(function () { return this.id; }).get();
+      const $navLinks = $('#sdNav a');
+      let sdNavTicking = false;
+      const updateActiveNav = function () {
+        let current = sections[0];
+        sections.forEach(function (id) {
+          const el = document.getElementById(id);
+          if (el && el.getBoundingClientRect().top < 140) { current = id; }
         });
-
-        $("#dob").datepicker({
-            dateFormat: "dd-MMM-yyyy"
-        });
-
-
-
-
-
-
-    </script>
-
+        $navLinks.removeClass('active');
+        $navLinks.filter('[href="#' + current + '"]').addClass('active');
+        sdNavTicking = false;
+      };
+      $(window).on('scroll', function () {
+        if (!sdNavTicking) {
+          sdNavTicking = true;
+          window.requestAnimationFrame(updateActiveNav);
+        }
+      });
+      updateActiveNav();
+      $navLinks.on('click', function () {
+        $navLinks.removeClass('active');
+        $(this).addClass('active');
+      });
+    });
+  </script>
 
   <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html
        now loads them in <head>, so they are available before this page's

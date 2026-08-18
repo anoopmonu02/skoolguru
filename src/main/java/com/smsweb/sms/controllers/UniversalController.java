@@ -59,6 +59,9 @@ public class UniversalController {
         List<Medium> mediums = mediumService.getAllMediums();
         model.addAttribute("mediums", mediums);
         model.addAttribute("hasMediums", !mediums.isEmpty());
+        // Needed for the inline "quick add" panel's th:object="${medium}" binding
+        // on this same list page. Purely additive - see universal/bank() above.
+        model.addAttribute("medium", new Medium());
         return "universal/medium";
     }
 
@@ -149,6 +152,9 @@ public class UniversalController {
         List<Grade> grades = gradeService.getAllGrades();
         model.addAttribute("grades", grades);
         model.addAttribute("hasGrades", !grades.isEmpty());
+        // Needed for the inline "quick add" panel's th:object="${grade}" binding
+        // on this same list page. Purely additive - see universal/bank() above.
+        model.addAttribute("grade", new Grade());
         return "universal/grade";
     }
 
@@ -252,6 +258,9 @@ public class UniversalController {
         List<Section> sections = sectionService.getAllSections();
         model.addAttribute("sections", sections);
         model.addAttribute("hasSections", !sections.isEmpty());
+        // Needed for the inline "quick add" panel's th:object="${section}" binding
+        // on this same list page. Purely additive - see universal/bank() above.
+        model.addAttribute("section", new Section());
         return "universal/section";
     }
 
@@ -342,6 +351,9 @@ public class UniversalController {
         List<Category> categories = categoryService.getAllCategories();
         model.addAttribute("categories", categories);
         model.addAttribute("hasCategories", !categories.isEmpty());
+        // Needed for the inline "quick add" panel's th:object="${category}" binding
+        // on this same list page. Purely additive - see universal/bank() above.
+        model.addAttribute("category", new Category());
         return "universal/category";
     }
 
@@ -432,6 +444,10 @@ public class UniversalController {
         List<Bank> banks = bankService.getAllBanks();
         model.addAttribute("banks", banks);
         model.addAttribute("hasBanks", !banks.isEmpty());
+        // Needed for the inline "quick add" panel's th:object="${bank}" binding
+        // on this same list page (previously only /bank/add supplied this).
+        // Purely additive - doesn't change what this endpoint returned before.
+        model.addAttribute("bank", new Bank());
         return "universal/bank";
     }
 
@@ -523,6 +539,9 @@ public class UniversalController {
         model.addAttribute("casts", casts);
         model.addAttribute("hasCasts", !casts.isEmpty());
         model.addAttribute("page", "datatable");
+        // Needed for the inline "quick add" panel's th:object="${cast}" binding
+        // on this same list page. Purely additive - see universal/bank() above.
+        model.addAttribute("cast", new Cast());
         return "universal/cast";
     }
 
@@ -613,6 +632,9 @@ public class UniversalController {
         List<Feehead> feeheads = feeheadService.getAllFeeheads();
         model.addAttribute("feeheads", feeheads);
         model.addAttribute("hasFeeheads", !feeheads.isEmpty());
+        // Needed for the inline "quick add" panel's th:object="${feehead}" binding
+        // on this same list page. Purely additive - see universal/bank() above.
+        model.addAttribute("feehead", new Feehead());
         return "universal/feehead";
     }
 
@@ -703,6 +725,9 @@ public class UniversalController {
         List<Discounthead> discountheads = discountService.getAllDiscountheads();
         model.addAttribute("discountheads", discountheads);
         model.addAttribute("hasDiscountheads", !discountheads.isEmpty());
+        // Needed for the inline "quick add" panel's th:object="${discounthead}"
+        // binding on this same list page. Purely additive - see universal/bank() above.
+        model.addAttribute("discounthead", new Discounthead());
         return "universal/discounthead";
     }
 
@@ -794,6 +819,9 @@ public class UniversalController {
         List<Finehead> fineheads = fineheadService.getAllFineHeads();
         model.addAttribute("fineheads", fineheads);
         model.addAttribute("hasFineheads", !fineheads.isEmpty());
+        // Needed for the inline "quick add" panel's th:object="${finehead}" binding
+        // on this same list page. Purely additive - see universal/bank() above.
+        model.addAttribute("finehead", new Finehead());
         return "universal/finehead";
     }
 

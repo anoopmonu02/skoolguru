@@ -7,320 +7,445 @@
 <body>
 <section>
 
+  <style>
+    /* ============================================================
+       Edit Student — sectioned single-page form.
+       Same design language as the Student Detail page (show-student.html):
+       a sticky sidebar with a jump-nav, colorful per-section cards instead
+       of one flat white block, tokens.css variables throughout. Every
+       th:field/id/name binding below is unchanged from the previous plain
+       Bootstrap-grid version — this is a chrome/styling pass only, no
+       fields added, removed, or renamed.
+       ============================================================ */
+    .es-wrap { max-width: 1180px; margin: 4px auto 40px; display: grid; grid-template-columns: 250px 1fr; gap: 24px; }
+    @media (max-width: 900px) { .es-wrap { grid-template-columns: 1fr; } }
+
+    .es-sidebar { position: sticky; top: 16px; align-self: start; }
+    .es-id-card {
+      background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm); padding: 24px 20px 20px; text-align: center; margin-bottom: 14px;
+      position: relative; overflow: hidden;
+    }
+    .es-id-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 5px;
+      background: linear-gradient(90deg, #0ea5e9, #8b5cf6, #ec4899, #f59e0b);
+    }
+    .es-avatar {
+      width: 72px; height: 72px; border-radius: 50%; object-fit: cover;
+      border: 3px solid var(--accent-light); margin: 12px auto 12px; display: block;
+      box-shadow: 0 0 0 3px rgba(14,165,233,.15);
+    }
+    .es-avatar-fallback {
+      width: 72px; height: 72px; border-radius: 50%; margin: 12px auto 12px;
+      background: linear-gradient(135deg, var(--accent-light), rgba(139,92,246,.18)); color: var(--accent); font-size: 28px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .es-id-card .es-name { font-size: 15.5px; font-weight: 800; margin: 0 0 3px; color: var(--text-primary); word-break: break-word; }
+    .es-id-card .es-sub { font-size: 12px; color: var(--text-muted); }
+
+    /* Section color accents — same palette as Student Detail so the two
+       pages read as one system. */
+    .es-c-blue    { --sdc: var(--accent); --sdc-bg: var(--accent-light); }
+    .es-c-violet  { --sdc: #8b5cf6; --sdc-bg: rgba(139,92,246,.12); }
+    .es-c-emerald { --sdc: #10b981; --sdc-bg: rgba(16,185,129,.12); }
+    .es-c-rose    { --sdc: #f43f5e; --sdc-bg: rgba(244,63,94,.12); }
+    .es-c-amber   { --sdc: #f59e0b; --sdc-bg: rgba(245,158,11,.12); }
+    .es-c-indigo  { --sdc: #6366f1; --sdc-bg: rgba(99,102,241,.12); }
+    .es-c-pink    { --sdc: #ec4899; --sdc-bg: rgba(236,72,153,.12); }
+
+    .es-nav { display: flex; flex-direction: column; gap: 2px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); padding: 8px; }
+    .es-nav a { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 9px; font-size: 13px; font-weight: 600; color: var(--text-muted); text-decoration: none; border-left: 2px solid transparent; transition: background var(--transition), color var(--transition), border-color var(--transition); }
+    .es-nav a i { font-size: 14px; width: 16px; text-align: center; color: var(--sdc, var(--text-muted)); transition: color var(--transition); }
+    .es-nav a:hover { background: var(--sdc-bg, var(--accent-light)); color: var(--sdc, var(--accent)); }
+    .es-nav a.active { background: var(--sdc-bg, var(--accent-light)); color: var(--sdc, var(--accent)); border-left-color: var(--sdc, var(--accent)); }
+    .es-nav a.active i { color: var(--sdc, var(--accent)); }
+
+    .es-back-link {
+      display: inline-flex; align-items: center; gap: 6px; color: #fff; text-decoration: none;
+      font-size: 13px; font-weight: 700; padding: 9px 16px; border: none;
+      border-radius: 10px; background: linear-gradient(135deg, var(--accent), #0284c7);
+      box-shadow: 0 2px 8px rgba(14,165,233,.35);
+      transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
+    }
+    .es-back-link:hover { color: #fff; opacity: .93; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(14,165,233,.45); }
+
+    .es-section { background: var(--card-bg); border: 1px solid var(--border-color); border-top: 3px solid var(--sdc, var(--accent)); border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); padding: 22px 26px; margin-bottom: 16px; scroll-margin-top: 16px; }
+    .es-section h4 { display: flex; align-items: center; gap: 11px; font-size: 15px; font-weight: 800; margin: 0 0 18px; color: var(--text-primary); }
+    .es-h-icon { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: var(--sdc-bg, var(--accent-light)); color: var(--sdc, var(--accent)); font-size: 15px; flex-shrink: 0; }
+
+    /* Light polish on the existing Bootstrap form controls, scoped to
+       .es-section so nothing bleeds into other pages that share these
+       global classes (form-control/form-select/form-label). */
+    .es-section .form-label { font-size: 12.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .02em; margin-bottom: 5px; }
+    .es-section .form-control, .es-section .form-select { border-color: var(--border-color); border-radius: var(--radius-sm); font-size: 13.8px; }
+    .es-section .form-control:focus, .es-section .form-select:focus { border-color: var(--sdc, var(--accent)); box-shadow: 0 0 0 3px var(--sdc-bg, var(--accent-light)); }
+    .es-section .form-check-input:checked { background-color: var(--sdc, var(--accent)); border-color: var(--sdc, var(--accent)); }
+    .es-section .text-danger { font-size: 12px; margin-top: 3px; }
+
+    .es-submit-row {
+      display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+      background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-xs); padding: 16px 20px; margin-bottom: 40px;
+    }
+    .es-save-btn {
+      display: inline-flex; align-items: center; gap: 8px; border: none; color: #fff;
+      background: linear-gradient(135deg, #16a34a, #15803d); padding: 11px 24px; border-radius: 10px;
+      font-size: 14px; font-weight: 700; box-shadow: 0 2px 8px rgba(22,163,74,.35);
+      transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
+    }
+    .es-save-btn:hover { opacity: .93; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(22,163,74,.45); }
+
+    /* -- Photo upload + preview (same pattern as Add Student) -- */
+    .wiz-photo-hint { font-size: 11px; font-weight: 600; color: var(--text-muted); margin-left: 4px; text-transform: none; letter-spacing: 0; }
+    .wiz-photo-row { display: flex; align-items: flex-start; gap: 14px; }
+    .wiz-photo-preview {
+      width: 64px; height: 64px; flex-shrink: 0; border-radius: 50%;
+      background: var(--accent-light); color: var(--accent); border: 1px solid var(--border-color);
+      display: flex; align-items: center; justify-content: center; font-size: 26px; overflow: hidden;
+    }
+    .wiz-photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .wiz-photo-input-col { flex: 1; min-width: 0; }
+    .wiz-photo-status { font-size: 11.5px; margin-top: 5px; color: var(--text-muted); }
+    .wiz-photo-status.err { color: #dc2626; font-weight: 600; }
+    .wiz-photo-status.ok { color: #16a34a; font-weight: 600; }
+  </style>
+
   <div class="container-fluid px-3">
     <div class="mt-2 gy-5 mb-5">
-      <div th:replace="~{components/ui :: page-header('Edit Student')}"></div>
-
-      <form th:action="@{/student/edit-details}" th:object="${student}" method="post" class="row g-3" enctype="multipart/form-data">
-        <!-- Personal Info -->
-        <div class="col-12">
-          <h4>Personal Information</h4>
+      <div class="page-header page-header-row">
+        <h1 class="page-header-title">Edit Student</h1>
+        <div class="page-header-actions">
+          <a class="es-back-link" th:href="@{/student/student}"><i class="bi bi-arrow-left"></i> Back to List</a>
         </div>
-        <div class="col-md-7">
-          <input type="hidden" name="school_id" id="school_id" th:field="*{school.id}"/>
-          <input type="hidden" name="academic_id" id="academic_id" th:field="*{academicYear.id}"/>
-          <input type="hidden" name="id" id="student_id" th:field="*{id}"/>
-          <input type="hidden" name="stu_personal" id="stu_personal" th:field="*{id}"/>
-          <input type="hidden" name="registration_no" id="registration_no" th:field="*{registrationNo}"/>
+      </div>
 
-          <!--<input type="hidden" name="medium" id="medium" th:field="*{medium.id}"/>
-          <input type="hidden" name="grade" id="grade" th:field="*{grade.id}"/>
-          <input type="hidden" name="section" id="section" th:field="*{section.id}"/>
-          <input type="hidden" name="bank" id="bank" th:field="*{bank.id}"/>-->
-        </div>
+      <form th:action="@{/student/edit-details}" th:object="${student}" method="post" enctype="multipart/form-data" id="editStudentForm">
+        <input type="hidden" name="school_id" id="school_id" th:field="*{school.id}"/>
+        <input type="hidden" name="academic_id" id="academic_id" th:field="*{academicYear.id}"/>
+        <input type="hidden" name="id" id="student_id" th:field="*{id}"/>
+        <input type="hidden" name="stu_personal" id="stu_personal" th:field="*{id}"/>
+        <input type="hidden" name="registration_no" id="registration_no" th:field="*{registrationNo}"/>
 
-        <div class="col-md-6">
-          <label for="studentName" class="form-label">Student Name</label>
-          <input type="text" id="studentName" class="form-control" th:field="*{studentName}">
-          <p class="text-danger" th:if="${#fields.hasErrors('studentName')}" th:errors="*{studentName}">stu name Error</p>
-        </div>
+        <div class="es-wrap">
+          <div class="es-sidebar">
+            <div class="es-id-card">
+              <img th:if="${student.pic != null}" class="es-avatar" th:src="@{'/student/images/' + ${student.pic}}" alt="Student photo">
+              <div th:if="${student.pic == null}" class="es-avatar-fallback"><i class="bi bi-person"></i></div>
+              <div class="es-name" th:text="${student.studentName}">Student Name</div>
+              <div class="es-sub">Editing student profile</div>
+            </div>
 
-        <div class="col-md-3">
-          <label for="dob" class="form-label">Date of Birth</label>
-          <input type="text" id="dob" class="form-control" th:field="*{dob}">
-          <p class="text-danger" th:if="${#fields.hasErrors('dob')}" th:errors="*{dob}">f name Error</p>
-        </div>
-
-        <div class="col-md-3">
-
-        </div>
-
-
-        <div class="col-md-6">
-          <label for="fatherName" class="form-label">Father Name</label>
-          <input type="text" id="fatherName" class="form-control" th:field="*{fatherName}">
-          <p class="text-danger" th:if="${#fields.hasErrors('fatherName')}" th:errors="*{fatherName}">f name Error</p>
-        </div>
-
-        <div class="col-md-3">
-          <label for="fatherOccupation" class="form-label">Father Occupation</label>
-          <input type="text" id="fatherOccupation" class="form-control" th:field="*{fatherOccupation}">
-          <p class="text-danger" th:if="${#fields.hasErrors('fatherOccupation')}" th:errors="*{fatherOccupation}">f name Error</p>
-        </div>
-        <div class="col-md-3">
-          <label for="fatherQualification" class="form-label">Father Qualification</label>
-          <input type="text" id="fatherQualification" class="form-control" th:field="*{fatherQualification}">
-          <p class="text-danger" th:if="${#fields.hasErrors('fatherQualification')}" th:errors="*{fatherQualification}">m name Error</p>
-        </div>
-
-        <div class="col-md-6">
-          <label for="motherName" class="form-label">Mother Name</label>
-          <input type="text" id="motherName" class="form-control" th:field="*{motherName}">
-          <p class="text-danger" th:if="${#fields.hasErrors('motherName')}" th:errors="*{motherName}">m name Error</p>
-        </div>
-
-        <div class="col-md-3">
-          <label for="motherOccupation" class="form-label">Mother Occupation</label>
-          <input type="text" id="motherOccupation" class="form-control" th:field="*{motherOccupation}">
-          <p class="text-danger" th:if="${#fields.hasErrors('motherOccupation')}" th:errors="*{motherOccupation}">m name Error</p>
-        </div>
-        <div class="col-md-3">
-          <label for="motherQualification" class="form-label">Mother Qualification</label>
-          <input type="text" id="motherQualification" class="form-control" th:field="*{motherQualification}">
-          <p class="text-danger" th:if="${#fields.hasErrors('motherQualification')}" th:errors="*{motherQualification}">m name Error</p>
-        </div>
-
-        <div class="col-md-3">
-          <label for="religion" class="form-label">Religion</label>
-          <select id="religion" class="form-control" th:field="*{religion}">
-            <option th:each="religion : ${religions}" th:value="${religion}" th:text="${religion}"
-                    th:selected="${religion} == ${student.religion}"></option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('religion')}" th:errors="*{religion}">m name Error</p>
-        </div>
-
-
-        <div class="col-md-3">
-          <label for="nationality" class="form-label">Nationality</label>
-          <input type="text" id="nationality" class="form-control" th:field="*{nationality}" readonly="readonly">
-        </div>
-
-        <div class="col-md-3">
-          <label for="gender" class="form-label">Gender</label>
-          <select id="gender" class="form-control" th:field="*{gender}">
-            <option value="Male" th:selected="Male == ${student.gender}">Male</option>
-            <option value="Female" th:selected="Female == ${student.gender}">Female</option>
-            <option value="No_Preference" th:selected="No_Preference == ${student.gender}">No Preference</option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('gender')}" th:errors="*{gender}">m name Error</p>
-        </div>
-        <div class="col-md-3">
-        </div>
-        <div class="col-md-3">
-          <label for="category" class="form-label">Category</label>
-          <select id="category" class="form-control" th:field="*{category}">
-            <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.categoryName}"
-                    th:selected="${category} == ${student.category}"></option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('category')}" th:errors="*{category}">m name Error</p>
-        </div>
-
-        <div class="col-md-3">
-          <label for="cast" class="form-label">Cast</label>
-          <select id="cast" class="form-control" th:field="*{cast.id}">
-            <option th:each="cast : ${casts}" th:value="${cast.id}" th:text="${cast.castName}"
-                    th:selected="${cast} == ${student.cast}"></option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('cast')}" th:errors="*{cast}">m name Error</p>
-        </div>
-
-        <div class="col-md-7">
-          <label for="description" class="form-label">Description</label>
-          <div class="form-floating">
-            <textarea id="description" placeholder="Add description here" class="form-control" name="description" style="height: 100px;" rows="4" cols="50" th:field="*{description}"></textarea>
-            <label for="address">Add Description Here</label>
+            <div class="es-nav" id="esNav">
+              <a class="es-c-blue active" href="#es1"><i class="bi bi-person"></i> Personal</a>
+              <a class="es-c-rose" href="#es2"><i class="bi bi-rulers"></i> Physical</a>
+              <a class="es-c-violet" href="#es3"><i class="bi bi-heart-pulse"></i> Health</a>
+              <a class="es-c-emerald" href="#es4"><i class="bi bi-geo-alt"></i> Contact</a>
+              <a class="es-c-indigo" href="#es5"><i class="bi bi-telephone"></i> Emergency</a>
+              <a class="es-c-amber" href="#es6"><i class="bi bi-mortarboard"></i> Academic</a>
+              <a class="es-c-pink" href="#es7"><i class="bi bi-shield-lock"></i> Bank &amp; Aadhar</a>
+            </div>
           </div>
-          <p class="text-danger" th:if="${#fields.hasErrors('description')}" th:errors="*{description}">description Error</p>
-        </div>
-        <div class="col-md-5">
-          &nbsp;
-        </div>
 
-        <div class="col-md-4">
-          <label for="customerPic" class="form-label">Student Image</label>
-          <input type="file" class="form-control" id="customerPic" name="customerPic">
-          <p class="text-danger" th:if="${#fields.hasErrors('pic')}" th:errors="*{pic}">pic Error</p>
-          <!--<p class="text-danger" th:if="${picUploadError}" th:text="${picUploadError}"/>-->
-        </div>
-        <div class="col-md-8" th:if="${student.pic}">
-          &nbsp;<img th:src="@{'/student/images/' + ${student.pic}}" class="rounded float-start" alt="Student Image" width="12%" height="100%" id="preImg"/>
-        </div>
+          <div>
 
+            <!-- ============ PERSONAL ============ -->
+            <div class="es-section es-c-blue" id="es1">
+              <h4><span class="es-h-icon"><i class="bi bi-person"></i></span> Personal Information</h4>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="studentName" class="form-label">Student Name</label>
+                  <input type="text" id="studentName" class="form-control" th:field="*{studentName}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('studentName')}" th:errors="*{studentName}">stu name Error</p>
+                </div>
 
-        <!-- Physical Info -->
-        <div class="col-12">
-          <h4>Physical Information</h4>
-        </div>
-        <div class="col-md-3">
-          <label for="height" class="form-label">Height (cm)</label>
-          <input type="number" id="height" class="form-control" th:field="*{height}">
-        </div>
-        <div class="col-md-3">
-        </div>
-        <div class="col-md-3">
-          <label for="weight" class="form-label">Weight (kg)</label>
-          <input type="number" id="weight" class="form-control" th:field="*{weight}">
-        </div>
-        <div class="col-md-3">
-        </div>
-        <div class="col-md-3">
-          <label for="bloodGroup" class="form-label">Blood Group</label>
-          <select id="bloodGroup" class="form-control" th:field="*{bloodGroup}">
-            <option th:each="bloodGroup : ${bloodGroups}" th:value="${bloodGroup}" th:text="${bloodGroup}" th:selected="${bloodGroup} == ${student.bloodGroup}"></option>
-          </select>
-        </div>
-        <div class="col-md-3">
-        </div>
-        <div class="col-md-3">
-          <label for="bodyType" class="form-label">Body Type</label>
-          <!--<input type="text" id="bodyType" class="form-control" th:field="*{bodyType}">-->
-          <select id="bodyType" class="form-control" th:field="*{bodyType}">
-            <option th:each="bodyType : ${bodyTypes}" th:value="${bodyType}" th:text="${bodyType}" th:selected="${bodyType} == ${student.bodyType}"></option>
-          </select>
-        </div>
-        <div class="col-md-3">
-        </div>
+                <div class="col-md-3">
+                  <label for="dob" class="form-label">Date of Birth</label>
+                  <input type="text" id="dob" class="form-control" th:field="*{dob}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('dob')}" th:errors="*{dob}">f name Error</p>
+                </div>
 
-        <!-- Health Info (feature: student health info — sourced from student_health_info, not Student) -->
-        <div class="col-12">
-          <h4>Health Information</h4>
-        </div>
-        <div class="col-md-3">
-          <div class="form-check">
-            <input type="checkbox" class="form-check-input" id="haveHealthIssues" name="haveHealthIssues" value="true" th:checked="${haveHealthIssues}">
-            <label class="form-check-label" for="haveHealthIssues">Have Health Issues</label>
+                <div class="col-md-3"></div>
+
+                <div class="col-md-6">
+                  <label for="fatherName" class="form-label">Father Name</label>
+                  <input type="text" id="fatherName" class="form-control" th:field="*{fatherName}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('fatherName')}" th:errors="*{fatherName}">f name Error</p>
+                </div>
+
+                <div class="col-md-3">
+                  <label for="fatherOccupation" class="form-label">Father Occupation</label>
+                  <input type="text" id="fatherOccupation" class="form-control" th:field="*{fatherOccupation}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('fatherOccupation')}" th:errors="*{fatherOccupation}">f name Error</p>
+                </div>
+                <div class="col-md-3">
+                  <label for="fatherQualification" class="form-label">Father Qualification</label>
+                  <input type="text" id="fatherQualification" class="form-control" th:field="*{fatherQualification}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('fatherQualification')}" th:errors="*{fatherQualification}">m name Error</p>
+                </div>
+
+                <div class="col-md-6">
+                  <label for="motherName" class="form-label">Mother Name</label>
+                  <input type="text" id="motherName" class="form-control" th:field="*{motherName}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('motherName')}" th:errors="*{motherName}">m name Error</p>
+                </div>
+
+                <div class="col-md-3">
+                  <label for="motherOccupation" class="form-label">Mother Occupation</label>
+                  <input type="text" id="motherOccupation" class="form-control" th:field="*{motherOccupation}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('motherOccupation')}" th:errors="*{motherOccupation}">m name Error</p>
+                </div>
+                <div class="col-md-3">
+                  <label for="motherQualification" class="form-label">Mother Qualification</label>
+                  <input type="text" id="motherQualification" class="form-control" th:field="*{motherQualification}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('motherQualification')}" th:errors="*{motherQualification}">m name Error</p>
+                </div>
+
+                <div class="col-md-3">
+                  <label for="religion" class="form-label">Religion</label>
+                  <select id="religion" class="form-control" th:field="*{religion}">
+                    <option th:each="religion : ${religions}" th:value="${religion}" th:text="${religion}"
+                            th:selected="${religion} == ${student.religion}"></option>
+                  </select>
+                  <p class="text-danger" th:if="${#fields.hasErrors('religion')}" th:errors="*{religion}">m name Error</p>
+                </div>
+
+                <div class="col-md-3">
+                  <label for="nationality" class="form-label">Nationality</label>
+                  <input type="text" id="nationality" class="form-control" th:field="*{nationality}" readonly="readonly">
+                </div>
+
+                <div class="col-md-3">
+                  <label for="gender" class="form-label">Gender</label>
+                  <select id="gender" class="form-control" th:field="*{gender}">
+                    <option value="Male" th:selected="Male == ${student.gender}">Male</option>
+                    <option value="Female" th:selected="Female == ${student.gender}">Female</option>
+                    <option value="No_Preference" th:selected="No_Preference == ${student.gender}">No Preference</option>
+                  </select>
+                  <p class="text-danger" th:if="${#fields.hasErrors('gender')}" th:errors="*{gender}">m name Error</p>
+                </div>
+                <div class="col-md-3"></div>
+                <div class="col-md-3">
+                  <label for="category" class="form-label">Category</label>
+                  <select id="category" class="form-control" th:field="*{category}">
+                    <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.categoryName}"
+                            th:selected="${category} == ${student.category}"></option>
+                  </select>
+                  <p class="text-danger" th:if="${#fields.hasErrors('category')}" th:errors="*{category}">m name Error</p>
+                </div>
+
+                <div class="col-md-3">
+                  <label for="cast" class="form-label">Cast</label>
+                  <select id="cast" class="form-control" th:field="*{cast.id}">
+                    <option th:each="cast : ${casts}" th:value="${cast.id}" th:text="${cast.castName}"
+                            th:selected="${cast} == ${student.cast}"></option>
+                  </select>
+                  <p class="text-danger" th:if="${#fields.hasErrors('cast')}" th:errors="*{cast}">m name Error</p>
+                </div>
+
+                <div class="col-md-7">
+                  <label for="description" class="form-label">Description</label>
+                  <div class="form-floating">
+                    <textarea id="description" placeholder="Add description here" class="form-control" name="description" style="height: 100px;" rows="4" cols="50" th:field="*{description}"></textarea>
+                    <label for="description">Add Description Here</label>
+                  </div>
+                  <p class="text-danger" th:if="${#fields.hasErrors('description')}" th:errors="*{description}">description Error</p>
+                </div>
+
+                <div class="col-md-6">
+                  <label for="customerPic" class="form-label">
+                    Student Image
+                    <span class="wiz-photo-hint" th:text="'(max ' + ${studentPhotoMaxSizeKb ?: 500} + 'KB, JPG/PNG — leave empty to keep the current photo)'">(max 500KB, JPG/PNG)</span>
+                  </label>
+                  <div class="wiz-photo-row">
+                    <div class="wiz-photo-preview" id="photoPreviewBox">
+                      <img th:if="${student.pic != null}" id="photoPreviewImg" th:src="@{'/student/images/' + ${student.pic}}" alt="Selected student photo preview">
+                      <img th:if="${student.pic == null}" id="photoPreviewImg" class="d-none" alt="Selected student photo preview">
+                      <i class="bi bi-person" id="photoPreviewPlaceholder" th:classappend="${student.pic != null} ? 'd-none' : ''"></i>
+                    </div>
+                    <div class="wiz-photo-input-col">
+                      <input type="file" class="form-control" id="customerPic" name="customerPic" accept="image/png,image/jpeg,image/jpg">
+                      <div class="wiz-photo-status" id="photoStatusText"></div>
+                    </div>
+                  </div>
+                  <p class="text-danger" th:if="${#fields.hasErrors('pic')}" th:errors="*{pic}">pic Error</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ PHYSICAL ============ -->
+            <div class="es-section es-c-rose" id="es2">
+              <h4><span class="es-h-icon"><i class="bi bi-rulers"></i></span> Physical Information</h4>
+              <div class="row g-3">
+                <div class="col-md-3">
+                  <label for="height" class="form-label">Height (cm)</label>
+                  <input type="number" id="height" class="form-control" th:field="*{height}">
+                </div>
+                <div class="col-md-3">
+                  <label for="weight" class="form-label">Weight (kg)</label>
+                  <input type="number" id="weight" class="form-control" th:field="*{weight}">
+                </div>
+                <div class="col-md-3">
+                  <label for="bloodGroup" class="form-label">Blood Group</label>
+                  <select id="bloodGroup" class="form-control" th:field="*{bloodGroup}">
+                    <option th:each="bloodGroup : ${bloodGroups}" th:value="${bloodGroup}" th:text="${bloodGroup}" th:selected="${bloodGroup} == ${student.bloodGroup}"></option>
+                  </select>
+                </div>
+                <div class="col-md-3">
+                  <label for="bodyType" class="form-label">Body Type</label>
+                  <select id="bodyType" class="form-control" th:field="*{bodyType}">
+                    <option th:each="bodyType : ${bodyTypes}" th:value="${bodyType}" th:text="${bodyType}" th:selected="${bodyType} == ${student.bodyType}"></option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ HEALTH (feature: student health info — sourced from student_health_info, not Student) ============ -->
+            <div class="es-section es-c-violet" id="es3">
+              <h4><span class="es-h-icon"><i class="bi bi-heart-pulse"></i></span> Health Information</h4>
+              <div class="row g-3">
+                <div class="col-md-3">
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="haveHealthIssues" name="haveHealthIssues" value="true" th:checked="${haveHealthIssues}">
+                    <label class="form-check-label" for="haveHealthIssues">Have Health Issues</label>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="haveEyeIssue" name="haveEyeIssue" value="true" th:checked="${haveEyeIssue}">
+                    <label class="form-check-label" for="haveEyeIssue">Have Eye Issue</label>
+                  </div>
+                </div>
+                <div class="col-md-6"></div>
+                <div class="col-md-7">
+                  <label for="healthIssueDescription" class="form-label">Health Issue Description</label>
+                  <div class="form-floating">
+                    <textarea id="healthIssueDescription" name="healthIssueDescription" placeholder="Describe the health/eye issue here" class="form-control" style="height: 100px;" rows="4" cols="50" th:text="${healthIssueDescription}"></textarea>
+                    <label for="healthIssueDescription">Add Health Issue Description</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ CONTACT ============ -->
+            <div class="es-section es-c-emerald" id="es4">
+              <h4><span class="es-h-icon"><i class="bi bi-geo-alt"></i></span> Contact Information</h4>
+              <div class="row g-3">
+                <div class="col-md-7">
+                  <label for="address" class="form-label">Address</label>
+                  <div class="form-floating">
+                    <textarea id="address" placeholder="Add address here" class="form-control" name="address" style="height: 100px;" rows="4" cols="50" th:field="*{address}"></textarea>
+                    <label for="address">Add Address</label>
+                  </div>
+                  <p class="text-danger" th:if="${#fields.hasErrors('address')}" th:errors="*{address}">Address Error</p>
+                </div>
+                <div class="col-md-5"></div>
+                <div class="col-md-4">
+                  <label for="landmark" class="form-label">Landmark</label>
+                  <input type="text" id="landmark" class="form-control" th:field="*{landmark}">
+                </div>
+                <div class="col-md-8"></div>
+                <div class="col-md-4">
+                  <label for="province" class="form-label">Province</label>
+                  <select id="province" th:field="*{province}" class="form-select" name="province">
+                    <option value="">Select Province</option>
+                    <option th:each="province : ${provinces}" th:value="${province.id}" th:text="${province.provinceName}"
+                            th:selected="${province} == ${student.province}">State</option>
+                  </select>
+                  <p class="text-danger" th:if="${#fields.hasErrors('province')}" th:errors="*{province}">Province Error</p>
+                </div>
+                <div class="col-md-2"></div>
+                <div class="col-md-4">
+                  <label for="city" class="form-label">City</label>
+                  <input type="hidden" th:value="${student.city != null ? student.city.id : ''}" id="hiddencity">
+                  <select id="city" class="form-select" name="city" th:field="*{city}">
+                    <option value="">Select City</option>
+                  </select>
+                  <p class="text-danger" th:if="${#fields.hasErrors('city')}" th:errors="*{city}">City Error</p>
+                </div>
+                <div class="col-md-2"></div>
+                <div class="col-md-3">
+                  <label for="pincode" class="form-label">Pincode</label>
+                  <input type="text" id="pincode" class="form-control intfields" th:field="*{pincode}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('pincode')}" th:errors="*{pincode}">City Error</p>
+                </div>
+                <div class="col-md-9"></div>
+                <div class="col-md-3">
+                  <label for="mobile1" class="form-label">Mobile 1</label>
+                  <input type="text" id="mobile1" class="form-control intfields" th:field="*{mobile1}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('mobile1')}" th:errors="*{mobile1}">City Error</p>
+                </div>
+                <div class="col-md-3"></div>
+                <div class="col-md-3">
+                  <label for="mobile2" class="form-label">Mobile 2</label>
+                  <input type="text" id="mobile2" class="form-control intfields" th:field="*{mobile2}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('mobile2')}" th:errors="*{mobile2}">City Error</p>
+                </div>
+                <div class="col-md-3"></div>
+                <div class="col-md-4">
+                  <label for="email" class="form-label">Email</label>
+                  <input type="text" id="email" class="form-control" th:field="*{userEntity.email}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('userEntity.email')}" th:errors="*{userEntity.email}">City Error</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ EMERGENCY ============ -->
+            <div class="es-section es-c-indigo" id="es5">
+              <h4><span class="es-h-icon"><i class="bi bi-telephone"></i></span> In Case of Emergency</h4>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="personName" class="form-label">Contact Person Name</label>
+                  <input type="text" id="personName" class="form-control" th:field="*{personName}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('personName')}" th:errors="*{personName}">Province Error</p>
+                </div>
+                <div class="col-md-3">
+                  <label for="personContact" class="form-label">Contact Person Number</label>
+                  <input type="text" id="personContact" class="form-control intfields" th:field="*{personContact}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('personContact')}" th:errors="*{personContact}">Province Error</p>
+                </div>
+                <div class="col-md-3">
+                  <label for="relationship" class="form-label">Relationship</label>
+                  <select id="relationship" class="form-control" th:field="*{relationship}">
+                    <option th:each="entry : ${relationships}" th:value="${entry.key}" th:text="${entry.value}"
+                            th:selected="${entry} == ${student.relationship}"></option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ ACADEMIC ============ -->
+            <div class="es-section es-c-amber" id="es6">
+              <h4><span class="es-h-icon"><i class="bi bi-mortarboard"></i></span> Academic Information</h4>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label for="studentType" class="form-label">Student Type</label>
+                  <select id="studentType" class="form-control" th:field="*{studentType}">
+                    <option value="OLD" th:selected="OLD == ${student.studentType}">Old</option>
+                    <option value="NEW" th:selected="NEW == ${student.studentType}">New</option>
+                  </select>
+                  <p class="text-danger" th:if="${#fields.hasErrors('studentType')}" th:errors="*{studentType}">studentType Error</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ BANK & AADHAR ============ -->
+            <div class="es-section es-c-pink" id="es7">
+              <h4><span class="es-h-icon"><i class="bi bi-shield-lock"></i></span> Bank &amp; Aadhar Details</h4>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label for="aadharNo" class="form-label">Aadhar Number</label>
+                  <input type="text" id="aadharNo" class="form-control" th:field="*{aadharNo}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('aadharNo')}" th:errors="*{aadharNo}">aadharNo Error</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="es-submit-row">
+              <a class="es-back-link" th:href="@{/student/student}"><i class="bi bi-arrow-left"></i> Back to List</a>
+              <button type="submit" class="es-save-btn"><i class="bi bi-save2-fill"></i> Save Changes</button>
+            </div>
+
           </div>
-        </div>
-        <div class="col-md-3">
-          <div class="form-check">
-            <input type="checkbox" class="form-check-input" id="haveEyeIssue" name="haveEyeIssue" value="true" th:checked="${haveEyeIssue}">
-            <label class="form-check-label" for="haveEyeIssue">Have Eye Issue</label>
-          </div>
-        </div>
-        <div class="col-md-6">
-        </div>
-        <div class="col-md-7">
-          <label for="healthIssueDescription" class="form-label">Health Issue Description</label>
-          <div class="form-floating">
-            <textarea id="healthIssueDescription" name="healthIssueDescription" placeholder="Describe the health/eye issue here" class="form-control" style="height: 100px;" rows="4" cols="50" th:text="${healthIssueDescription}"></textarea>
-            <label for="healthIssueDescription">Add Health Issue Description</label>
-          </div>
-        </div>
-
-        <!-- Contact Info -->
-        <div class="col-12">
-          <h4>Contact Information</h4>
-        </div>
-        <div class="col-md-7">
-          <label for="address" class="form-label">Address</label>
-          <div class="form-floating">
-            <textarea id="address" placeholder="Add address here" class="form-control" name="address" style="height: 100px;" rows="4" cols="50" th:field="*{address}"></textarea>
-            <label for="address">Add Address</label>
-          </div>
-          <p class="text-danger" th:if="${#fields.hasErrors('address')}" th:errors="*{address}">Address Error</p>
-        </div>
-        <div class="col-md-5"></div>
-        <div class="col-md-4">
-          <label for="landmark" class="form-label">Landmark</label>
-          <input type="text" id="landmark" class="form-control" th:field="*{landmark}">
-        </div>
-        <div class="col-md-8"></div>
-        <div class="col-md-4">
-          <label for="province" class="form-label">Province</label>
-          <select id="province" th:field="*{province}" class="form-select" name="province">
-            <option value="">Select Province</option>
-            <option th:each="province : ${provinces}" th:value="${province.id}" th:text="${province.provinceName}"
-                    th:selected="${province} == ${student.province}">State</option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('province')}" th:errors="*{province}">Province Error</p>
-        </div>
-        <div class="col-md-2"></div>
-        <div class="col-md-4">
-          <label for="city" class="form-label">City</label>
-          <input type="hidden" th:value="${student.city != null ? student.city.id : ''}" id="hiddencity">
-          <select id="city" class="form-select" name="city" th:field="*{city}">
-            <option value="">Select City</option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('city')}" th:errors="*{city}">City Error</p>
-        </div>
-        <div class="col-md-2"></div>
-        <div class="col-md-3">
-          <label for="pincode" class="form-label">Pincode</label>
-          <input type="text" id="pincode" class="form-control intfields" th:field="*{pincode}">
-          <p class="text-danger" th:if="${#fields.hasErrors('pincode')}" th:errors="*{pincode}">City Error</p>
-        </div>
-        <div class="col-md-9"></div>
-        <div class="col-md-3">
-          <label for="mobile1" class="form-label">Mobile 1</label>
-          <input type="text" id="mobile1" class="form-control intfields" th:field="*{mobile1}">
-          <p class="text-danger" th:if="${#fields.hasErrors('mobile1')}" th:errors="*{mobile1}">City Error</p>
-        </div>
-        <div class="col-md-3"></div>
-        <div class="col-md-3">
-          <label for="mobile2" class="form-label">Mobile 2</label>
-          <input type="text" id="mobile2" class="form-control intfields" th:field="*{mobile2}">
-          <p class="text-danger" th:if="${#fields.hasErrors('mobile2')}" th:errors="*{mobile2}">City Error</p>
-        </div>
-        <div class="col-md-3"></div>
-        <div class="col-md-4">
-          <label for="email" class="form-label">Email</label>
-          <input type="text" id="email" class="form-control" th:field="*{userEntity.email}">
-          <p class="text-danger" th:if="${#fields.hasErrors('userEntity.email')}" th:errors="*{userEntity.email}">City Error</p>
-        </div>
-        <div class="col-md-8"></div>
-
-        <!-- Emergency Contact -->
-        <div class="col-12">
-          <h4>In Case of Emergency</h4>
-        </div>
-        <div class="col-md-6">
-          <label for="personName" class="form-label">Contact Person Name</label>
-          <input type="text" id="personName" class="form-control" th:field="*{personName}">
-          <p class="text-danger" th:if="${#fields.hasErrors('personName')}" th:errors="*{personName}">Province Error</p>
-        </div>
-        <div class="col-md-3">
-          <label for="personContact" class="form-label">Contact Person Number</label>
-          <input type="text" id="personContact" class="form-control intfields" th:field="*{personContact}">
-          <p class="text-danger" th:if="${#fields.hasErrors('personContact')}" th:errors="*{personContact}">Province Error</p>
-        </div>
-        <div class="col-md-3">
-          <label for="relationship" class="form-label">Relationship</label>
-          <select id="relationship" class="form-control" th:field="*{relationship}">
-            <option th:each="entry : ${relationships}" th:value="${entry.key}" th:text="${entry.value}"
-                    th:selected="${entry} == ${student.relationship}"></option>
-          </select>
-        </div>
-
-        <!-- Extra Information -->
-        <div class="col-12">
-          <h4>Academic Information</h4>
-        </div>
-        <div class="col-md-4">
-          <label for="studentType" class="form-label">Student Type</label>
-          <!--<input type="text" id="studentType" class="form-control" th:field="*{studentType}">-->
-          <select id="studentType" class="form-control" th:field="*{studentType}">
-            <option value="OLD" th:selected="OLD == ${student.studentType}">Old</option>
-            <option value="NEW" th:selected="NEW == ${student.studentType}">New</option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('studentType')}" th:errors="*{studentType}">studentType Error</p>
-        </div>
-        <!-- Bank & Aadhar Details -->
-        <div class="col-12">
-          <h4>Bank & Aadhar Details</h4>
-        </div>
-        <div class="col-md-4">
-          <label for="aadharNo" class="form-label">Aadhar Number</label>
-          <input type="text" id="aadharNo" class="form-control" th:field="*{aadharNo}">
-          <p class="text-danger" th:if="${#fields.hasErrors('aadharNo')}" th:errors="*{aadharNo}">aadharNo Error</p>
-        </div>
-
-        <!-- Submit Button -->
-        <hr/>
-        <div class="col-md-4">
-          <a class="btn btn-outline-secondary btn-sm" th:href="@{/student/student}"><i class="bi bi-arrow-left"></i> Back to List</a>
-        </div>
-        <div class="col-md-6 mb-5">
-          <button type="submit" class="btn btn-primary"><i class="bi bi-save2-fill"></i> Save</button>
         </div>
       </form>
     </div>
@@ -331,80 +456,143 @@
 
   <script type="text/javascript" th:inline="javascript">
     const contextPath = /*[[@{/}]]*/ '/';
+    /*<![CDATA[*/
+    const serverError = [[${error}]];
+    const studentPhotoMaxSizeKb = [[${studentPhotoMaxSizeKb ?: 500}]];
+    /*]]>*/
+
     flatpickr("#dob", {
       dateFormat: "d/M/Y",  // Equivalent to dd/MMM/yyyy
     });
-      $(document).ready(function() {
-        function loadCities(state, selectedCity) {
-          if (state) {
-            $.ajax({
-              type: 'GET',
-              url: `${contextPath}student/student/cities`,
-              data: { provinceId: state },
-              success: function(cities) {
-                console.log("cities: "+cities);
-                let $citySelect = $('#city');
-                $citySelect.empty();
-                $citySelect.append('<option value="">Select City</option>');
-                $.each(cities, function(index, city) {
-                  $citySelect.append('<option value="' + city.id + '">' + city.cityName + '</option>');
-                });
-                console.log("selectedCity "+selectedCity);
-                // Set the previously selected city
-                if (selectedCity) {
-                  $citySelect.val(selectedCity);
-                }
+
+    $(document).ready(function() {
+      function loadCities(state, selectedCity) {
+        if (state) {
+          $.ajax({
+            type: 'GET',
+            url: `${contextPath}student/student/cities`,
+            data: { provinceId: state },
+            success: function(cities) {
+              let $citySelect = $('#city');
+              $citySelect.empty();
+              $citySelect.append('<option value="">Select City</option>');
+              $.each(cities, function(index, city) {
+                $citySelect.append('<option value="' + city.id + '">' + city.cityName + '</option>');
+              });
+              if (selectedCity) {
+                $citySelect.val(selectedCity);
               }
-            });
-          }
+            }
+          });
         }
-
-        $('#province').change(function() {
-          let selectedState = $(this).val();
-          loadCities(selectedState);
-        });
-
-        // Trigger change to load cities if a state is already selected
-        let initialSelectedState = $('#province').val();
-        let initialSelectedNewCity = $('#hiddencity').val();
-        let initialSelectedCity = /*[[${student.city != null ? student.city.id : 0}]]*/ 0;
-        console.log("initialSelectedState:> "+initialSelectedState);
-        console.log("initialSelectedNewCity:> "+initialSelectedNewCity);
-        console.log("initial:> "+initialSelectedCity);
-        if (initialSelectedState) {
-          loadCities(initialSelectedState, initialSelectedNewCity);
-        }
-        $('.intfields').on('input', function() {
-          this.value = this.value.replace(/[^0-9]/g, '');
-        });
-      });
-
-      $("#dob").datepicker({
-        dateFormat: "dd-MMM-yyyy"
-      });
-      toastr.options = {
-        "closeButton": true,
-        "debug": false,
-        "newestOnTop": false,
-        "progressBar": false,
-        "positionClass": "toast-top-right",
-        "preventDuplicates": false,
-        "onclick": null,
-        "showDuration": "600",
-        "hideDuration": "1000",
-        "timeOut": "5000",
-        "extendedTimeOut": "1000",
-        "showEasing": "swing",
-        "hideEasing": "linear",
-        "showMethod": "fadeIn",
-        "hideMethod": "fadeOut"
       }
 
+      $('#province').change(function() {
+        let selectedState = $(this).val();
+        loadCities(selectedState);
+      });
 
+      // Trigger change to load cities if a state is already selected
+      let initialSelectedState = $('#province').val();
+      let initialSelectedNewCity = $('#hiddencity').val();
+      if (initialSelectedState) {
+        loadCities(initialSelectedState, initialSelectedNewCity);
+      }
+      $('.intfields').on('input', function() {
+        this.value = this.value.replace(/[^0-9]/g, '');
+      });
 
+      // ===================== Student photo: preview + size cap =====================
+      // Size limit is configurable server-side (system_config key
+      // STUDENT_PHOTO_MAX_SIZE_KB, default 500) and re-validated server-side on
+      // submit — this client-side check is just fast feedback + preview, not
+      // the security boundary. Leaving the file input empty keeps the
+      // student's current photo (handled server-side in editStudentDetails).
+      let esPhotoValid = true;
+      $(document).on('change', '#customerPic', function () {
+        const file = this.files && this.files[0];
+        const $status = $('#photoStatusText');
+        const $img = $('#photoPreviewImg');
+        const $placeholder = $('#photoPreviewPlaceholder');
 
+        if (!file) {
+          esPhotoValid = true;
+          $status.removeClass('err ok').text('');
+          return;
+        }
+
+        const sizeKb = file.size / 1024;
+        if (sizeKb > studentPhotoMaxSizeKb) {
+          esPhotoValid = false;
+          $status.removeClass('ok').addClass('err').text(
+            'This photo is ' + Math.round(sizeKb) + 'KB — max allowed is ' + studentPhotoMaxSizeKb + 'KB. Please choose a smaller image.'
+          );
+          $(this).val('');
+          showMsg('error', 'Photo exceeds the ' + studentPhotoMaxSizeKb + 'KB limit.', 'Error');
+          return;
+        }
+
+        esPhotoValid = true;
+        $status.removeClass('err').addClass('ok').text(Math.round(sizeKb) + 'KB — looks good.');
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          $img.attr('src', e.target.result).removeClass('d-none');
+          $placeholder.addClass('d-none');
+        };
+        reader.readAsDataURL(file);
+      });
+
+      $('#editStudentForm').on('submit', function (e) {
+        if (!esPhotoValid) {
+          e.preventDefault();
+          showMsg('error', 'Please choose a photo under ' + studentPhotoMaxSizeKb + 'KB, or clear the selection.', 'Error');
+          document.getElementById('es1').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+
+      // Surface a server-side error (thrown during save, e.g. duplicate
+      // mobile number) — previously set on the model but never actually
+      // rendered anywhere on this page.
+      if (serverError) {
+        showMsg('error', serverError, 'Error');
+      }
+      // If the server round-tripped a validation error, scroll to the
+      // first one instead of leaving the user on top with no clue why.
+      const $firstError = $('.es-section .text-danger').filter(function () { return $(this).text().trim().length > 0; }).first();
+      if ($firstError.length) {
+        $firstError[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
+      // Sidebar nav: highlight the section currently in view while scrolling.
+      // Same hardened pattern as the Student Detail page — rAF-throttled,
+      // runs once immediately on load.
+      const esSections = $('.es-section').map(function () { return this.id; }).get();
+      const $esNavLinks = $('#esNav a');
+      let esNavTicking = false;
+      const updateEsActiveNav = function () {
+        let current = esSections[0];
+        esSections.forEach(function (id) {
+          const el = document.getElementById(id);
+          if (el && el.getBoundingClientRect().top < 140) { current = id; }
+        });
+        $esNavLinks.removeClass('active');
+        $esNavLinks.filter('[href="#' + current + '"]').addClass('active');
+        esNavTicking = false;
+      };
+      $(window).on('scroll', function () {
+        if (!esNavTicking) {
+          esNavTicking = true;
+          window.requestAnimationFrame(updateEsActiveNav);
+        }
+      });
+      updateEsActiveNav();
+      $esNavLinks.on('click', function () {
+        $esNavLinks.removeClass('active');
+        $(this).addClass('active');
+      });
+    });
   </script>
-
 
   <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html
        now loads them in <head>, so they are available before this page's

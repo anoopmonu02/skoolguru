@@ -6,66 +6,238 @@
 </head>
 <body>
 <section>
+
+  <style>
+    /* ============================================================
+       Update Aadhar — filter card + DataTable-powered result table.
+       Reuses tokens.css variables; "Aadhar/Bank" themed pink accent
+       matches the colour already used for Bank & Government IDs on the
+       Student Detail / Edit Student pages, so the colour means the same
+       thing everywhere in the app.
+       ============================================================ */
+    .aa-card {
+      background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-xs); padding: 20px 22px; margin-bottom: 18px;
+    }
+    .aa-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+    .aa-card-head h2 { font-size: 14.5px; font-weight: 800; margin: 0; color: var(--text-primary); }
+    .aa-icon { width: 30px; height: 30px; border-radius: 9px; background: rgba(236,72,153,.12); color: #ec4899; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+    .aa-sub { font-size: 12px; color: var(--text-muted); margin: 2px 0 16px; }
+
+    .aa-btn-primary {
+      background: var(--accent); border: 1px solid var(--accent); color: #fff; padding: 8px 18px;
+      border-radius: var(--radius-md); font-size: 13.5px; font-weight: 700; display: inline-flex;
+      align-items: center; gap: 7px; cursor: pointer; box-shadow: var(--shadow-sm);
+      transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
+    }
+    .aa-btn-primary:hover { background: var(--brand-600); border-color: var(--brand-600); color: #fff; box-shadow: var(--shadow-md); }
+    .aa-btn-primary:active { transform: translateY(1px); }
+
+    .aa-upload-group .btn {
+      background: #fff; border: 1px solid rgba(236,72,153,.35); color: #ec4899; font-weight: 700; font-size: 13.5px;
+    }
+    .aa-upload-group .btn:hover { background: rgba(236,72,153,.08); color: #ec4899; border-color: #ec4899; }
+
+    .aa-count-badge {
+      display: inline-flex; align-items: center; gap: 6px; background: var(--accent-light); color: var(--accent);
+      border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 700; margin-left: auto;
+    }
+
+    /* Table look copied 1:1 from the Student List page (#student-list) —
+       no vertical grid lines, no boxed/bordered table, no zebra stripes;
+       just a header row and a bottom hairline under each body row, with a
+       hover highlight. The JS below builds this table WITHOUT Bootstrap's
+       table-bordered class for the same reason. */
+    .aa-table-wrap table.dataTable { font-size: 13.4px; }
+    #sr-table-data.table { border: none; }
+    #sr-table-data thead th {
+      text-align: left;
+      padding: 10px 14px;
+      color: var(--text-muted);
+      font-weight: 700;
+      font-size: .68rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      background: var(--body-bg);
+      white-space: nowrap;
+      border-top: none !important;
+      border-bottom: 1px solid var(--border-color) !important;
+    }
+    #sr-table-data tbody td {
+      padding: 9px 14px;
+      vertical-align: middle;
+      border-top: none !important;
+      border-left: none !important;
+      border-right: none !important;
+      border-bottom: 1px solid var(--border-color) !important;
+      background-color: transparent !important;
+    }
+    #sr-table-data tbody tr:hover td { background-color: var(--body-bg) !important; }
+    #sr-table-data tbody tr:last-child td { border-bottom: none !important; }
+
+    .aa-table-wrap .aadhar-input { max-width: 220px; }
+    .aa-table-wrap .aadhar-input.is-invalid { border-color: #dc2626; }
+
+    /* Student Name avatar-initials badge + Mobile masking + custom search/
+       pagination — the same classes/behaviour as the Student List page, so
+       the same colour/pattern means the same thing app-wide. All of
+       DataTables' own auto-generated chrome (search box, length select,
+       pagination, info text) is disabled below (layout: {...null} in the
+       script) and replaced by this page's own search box / "rows per page"
+       select / footer, wired to the table's own API — unlike the Student
+       List page there's no serverSide/ajax here, every row is already
+       loaded in the browser from the one getStudentsForSR call, so
+       DataTables just paginates/filters/sorts what's already in the DOM. */
+    .stu-name-text { color: var(--text-primary); font-weight: 600; }
+    /* Name + class-SR-no stacked vertically next to the avatar (matches the
+       reference mockup) — .stu-cell/.stu-avatar/.stu-name-text themselves
+       are the shared global classes also used on the Student List page;
+       this two-line block is specific to this page since Student List
+       shows SR in its own separate column instead. */
+    .aa-name-block { display: flex; flex-direction: column; line-height: 1.3; }
+    .aa-sr-sub { font-size: 11px; color: var(--text-muted); font-weight: 500; }
+    .aa-table-wrap .config-search-wrap { max-width: 320px; margin: 4px 0 14px; }
+
+    .stu-table-footer {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding-top: 14px; margin-top: 10px; border-top: 1px solid var(--border-color); flex-wrap: wrap;
+    }
+    .stu-footer-left { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+    .stu-length-label { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--text-muted); }
+    .stu-length-select {
+      border-radius: var(--radius-sm); border: 1px solid var(--border-color);
+      background: var(--card-bg); color: var(--text-primary); padding: 4px 8px; font-size: .8rem;
+    }
+    .stu-page-info { font-size: .8rem; color: var(--text-muted); }
+    .stu-pagination { display: flex; gap: 5px; }
+    .stu-page-btn {
+      min-width: 30px; height: 30px; padding: 0 8px;
+      border-radius: var(--radius-sm); border: 1px solid var(--border-color);
+      background: var(--card-bg); color: var(--text-primary);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: .8rem; font-weight: 600; cursor: pointer;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    .stu-page-btn:hover:not(.disabled):not(.active) {
+      background: var(--accent-light); border-color: var(--accent); color: var(--accent);
+    }
+    .stu-page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; cursor: default; }
+    .stu-page-btn.disabled { opacity: .45; cursor: default; pointer-events: none; }
+    .stu-page-ellipsis {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; color: var(--text-muted); font-size: .8rem;
+    }
+
+    .aa-empty { text-align: center; color: var(--text-muted); font-size: 13.5px; padding: 34px 10px; }
+    .aa-empty i { font-size: 26px; display: block; margin-bottom: 8px; color: var(--border-color); }
+
+    .aa-action-bar {
+      display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+      background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-xs); padding: 16px 20px; margin: 0 0 40px;
+    }
+    .aa-save-btn {
+      display: inline-flex; align-items: center; gap: 8px; border: none; color: #fff;
+      background: linear-gradient(135deg, #16a34a, #15803d); padding: 11px 24px; border-radius: 10px;
+      font-size: 14px; font-weight: 700; box-shadow: 0 2px 8px rgba(22,163,74,.35);
+      transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
+    }
+    .aa-save-btn:hover { opacity: .93; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(22,163,74,.45); }
+
+    .modal-header .bi { color: #ec4899; }
+  </style>
+
   <div class="container-fluid px-3">
     <div class="row mt-2 ">
       <div class="col-md-12 ">
         <div th:replace="~{components/ui :: page-header('Update Aadhar - Student')}"></div>
-
       </div>
-      <div class="row mt-3 pb-3">
-        <div class="col-md-2">
-          <label for="medium" class="form-label">Medium</label>
-          <select name="medium" id="medium" class="form-select">
-            <option value="">Select Medium</option>
-            <option th:each="med : ${mediums}" th:value="${med.id}" th:text="${med.mediumName}">Medium</option>
-          </select>
-        </div>
-        <div class="col-md-2">
-          <label for="grade" class="form-label">Grade</label>
-          <select name="grade" id="grade" class="form-select">
-            <option value="">Select Grade</option>
-            <option th:each="grade : ${grades}" th:value="${grade.id}" th:text="${grade.gradeName}">Grade</option>
-          </select>
-        </div>
-        <div class="col-md-2">
-          <label for="section" class="form-label">Section</label>
-          <select name="section" id="section" class="form-select">
-            <option value="">Select Section</option>
-            <option th:each="section : ${sections}" th:value="${section.id}" th:text="${section.sectionName}">Section</option>
-          </select>
-        </div>
-        <div class="col-md-2 align-self-end">
-          <div class="col-sm-12">
-            <button name="getfee" id="getfee" class="btn btn-primary"><i class="bi bi-search"></i> Get Student List </button>
+
+      <div class="col-12">
+        <div class="aa-card">
+          <div class="aa-card-head"><span class="aa-icon"><i class="bi bi-shield-lock-fill"></i></span><h2>Filter Students</h2></div>
+          <div class="aa-sub">Pick Medium / Grade / Section to load the class list, or upload an Aadhar sheet in bulk.</div>
+          <div class="row g-3">
+            <div class="col-md-2">
+              <label for="medium" class="form-label">Medium</label>
+              <select name="medium" id="medium" class="form-select">
+                <option value="">Select Medium</option>
+                <option th:each="med : ${mediums}" th:value="${med.id}" th:text="${med.mediumName}">Medium</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label for="grade" class="form-label">Grade</label>
+              <select name="grade" id="grade" class="form-select">
+                <option value="">Select Grade</option>
+                <option th:each="grade : ${grades}" th:value="${grade.id}" th:text="${grade.gradeName}">Grade</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label for="section" class="form-label">Section</label>
+              <select name="section" id="section" class="form-select">
+                <option value="">Select Section</option>
+                <option th:each="section : ${sections}" th:value="${section.id}" th:text="${section.sectionName}">Section</option>
+              </select>
+            </div>
+            <div class="col-md-3 align-self-end">
+              <button name="getfee" id="getfee" class="aa-btn-primary"><i class="bi bi-search"></i> Get Student List</button>
+            </div>
+            <div class="col-md-3 align-self-end text-md-end">
+              <div class="btn-group aa-upload-group">
+                <button type="button" class="btn"><i class="bi bi-upload"></i> Upload Aadhar</button>
+                <button type="button" class="btn dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                  <span class="visually-hidden">Toggle Dropdown</span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  <!--<li><a class="dropdown-item" href="#"><i class="bi bi-cloud-upload-fill"></i> Upload SR - Garde</a></li>-->
+                  <li><a class="dropdown-item" href="#" onclick="uploadFileGradeWise()"><i class="bi bi-cloud-upload-fill"></i> Upload Aadhar - Full</a></li>
+                  <li><hr class="dropdown-divider"></li>
+                  <!--<li><a class="dropdown-item" onclick="downloadSample('G')" href="#"><i class="bi bi-download"></i> Download Sample File(Grade)</a></li>-->
+                  <li><a class="dropdown-item" onclick="downloadSample('F')" href="#"><i class="bi bi-download"></i> Download Sample File(Full)</a></li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="col-md-3 align-self-end">
-          <div class="btn-group">
-            <button type="button" class="btn btn-secondary"><i class="bi bi-upload"></i> Upload Aadhar</button>
-            <button type="button" class="btn btn-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
-              <span class="visually-hidden">Toggle Dropdown</span>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-              <!--<li><a class="dropdown-item" href="#"><i class="bi bi-cloud-upload-fill"></i> Upload SR - Garde</a></li>-->
-              <li><a class="dropdown-item" href="#" onclick="uploadFileGradeWise()"><i class="bi bi-cloud-upload-fill"></i> Upload Aadhar - Full</a></li>
-              <li><hr class="dropdown-divider"></li>
-              <!--<li><a class="dropdown-item" onclick="downloadSample('G')" href="#"><i class="bi bi-download"></i> Download Sample File(Grade)</a></li>-->
-              <li><a class="dropdown-item" onclick="downloadSample('F')" href="#"><i class="bi bi-download"></i> Download Sample File(Full)</a></li>
-            </ul>
+      </div>
+
+      <div class="col-12">
+        <div class="aa-card aa-table-wrap">
+          <div class="aa-card-head">
+            <span class="aa-icon"><i class="bi bi-people-fill"></i></span><h2>Student List</h2>
+            <span class="aa-count-badge d-none" id="aaCountBadge"><i class="bi bi-person-check"></i> <span id="aaCountNum">0</span> loaded</span>
+          </div>
+
+          <div class="config-search-wrap d-none" id="aaSearchWrap">
+            <i class="bi bi-search"></i>
+            <input type="text" class="form-control form-control-sm" id="aaSearchInput" placeholder="Search by name, father, mother…">
+          </div>
+
+          <div id="student-grade-data">
+            <div class="aa-empty"><i class="bi bi-search"></i>Pick Medium / Grade / Section above, then click "Get Student List".</div>
+          </div>
+
+          <div class="stu-table-footer d-none" id="aaTableFooter">
+            <div class="stu-footer-left">
+              <label class="stu-length-label">Rows per page
+                <select id="aaPageLength" class="stu-length-select">
+                  <option value="10">10</option>
+                  <option value="25" selected>25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                  <option value="-1">All</option>
+                </select>
+              </label>
+              <span id="aaPageInfo" class="stu-page-info">Showing 0 of 0 students</span>
+            </div>
+            <div class="stu-pagination" id="aaPagination"></div>
           </div>
         </div>
       </div>
-      <hr/>
 
-      <div class="col-12" id="student-grade-data">
-
-      </div>
-      <div id="btn-classes" style="display: none;" class="row">
-        <div class="col-md-5">
-
-        </div>
-        <div class="col-md-6 mb-5 pt-5">
-          <button type="button" class="btn btn-primary" id="save-sr-from-table"><i class="bi bi-save2-fill"></i> Save Aadhar</button>
+      <div id="btn-classes" class="col-12" style="display: none;">
+        <div class="aa-action-bar">
+          <button type="button" class="aa-save-btn" id="save-sr-from-table"><i class="bi bi-save2-fill"></i> Save Aadhar (Bulk)</button>
         </div>
       </div>
 
@@ -74,7 +246,7 @@
         <div class="modal-dialog">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title" id="fileUploadModalLabel">Upload File</h5>
+              <h5 class="modal-title" id="fileUploadModalLabel"><i class="bi bi-cloud-upload-fill"></i> Upload File</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -98,7 +270,7 @@
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title" id="fileInfoModalLabel">Aadhar Information</h5>
+              <h5 class="modal-title" id="fileInfoModalLabel"><i class="bi bi-info-circle-fill"></i> Aadhar Information</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -173,6 +345,60 @@
       toastr[msgType](msg,headerValue);
     }
 
+    // Same escaping helper used on the Mobile Users page — table rows here are
+    // built by string-concatenating student data into HTML (as before), this
+    // just makes sure a name containing <, >, or & can't break the table or
+    // inject markup.
+    function escHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    // Avatar-initials chip shown next to each student's name — same palette
+    // used on the Student List page, keyed off each row's position in this
+    // (already fully loaded) list rather than a numeric row id, since the
+    // data here only carries a uuid per student, not a numeric id.
+    const avatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+    const initialsOf = function (name) {
+      return (name || '').trim().split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+    };
+
+    // ── Mobile masking, click-to-reveal — same pattern used on the Student
+    // List / Student Detail pages. Display-only: the real number is still
+    // present in the getStudentsForSR response (visible in the browser's
+    // network tab), this just keeps it off the screen by default.
+    const maskMobile = function (raw) {
+      var v = String(raw || '');
+      if (v.length <= 4) { return v; }
+      return v.slice(0, 2) + 'x'.repeat(v.length - 4) + v.slice(-2);
+    };
+    const maskedCell = function (raw, maskFn) {
+      if (!raw) { return ''; }
+      var full = escHtml(raw);
+      var masked = escHtml(maskFn(raw));
+      return '<span class="mask-cell">' +
+        '<span class="mask-text" data-full="' + full + '" data-masked="' + masked + '">' + masked + '</span>' +
+        '<button type="button" class="mask-toggle" title="Show"><i class="bi bi-eye"></i></button>' +
+        '</span>';
+    };
+
+    // Mask/reveal toggle for the Mobile cell (event delegation — rows are
+    // rendered dynamically every time a new class list is loaded).
+    $(document).on('click', '.mask-toggle', function () {
+      var $btn = $(this);
+      var $text = $btn.siblings('.mask-text');
+      var revealed = $text.attr('data-revealed') === 'true';
+      if (revealed) {
+        $text.text($text.attr('data-masked')).attr('data-revealed', 'false');
+        $btn.attr('title', 'Show').find('i').attr('class', 'bi bi-eye');
+      } else {
+        $text.text($text.attr('data-full')).attr('data-revealed', 'true');
+        $btn.attr('title', 'Hide').find('i').attr('class', 'bi bi-eye-slash');
+      }
+    });
+
     let medium, grade, section;
 
     const validateMandatoryValues=()=>{
@@ -209,7 +435,6 @@
             fileType: val
           };
         }
-        console.log("requestData::: "+JSON.stringify(requestData));
         fetch(url, {
           method: 'POST',
           headers: {
@@ -232,10 +457,8 @@
                     document.body.appendChild(link);
                     link.click();
                     link.remove();
-                    //toastr["success"]("File downloaded successfully", "Success");
                     showMsg("success","File downloaded successfully","Success");
                   } else {
-                    //toastr["error"](data.error || "An unknown error occurred", "Error");
                     showMsg("error",(data.error || "An unknown error occurred"), "Error");
                   }
                 })
@@ -254,36 +477,14 @@
     const submitFile=()=> {
       let form = document.getElementById('fileUploadForm');
       let formData = new FormData(form);
-
-      // Perform your AJAX request or any other actions here
-      // Example: upload via AJAX
-      /*fetch('/upload-sr', {
-          method: 'POST',
-          body: formData
-      }).then(response => {
-          if (response.ok) {
-              alert('File uploaded successfully!');
-              // Optionally, close the modal
-              fileUploadModal.hide();
-          } else {
-              alert('File upload failed.');
-          }
-      }).catch(error => {
-          console.error('Error:', error);
-      });*/
-
       uploadedFile = formData.get('file');
 
-      // Simulate file processing
       if (uploadedFile) {
-        // Close the first modal
         let fileUploadModal = bootstrap.Modal.getInstance(document.getElementById('fileUploadModal'));
         fileUploadModal.hide();
 
-        // Show the file info in the second modal
         document.getElementById('fileInfo').textContent = `File: ${uploadedFile.name}, Size: ${uploadedFile.size} bytes`;
 
-        // Open the second modal
         const fileInfoModal = new bootstrap.Modal(document.getElementById('fileInfoModal'));
         fileInfoModal.show();
       } else {
@@ -310,19 +511,16 @@
         })
                 .then(response => {
                   if (!response.ok) {
-                    // Handle HTTP errors (e.g., 400, 500)
                     throw new Error(`Error ${response.status}: ${response.statusText}`);
                   }
                   return response.json();
                 })
                 .then(data => {
                   if (data === "No students found for the given criteria.") {
-                    //alert('No students found.');
                     showMsg("warning", data, "Message");
+                    renderStudentData([]);
                   } else {
-                    // Assuming data is the student list, render it in the table
-                    //.alert('Data fetched successfully!');
-                    renderStudentData(data); // Call function to display student data
+                    renderStudentData(data);
                   }
                 })
                 .catch(error => {
@@ -331,23 +529,59 @@
                 });
       }
     };
+
     function renderStudentData(studentData) {
       let divTabId = $("#student-grade-data");
       let btndiv = $("#btn-classes");
-      btndiv.hide();
-      divTabId.html('');
+      let badge = $("#aaCountBadge");
+      let searchWrap = $("#aaSearchWrap");
+      let tableFooter = $("#aaTableFooter");
+
+      // Tear down any previous DataTable instance before replacing the
+      // table's HTML — DataTables keeps its own references to the old DOM
+      // node and throws if you swap the markup out from under it.
+      if ($.fn.DataTable.isDataTable('#sr-table-data')) {
+        $('#sr-table-data').DataTable().destroy();
+      }
+
+      if (!studentData || studentData.length === 0) {
+        btndiv.hide();
+        badge.addClass('d-none');
+        searchWrap.addClass('d-none');
+        tableFooter.addClass('d-none');
+        divTabId.html('<div class="aa-empty"><i class="bi bi-emoji-frown"></i>No students found for this Medium / Grade / Section.</div>');
+        return;
+      }
+
       let rowCount = 0;
-      let tbl = '<table class="table table-bordered table-sm" id="sr-table-data"><thead><th>#</th><th>Student Name</th><th>Father Name</th><th>Mother Name</th><th>Mobile</th><th>Aadhar</th></thead><tbody class="table-group-divider">'
-      studentData.forEach(function(student) {
+      let tbl = '<table class="table table-sm" id="sr-table-data" style="width:100%">'
+        + '<thead><tr><th>Student Name</th><th>Father Name</th><th>Mother Name</th><th>Mobile</th><th>Aadhar</th></tr></thead>'
+        + '<tbody class="table-group-divider">';
+      studentData.forEach(function(student, idx) {
         let srno = student.student.aadharNo ? student.student.aadharNo.trim() : '';
+        let name = student.student.studentName || '';
+        // classSrNo comes back at the top level of each getStudentsForSR
+        // item (a sibling of uuid/student, see StudentService.
+        // toLeanAcademicStudentMap) — already available, no backend change
+        // needed. Shown as-is (no invented "SR-" prefix) under the name,
+        // same convention as the Student List page's own SR column.
+        let classSr = student.classSrNo ? String(student.classSrNo).trim() : '';
+        let color = avatarColors[idx % avatarColors.length];
+        let nameCell = '<div class="stu-cell">'
+          + '<div class="stu-avatar" style="background:' + color + '22;color:' + color + '">' + initialsOf(name) + '</div>'
+          + '<div class="aa-name-block">'
+          + '<span class="stu-name-text">' + escHtml(name) + '</span>'
+          + (classSr ? '<span class="aa-sr-sub">' + escHtml(classSr) + '</span>' : '')
+          + '</div>'
+          + '</div>';
+        rowCount++;
         tbl += `<tr>
-                      <td>${++rowCount}</td>
-                      <td>${student.student.studentName}</td>
-                      <td>${student.student.fatherName}</td>
-                      <td>${student.student.motherName}</td>
-                      <td>${student.student.mobile1}</td>
-                      <td width="20%">
-                            <input type="text" id="sr_${student.uuid}" name="sr_${student.uuid}" value="${srno}" class="form-control"/>
+                      <td data-order="${escHtml(name)}">${nameCell}</td>
+                      <td>${escHtml(student.student.fatherName)}</td>
+                      <td>${escHtml(student.student.motherName)}</td>
+                      <td>${maskedCell(student.student.mobile1, maskMobile)}</td>
+                      <td>
+                            <input type="text" inputmode="numeric" maxlength="12" id="sr_${student.uuid}" name="sr_${student.uuid}" value="${escHtml(srno)}" class="form-control aadhar-input"/>
                       </td>
                    </tr>`;
 
@@ -355,6 +589,130 @@
       tbl+='</tbody></table>';
       divTabId.html(tbl);
       btndiv.show();
+      badge.removeClass('d-none');
+      searchWrap.removeClass('d-none');
+      tableFooter.removeClass('d-none');
+      $("#aaCountNum").text(rowCount);
+      $('#aaSearchInput').val('');
+      $('#aaPageLength').val('25');
+
+      // Records-per-page + search + sort — same feature set AND the same
+      // fully-custom chrome as the Student List page's table. All of
+      // DataTables' own auto-generated chrome is disabled via layout:
+      // {...null} below; the search box / "rows per page" select / footer
+      // built into this page's HTML are wired to the table's own API
+      // instead (table.search()/.page()/.page.len()). Unlike the Student
+      // List page there's no serverSide/ajax option — every row is already
+      // loaded in the browser from the one getStudentsForSR call.
+      // Ordering is switched off on Mobile (masked display text, not a
+      // meaningful sort) and Aadhar (holds a live input, not sortable
+      // text); Student Name sorts by the real name via each cell's
+      // data-order attribute, not the rendered avatar-badge markup.
+      // th:inline="javascript" note: lengthMenu's two arrays are built from
+      // named variables (not a nested array literal) on purpose — two
+      // adjacent opening square brackets here would be misread by
+      // Thymeleaf's JS-inlining preprocessor as the start of an inlined
+      // output expression, which is exactly what broke this the first
+      // time around.
+      const aaPageSizeValues = [10, 25, 50, 100, -1];
+      const aaPageSizeLabels = [10, 25, 50, 100, 'All'];
+      const table = $('#sr-table-data').DataTable({
+        searching: true,
+        ordering: true,
+        info: true,
+        lengthMenu: [aaPageSizeValues, aaPageSizeLabels],
+        pageLength: 25,
+        layout: {
+          topStart: null,
+          topEnd: null,
+          top1Start: null,
+          bottomStart: null,
+          bottomEnd: null
+        },
+        columnDefs: [
+          { orderable: false, targets: [3, 4] }
+        ],
+        language: {
+          emptyTable: 'No students to show.'
+        }
+      });
+
+      // Custom search pill (replaces DataTables' own disabled search box) —
+      // debounced so fast typing doesn't redraw on every keystroke. Handler
+      // is rebound (off/on) each render since a fresh DataTable/table
+      // closure is created every time a new class list is loaded.
+      let aaSearchDebounce;
+      $('#aaSearchInput').off('input').on('input', function () {
+        var value = this.value;
+        clearTimeout(aaSearchDebounce);
+        aaSearchDebounce = setTimeout(function () { table.search(value).draw(); }, 300);
+      });
+
+      // Custom "rows per page" selector (replaces the disabled default
+      // pageLength dropdown).
+      $('#aaPageLength').off('change').on('change', function () {
+        table.page.len(parseInt(this.value, 10)).draw();
+      });
+
+      // Custom footer: "Showing X-Y of Z students" + numbered page buttons,
+      // kept in sync with the table via the 'draw' event (fires after every
+      // draw — initial load, search, sort, page change, length change).
+      const renderAaPagination = function () {
+        var info = table.page.info();
+        var shown = info.recordsDisplay === 0 ? 0 : info.start + 1;
+        $('#aaPageInfo').text(
+          'Showing ' + shown + '–' + info.end + ' of ' + info.recordsDisplay.toLocaleString() + ' students'
+        );
+
+        var $pg = $('#aaPagination').empty();
+        var cur = info.page, total = info.pages;
+
+        var addBtn = function (label, page, opts) {
+          opts = opts || {};
+          var $b = $('<button type="button" class="stu-page-btn"></button>').html(label);
+          if (opts.active) { $b.addClass('active'); }
+          if (opts.disabled) {
+            $b.addClass('disabled').attr('disabled', 'disabled');
+          } else {
+            $b.on('click', function () { table.page(page).draw('page'); });
+          }
+          $pg.append($b);
+        };
+
+        addBtn('<i class="bi bi-chevron-left"></i>', cur - 1, { disabled: cur <= 0 });
+
+        var pages = [];
+        if (total <= 7) {
+          for (var i = 0; i < total; i++) { pages.push(i); }
+        } else {
+          pages.push(0);
+          if (cur > 2) { pages.push('…'); }
+          for (var j = Math.max(1, cur - 1); j <= Math.min(total - 2, cur + 1); j++) { pages.push(j); }
+          if (cur < total - 3) { pages.push('…'); }
+          if (total > 1) { pages.push(total - 1); }
+        }
+        pages.forEach(function (p) {
+          if (p === '…') {
+            $pg.append('<span class="stu-page-ellipsis">…</span>');
+            return;
+          }
+          addBtn(String(p + 1), p, { active: p === cur });
+        });
+
+        addBtn('<i class="bi bi-chevron-right"></i>', cur + 1, { disabled: cur >= total - 1 });
+      };
+      table.on('draw', renderAaPagination);
+      // For AJAX-backed tables (e.g. the Student List page) the first draw
+      // happens asynchronously, well after this "draw" listener above is
+      // registered, so it always catches it. This table's data is already
+      // in the DOM, so DataTables performs its first draw SYNCHRONOUSLY
+      // inside the .DataTable({...}) call above — before this listener is
+      // even registered — and that initial draw would otherwise be missed,
+      // leaving the footer stuck on its static "Showing 0 of 0" placeholder
+      // with no page buttons. Calling it once here catches that initial
+      // state; every draw after this (search/sort/page/length change) is
+      // still caught by the listener itself.
+      renderAaPagination();
     }
 
     document.getElementById("save-sr-from-table").onclick = function () {
@@ -363,66 +721,59 @@
       if(rowCount > 0){
         let allValues = {};
         $("span.error").remove();
+        $('.aadhar-input').removeClass('is-invalid');
 
         var errorMessage = "Please enter a valid 12-digit number";
         var hasError = false;
 
-        // Loop through each input field with id starting with "sr_"
+        // Loop through each input field with id starting with "sr_". DataTables
+        // only hides non-current-page rows (display:none), it doesn't remove
+        // them from the DOM, so this still validates/collects every row that
+        // was loaded, not just the ones currently visible on this page.
         $("input[id^='sr_']").each(function() {
-          // Remove error message if it exists for this field (if needed)
           $(this).next(".error").remove();
-
-          // Get the trimmed value of the input
           var value = $(this).val().trim();
 
-          // Check if the value is blank, less than 12 digits, or not all digits
           if (value === "" || value.length < 12 || !/^\d+$/.test(value)) {
-            // Append error message next to the field
-            //$(this).after("<span class='error' style='color:red; margin-left:10px;'>" + errorMessage + "</span>");
             hasError = true;
-            // Break out of the each loop immediately by returning false
+            $(this).addClass('is-invalid');
             showMsg("error", errorMessage+' for <strong>'+value+'</strong>', "Error");
             return false;
           }
         });
 
-        // If an error was found, you can stop further processing (for example, prevent form submission)
         if (hasError) {
           return false;
         }
-        // Find all inputs inside the table
         $('#sr-table-data input[type="text"]').each(function() {
-          let id = $(this).attr('id');    // Get the ID of the input field
-          let value = $(this).val();      // Get the value of the input field
-          allValues[id] = value;          // Store in an object with ID as the key
+          let id = $(this).attr('id');
+          let value = $(this).val();
+          allValues[id] = value;
         });
-        let url = `${contextPath}saveStudentAadharFromTable`;
         fetch(`${contextPath}saveStudentAadharFromTable`, {
-          method: 'POST',              // Specify the HTTP method
+          method: 'POST',
           headers: {
-            'Content-Type': 'application/json'  // Send JSON data
+            'Content-Type': 'application/json'
           },
-          body: JSON.stringify(allValues)  // Convert allValues object to JSON string
+          body: JSON.stringify(allValues)
         })
                 .then(response => {
                   if (!response.ok) {
                     throw new Error('Network response was not ok');
                   }
-                  return response.text();  // Parse response as JSON
+                  return response.text();
                 })
                 .then(data => {
                   if (data.includes('error#####')) {
-                    // Handle error by splitting and extracting the error message
                     const errorMsg = data.split("#####")[1];
                     showMsg("error", errorMsg, "Error");
                   } else {
-                    // Handle success message
                     const successMsg = data.split("#####")[1];
                     showMsg("success", successMsg, "Updated");
                   }
                 })
                 .catch(error => {
-                  console.error('Error:', error);  // Handle error response
+                  console.error('Error:', error);
                   const errorMsg = (error.includes('error#####'))?error.split("#####")[1]:error;
                   showMsg("error", errorMsg, "Error");
                 });
@@ -439,39 +790,23 @@
       const fileInput = document.getElementById("formFile");
       formData.append("file", fileInput.files[0]);
 
-      // AJAX call to send the file to the server
       fetch(`${contextPath}upload-aadhar-file`, {
         method: 'POST',
         body: formData,
       })
               .then(response => response.json())
               .then(data => {
-                console.log("DATA:::: "+data);
                 if (data.hasOwnProperty("success")) {
-                  // Display the validation result on the page
-                  //document.getElementById("validationResult").innerHTML = JSON.stringify(data.result);
-                  console.log("DATA::>>>> "+data.success);
                   const fileInfoModal = new bootstrap.Modal(document.getElementById('fileInfoModal'));
 
                   if (data.hasOwnProperty("success")) {
                     let rowData = data.success;
 
                     if (rowData.length > 0) {
-                      // Assuming the first row contains the column headers
-                      //let headers = rowData[0];
-
-                      // Dynamically create table headers
-                      /*headers.forEach(header => {
-                          $("#tableHeaders").append(`<th>${header}</th>`);
-                      });*/
-
-                      // Create table rows for each array in the list
                       let passed = 0;
                       let failed = 0;
                       for (let i = 0; i < rowData.length; i++) {
                         let row = rowData[i];
-                        console.log("ROW>>>>>>>>>>>>>>>>> "+row);
-                        console.log("ROW>>>>>>>>>>>>>>>>> "+row[row.length - 1].includes("error"));
                         let tableRow = "<tr>";
                         if(row[row.length - 1].includes("error")){
                           tableRow = "<tr class='table-danger'>";
@@ -480,11 +815,9 @@
                           passed++;
                         }
                         row.forEach(cell => {
-                          console.log("cell--"+cell);
                           if (cell == null) {
                             tableRow += `<td></td>`;
                           } else {
-                            // Check if the cell contains "#####"
                             if (cell.includes("#####")) {
                               tableRow += `<td>${cell.split("#####")[1]}</td>`;
                             } else {
@@ -493,7 +826,6 @@
                           }
                         });
                         tableRow += "</tr>";
-                        //console.log("ROW DATA:::: "+tableRow);
                         $("#table-body").append(tableRow);
                       }
                       let msg = "<div class='row'><div class='col-md-2'><span><strong>Total: </strong>" + rowData.length + "</span></div><div class='col-md-2'><span class='text-success'><strong>Passed: </strong>"+ passed +"</span></div><div class='col-md-2'><span class='text-danger'><strong>Failed: </strong>" + failed;
@@ -501,15 +833,12 @@
                       $("#table-foot").html(msg);
                     }
                   } else if (data.hasOwnProperty("error")) {
-                    // If the key is "error", display the error message
-                    let errorMessage = data.error.join(', '); // Assuming the error is a list of strings
+                    let errorMessage = data.error.join(', ');
                     $("#errorMessage").text(errorMessage).show();
                   }
 
                   fileInfoModal.show();
                 } else if(data.hasOwnProperty("error")) {
-                  //alert(data.message);
-                  console.log("eRROR: "+data.error[0]);
                   showMsg("error", data.error[0],"Error");
                 }
               })
@@ -519,10 +848,8 @@
     };
 
     document.getElementById("uploadAndCloseModals").onclick = function (){
-      //stu-sr-data
       const tableData = [];
 
-      // Iterate through each row in the table
       $('#stu-sr-data tbody tr').each(function() {
         const rowData = {};
         $(this).find('td').each(function(index) {
@@ -532,14 +859,12 @@
         tableData.push(rowData);
       });
 
-      // Send data to the Spring Boot controller via AJAX
       $.ajax({
-        url: `${contextPath}upload-aadhar-data`, // Replace with your controller endpoint
+        url: `${contextPath}upload-aadhar-data`,
         type: 'POST',
         contentType: 'application/json',
         data: JSON.stringify(tableData),
         success: function(response) {
-          console.log('Data sent successfully:', response);
           $('.modal').modal('hide');
           if(response.includes('error')){
             showMsg("error", response.split("#####")[1],"Error");
