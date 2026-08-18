@@ -157,6 +157,18 @@ public class StudentService {
         return academicStudentRepository.countAllBySchool_IdAndAcademicYear_IdAndStatus(school_id, academic_year_id, "Inactive");
     }
 
+    /** Powers the "New this month" stat tile on the Student List page. */
+    public long getNewThisMonthCount(Long school_id, Long academic_year_id) {
+        log.info("Inside getNewThisMonthCount");
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        cal.set(java.util.Calendar.DAY_OF_MONTH, 1);
+        cal.set(java.util.Calendar.HOUR_OF_DAY, 0);
+        cal.set(java.util.Calendar.MINUTE, 0);
+        cal.set(java.util.Calendar.SECOND, 0);
+        cal.set(java.util.Calendar.MILLISECOND, 0);
+        return repository.countNewThisMonthBySchool(school_id, academic_year_id, cal.getTime());
+    }
+
     public Optional<Student> getStudentDetail(Long student_id, Long school_id) {
         log.info("Inside getStudentDetail");
         return repository.findByIdAndSchool_Id(student_id, school_id);

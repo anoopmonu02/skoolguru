@@ -11,49 +11,149 @@
 
   <div class="container-fluid px-3">
     <div class="row mt-2 ">
-      <div class="col-md-6  offset-md-1 ">
+      <div class="col-md-8 offset-md-2">
+        <!-- Same inline add/edit/search pattern as universal/bank.html - see
+             that file for the fuller explanatory comments. -->
         <div class="page-header page-header-row">
-          <h1 class="page-header-title">Grade List</h1>
+          <h1 class="page-header-title">Grade List
+            <span class="header-count-badge" th:text="${#lists.size(grades)}">0</span>
+          </h1>
           <div class="page-header-actions">
-            <a sms:access="GLOBAL_GRADE:CREATE" class="btn btn-success btn-sm" th:href="@{/universal/grade/add}"><i class="bi bi-plus-lg"></i> Add Grade</a>
+            <button sms:access="GLOBAL_GRADE:CREATE" type="button" class="btn-cta"
+                    onclick="toggleAddPanel()">
+              <i class="bi bi-plus-lg"></i> Add Grade
+            </button>
           </div>
         </div>
 
-        <table class="table table-bordered table-striped table-hover table-sm" th:if="${hasGrades}">
-          <thead>
-          <tr>
-            <th>#</th>
-            <th>Name</th>
-            <th>Actions</th>
-          </tr>
-          </thead>
-          <tbody>
-
-          <tr th:each="grade, iter : ${grades}">
-            <td th:text="${iter.index+1}"></td>
-            <td th:text="${grade.gradeName}"></td>
-            <td>
-              <a sms:access="GLOBAL_GRADE:EDIT" class="btn btn-primary" th:href="@{/universal/grade/edit/{id}(id=${grade.id})}">
-                <i class="bi bi-pencil-square"></i> </a>
-              <!--<a class="btn btn-danger" th:href="@{/universal/grade/delete/{id}(id=${grade.id})}" onclick="return confirm('Are you sure? its not recoverable.')">
-                <i class="bi bi-trash3-fill"></i> </a>-->
-              <form sms:access="GLOBAL_GRADE:DELETE" th:action="@{/universal/grade/delete/{id}(id=${grade.id})}" method="post" style="display:inline;">
-                <!--<input type="hidden" name="_method" value="DELETE"> -->
-                <input type="hidden" name="id" th:value="${grade.id}">
-                <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure? its not recoverable.')"> <i class="bi bi-trash3-fill"></i> </button>
-              </form>
-            </td>
-          </tr>
-          </tbody>
-        </table>
-        <div th:if="${!hasGrades}">
-          <div th:replace="~{components/ui :: empty-state('No Grade found.', 'bi-inbox')}"></div>
+        <div class="inline-panel" id="addPanel" sms:access="GLOBAL_GRADE:CREATE">
+          <div class="inline-panel-body">
+            <div class="inline-panel-icon"><i class="bi bi-mortarboard"></i></div>
+            <form th:action="@{/universal/grade}" th:object="${grade}" method="post" class="inline-panel-form">
+              <input type="text" class="form-control form-control-sm" id="grade_name" placeholder="Grade name, e.g. Nursery"
+                     autocomplete="off" th:field="*{gradeName}" />
+              <button type="submit" class="btn-accent-solid"><i class="bi bi-check2"></i> Save</button>
+              <button type="button" class="btn-accent-ghost" onclick="toggleAddPanel()">Cancel</button>
+            </form>
+          </div>
         </div>
+
+        <div class="config-list-card" th:if="${hasGrades}">
+          <div class="config-list-toolbar">
+            <div class="config-search-wrap">
+              <i class="bi bi-search"></i>
+              <input type="text" class="form-control form-control-sm" id="gradeSearch"
+                     placeholder="Search grades..." oninput="filterList(this.value, 'gradeListBody')">
+            </div>
+            <button type="button" class="config-sort-btn" title="Sort A-Z / Z-A"
+                    onclick="toggleSort('gradeListBody', this)">
+              <i class="bi bi-sort-alpha-down"></i>
+            </button>
+          </div>
+
+          <div id="gradeListBody">
+          <th:block th:each="grade, iter : ${grades}">
+            <div class="config-row row-view" th:attr="data-name=${#strings.toLowerCase(grade.gradeName)}">
+              <div class="config-row-icon"><i class="bi bi-mortarboard"></i></div>
+              <div class="config-row-text">
+                <div class="config-row-name" th:text="${grade.gradeName}"></div>
+              </div>
+              <div class="config-row-actions">
+                <button sms:access="GLOBAL_GRADE:EDIT" type="button" class="config-icon-btn" title="Edit"
+                        th:attr="onclick=|toggleEditRow(${grade.id})|">
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <form sms:access="GLOBAL_GRADE:DELETE" th:action="@{/universal/grade/delete/{id}(id=${grade.id})}" method="post" style="display:contents;">
+                  <input type="hidden" name="id" th:value="${grade.id}">
+                  <button type="submit" class="config-icon-btn danger" title="Delete"
+                          onclick="return confirm('Are you sure? its not recoverable.')">
+                    <i class="bi bi-trash3"></i>
+                  </button>
+                </form>
+              </div>
+            </div>
+            <div sms:access="GLOBAL_GRADE:EDIT" th:id="'edit-row-' + ${grade.id}" class="config-row row-edit d-none">
+              <div class="config-row-icon"><i class="bi bi-pencil"></i></div>
+              <form th:action="@{/universal/grade/{id}(id=${grade.id})}" method="post" class="inline-panel-form">
+                <input type="text" class="form-control form-control-sm" name="gradeName" th:value="${grade.gradeName}"
+                       autocomplete="off" required />
+                <button type="submit" class="btn-accent-solid"><i class="bi bi-check2"></i> Save</button>
+                <button type="button" class="btn-accent-ghost" th:attr="onclick=|toggleEditRow(${grade.id})|">Cancel</button>
+              </form>
+            </div>
+          </th:block>
+          </div>
+
+          <div class="config-list-footer"
+               th:text="|${#lists.size(grades)} grade${#lists.size(grades) != 1 ? 's' : ''} configured|">N grades configured</div>
+        </div>
+        <th:block th:if="${!hasGrades}">
+          <div th:replace="~{components/ui :: empty-state('No Grade found.', 'bi-mortarboard')}"></div>
+        </th:block>
       </div>
     </div>
   </div>
-  <!-- Library <script> tags removed: this page has no JavaScript of its own,
-       and base.html already loads jQuery, Bootstrap, toastr and select2. -->
+
+  <script th:inline="none">
+    function toggleAddPanel() {
+      document.getElementById('addPanel').classList.toggle('open');
+    }
+    function toggleEditRow(id) {
+      var editRow = document.getElementById('edit-row-' + id);
+      var viewRow = editRow.previousElementSibling;
+      var opening = editRow.classList.contains('d-none');
+      editRow.classList.toggle('d-none');
+      viewRow.classList.toggle('d-none');
+      if (opening) {
+        var input = editRow.querySelector('input[type="text"]');
+        if (input) { input.focus(); }
+      }
+    }
+    function filterList(query, listId) {
+      query = query.trim().toLowerCase();
+      document.querySelectorAll('#' + listId + ' > div.row-view').forEach(function (row) {
+        var match = row.getAttribute('data-name').indexOf(query) !== -1;
+        row.style.display = match ? '' : 'none';
+        var editRow = row.nextElementSibling;
+        if (!match && editRow && editRow.classList.contains('row-edit')) {
+          editRow.classList.add('d-none');
+          row.classList.remove('d-none');
+        }
+      });
+    }
+    function toggleSort(listId, btn) {
+      var container = document.getElementById(listId);
+      var pairs = [];
+      Array.from(container.children).forEach(function (el) {
+        if (!el.classList.contains('row-view')) { return; }
+        var editRow = el.nextElementSibling && el.nextElementSibling.classList.contains('row-edit')
+          ? el.nextElementSibling : null;
+        pairs.push({ view: el, edit: editRow, key: el.getAttribute('data-name') || '' });
+      });
+      var desc = btn.getAttribute('data-dir') === 'asc';
+      pairs.sort(function (a, b) {
+        if (a.key < b.key) { return desc ? 1 : -1; }
+        if (a.key > b.key) { return desc ? -1 : 1; }
+        return 0;
+      });
+      pairs.forEach(function (p) {
+        container.appendChild(p.view);
+        if (p.edit) { container.appendChild(p.edit); }
+      });
+      btn.setAttribute('data-dir', desc ? 'desc' : 'asc');
+      btn.classList.add('active');
+      btn.querySelector('i').className = desc ? 'bi bi-sort-alpha-down' : 'bi bi-sort-alpha-up';
+    }
+  </script>
+
+  <script type="text/javascript" th:inline="javascript">
+    const gradeSuccessMessage = [[${success}]];
+    const gradeErrorMessage   = [[${error}]];
+    $(document).ready(function () {
+      if (gradeSuccessMessage) showMsg("success", gradeSuccessMessage, "Success");
+      if (gradeErrorMessage)   showMsg("error",   gradeErrorMessage,   "Error");
+    });
+  </script>
 </section>
 </body>
 </html>

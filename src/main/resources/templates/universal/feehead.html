@@ -11,51 +11,158 @@
 
   <div class="container-fluid px-3">
     <div class="row mt-2 ">
-      <div class="col-md-10  offset-md-1 ">
+      <div class="col-md-8 offset-md-2">
+        <!-- Same inline add/edit/search pattern as universal/bank.html - see
+             that file for the fuller explanatory comments. This screen has a
+             Name + Description pair instead of a single field, so both the
+             add panel and the inline edit row carry two inputs (class
+             "two-field" gives each a bit more room - see components.css). -->
         <div class="page-header page-header-row">
-          <h1 class="page-header-title">Feehead List</h1>
+          <h1 class="page-header-title">Feehead List
+            <span class="header-count-badge" th:text="${#lists.size(feeheads)}">0</span>
+          </h1>
           <div class="page-header-actions">
-            <a sms:access="GLOBAL_FEEHEAD:CREATE" class="btn btn-success btn-sm" th:href="@{/universal/feehead/add}"><i class="bi bi-plus-lg"></i> Add Feehead</a>
+            <button sms:access="GLOBAL_FEEHEAD:CREATE" type="button" class="btn-cta"
+                    onclick="toggleAddPanel()">
+              <i class="bi bi-plus-lg"></i> Add Feehead
+            </button>
           </div>
         </div>
 
-        <table class="table table-bordered table-striped table-hover table-sm" th:if="${hasFeeheads}">
-          <thead>
-          <tr>
-            <th>#</th>
-            <th>Fee Name</th>
-            <th>Description</th>
-            <th>Actions</th>
-          </tr>
-          </thead>
-          <tbody>
-
-          <tr th:each="feehead, iter : ${feeheads}">
-            <td th:text="${iter.index+1}"></td>
-            <td th:text="${feehead.feeHeadName}"></td>
-            <td th:text="${feehead.description}"></td>
-            <td>
-              <a sms:access="GLOBAL_FEEHEAD:EDIT" class="btn btn-primary" th:href="@{/universal/feehead/edit/{id}(id=${feehead.id})}">
-                <i class="bi bi-pencil-square"></i> </a>
-              <!--<a class="btn btn-danger" th:href="@{/universal/feehead/delete/{id}(id=${feehead.id})}" onclick="return confirm('Are you sure? its not recoverable.')">
-                <i class="bi bi-trash3-fill"></i> </a>-->
-              <form sms:access="GLOBAL_FEEHEAD:DELETE" th:action="@{/universal/feehead/delete/{id}(id=${feehead.id})}" method="post" style="display:inline;">
-                <!--<input type="hidden" name="_method" value="DELETE"> -->
-                <input type="hidden" name="id" th:value="${feehead.id}">
-                <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure? its not recoverable.')"> <i class="bi bi-trash3-fill"></i> </button>
-              </form>
-            </td>
-          </tr>
-          </tbody>
-        </table>
-        <div th:if="${!hasFeeheads}">
-          <div th:replace="~{components/ui :: empty-state('No Feehead found.', 'bi-inbox')}"></div>
+        <div class="inline-panel" id="addPanel" sms:access="GLOBAL_FEEHEAD:CREATE">
+          <div class="inline-panel-body">
+            <div class="inline-panel-icon"><i class="bi bi-cash-stack"></i></div>
+            <form th:action="@{/universal/feehead}" th:object="${feehead}" method="post" class="inline-panel-form two-field">
+              <input type="text" class="form-control form-control-sm" id="feehead_name" placeholder="Fee head name, e.g. Monthly Fee"
+                     autocomplete="off" th:field="*{feeHeadName}" />
+              <input type="text" class="form-control form-control-sm" id="feehead_des" placeholder="Description (optional)"
+                     autocomplete="off" th:field="*{description}" />
+              <button type="submit" class="btn-accent-solid"><i class="bi bi-check2"></i> Save</button>
+              <button type="button" class="btn-accent-ghost" onclick="toggleAddPanel()">Cancel</button>
+            </form>
+          </div>
         </div>
+
+        <div class="config-list-card" th:if="${hasFeeheads}">
+          <div class="config-list-toolbar">
+            <div class="config-search-wrap">
+              <i class="bi bi-search"></i>
+              <input type="text" class="form-control form-control-sm" id="feeheadSearch"
+                     placeholder="Search fee heads..." oninput="filterList(this.value, 'feeheadListBody')">
+            </div>
+            <button type="button" class="config-sort-btn" title="Sort A-Z / Z-A"
+                    onclick="toggleSort('feeheadListBody', this)">
+              <i class="bi bi-sort-alpha-down"></i>
+            </button>
+          </div>
+
+          <div id="feeheadListBody">
+          <th:block th:each="feehead, iter : ${feeheads}">
+            <div class="config-row row-view"
+                 th:attr="data-name=${#strings.toLowerCase(feehead.feeHeadName + ' ' + #strings.defaultString(feehead.description, ''))}">
+              <div class="config-row-icon"><i class="bi bi-cash-stack"></i></div>
+              <div class="config-row-text">
+                <div class="config-row-name" th:text="${feehead.feeHeadName}"></div>
+                <div class="config-row-meta" th:if="${!#strings.isEmpty(feehead.description)}" th:text="${feehead.description}"></div>
+              </div>
+              <div class="config-row-actions">
+                <button sms:access="GLOBAL_FEEHEAD:EDIT" type="button" class="config-icon-btn" title="Edit"
+                        th:attr="onclick=|toggleEditRow(${feehead.id})|">
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <form sms:access="GLOBAL_FEEHEAD:DELETE" th:action="@{/universal/feehead/delete/{id}(id=${feehead.id})}" method="post" style="display:contents;">
+                  <input type="hidden" name="id" th:value="${feehead.id}">
+                  <button type="submit" class="config-icon-btn danger" title="Delete"
+                          onclick="return confirm('Are you sure? its not recoverable.')">
+                    <i class="bi bi-trash3"></i>
+                  </button>
+                </form>
+              </div>
+            </div>
+            <div sms:access="GLOBAL_FEEHEAD:EDIT" th:id="'edit-row-' + ${feehead.id}" class="config-row row-edit d-none">
+              <div class="config-row-icon"><i class="bi bi-pencil"></i></div>
+              <form th:action="@{/universal/feehead/{id}(id=${feehead.id})}" method="post" class="inline-panel-form two-field">
+                <input type="text" class="form-control form-control-sm" name="feeHeadName" th:value="${feehead.feeHeadName}"
+                       placeholder="Fee head name" autocomplete="off" required />
+                <input type="text" class="form-control form-control-sm" name="description" th:value="${feehead.description}"
+                       placeholder="Description (optional)" autocomplete="off" />
+                <button type="submit" class="btn-accent-solid"><i class="bi bi-check2"></i> Save</button>
+                <button type="button" class="btn-accent-ghost" th:attr="onclick=|toggleEditRow(${feehead.id})|">Cancel</button>
+              </form>
+            </div>
+          </th:block>
+          </div>
+
+          <div class="config-list-footer"
+               th:text="|${#lists.size(feeheads)} fee head${#lists.size(feeheads) != 1 ? 's' : ''} configured|">N fee heads configured</div>
+        </div>
+        <th:block th:if="${!hasFeeheads}">
+          <div th:replace="~{components/ui :: empty-state('No Feehead found.', 'bi-cash-stack')}"></div>
+        </th:block>
       </div>
     </div>
   </div>
-  <!-- Library <script> tags removed: this page has no JavaScript of its own,
-       and base.html already loads jQuery, Bootstrap, toastr and select2. -->
+
+  <script th:inline="none">
+    function toggleAddPanel() {
+      document.getElementById('addPanel').classList.toggle('open');
+    }
+    function toggleEditRow(id) {
+      var editRow = document.getElementById('edit-row-' + id);
+      var viewRow = editRow.previousElementSibling;
+      var opening = editRow.classList.contains('d-none');
+      editRow.classList.toggle('d-none');
+      viewRow.classList.toggle('d-none');
+      if (opening) {
+        var input = editRow.querySelector('input[type="text"]');
+        if (input) { input.focus(); }
+      }
+    }
+    function filterList(query, listId) {
+      query = query.trim().toLowerCase();
+      document.querySelectorAll('#' + listId + ' > div.row-view').forEach(function (row) {
+        var match = row.getAttribute('data-name').indexOf(query) !== -1;
+        row.style.display = match ? '' : 'none';
+        var editRow = row.nextElementSibling;
+        if (!match && editRow && editRow.classList.contains('row-edit')) {
+          editRow.classList.add('d-none');
+          row.classList.remove('d-none');
+        }
+      });
+    }
+    function toggleSort(listId, btn) {
+      var container = document.getElementById(listId);
+      var pairs = [];
+      Array.from(container.children).forEach(function (el) {
+        if (!el.classList.contains('row-view')) { return; }
+        var editRow = el.nextElementSibling && el.nextElementSibling.classList.contains('row-edit')
+          ? el.nextElementSibling : null;
+        pairs.push({ view: el, edit: editRow, key: el.getAttribute('data-name') || '' });
+      });
+      var desc = btn.getAttribute('data-dir') === 'asc';
+      pairs.sort(function (a, b) {
+        if (a.key < b.key) { return desc ? 1 : -1; }
+        if (a.key > b.key) { return desc ? -1 : 1; }
+        return 0;
+      });
+      pairs.forEach(function (p) {
+        container.appendChild(p.view);
+        if (p.edit) { container.appendChild(p.edit); }
+      });
+      btn.setAttribute('data-dir', desc ? 'desc' : 'asc');
+      btn.classList.add('active');
+      btn.querySelector('i').className = desc ? 'bi bi-sort-alpha-down' : 'bi bi-sort-alpha-up';
+    }
+  </script>
+
+  <script type="text/javascript" th:inline="javascript">
+    const feeheadSuccessMessage = [[${success}]];
+    const feeheadErrorMessage   = [[${error}]];
+    $(document).ready(function () {
+      if (feeheadSuccessMessage) showMsg("success", feeheadSuccessMessage, "Success");
+      if (feeheadErrorMessage)   showMsg("error",   feeheadErrorMessage,   "Error");
+    });
+  </script>
 </section>
 </body>
 </html>

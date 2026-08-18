@@ -83,6 +83,18 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
     long countActiveBySchool(@Param("schoolId") Long schoolId, @Param("academicYearId") Long academicYearId);
 
     /**
+     * Count of currently-enrolled students (same criteria as countActiveBySchool)
+     * registered on/after monthStart — powers the "New this month" stat tile on
+     * the Student List page.
+     */
+    @Query("SELECT COUNT(s) FROM Student s WHERE s.school.id = :schoolId AND s.status = 'Active' " +
+           "AND EXISTS (SELECT 1 FROM AcademicStudent as1 WHERE as1.student = s " +
+           "AND as1.academicYear.id = :academicYearId AND as1.status = 'Active') " +
+           "AND s.registrationDate >= :monthStart")
+    long countNewThisMonthBySchool(@Param("schoolId") Long schoolId, @Param("academicYearId") Long academicYearId,
+                                    @Param("monthStart") java.util.Date monthStart);
+
+    /**
      * Batch grade/section/SR lookup for the current page of the student list
      * (non-superadmin only) — one round trip instead of N+1. Returns
      * [studentId, gradeName, sectionName, classSrNo], scoped to the same

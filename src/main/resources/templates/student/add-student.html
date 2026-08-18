@@ -7,411 +7,504 @@
 <body>
 <section>
 
+  <style>
+    /* ============================================================
+       Student Registration — Guided Wizard (Option A)
+       Reuses the app-wide design tokens from tokens.css (--accent,
+       --card-bg, --border-color, --radius-*, --shadow-*, --text-*,
+       --transition) so this looks like the rest of the redesigned
+       app rather than a bolt-on. Page-scoped only — nothing here
+       leaks to other templates.
+       ============================================================ */
+    .wiz-wrap { max-width: 980px; margin: 4px auto 40px; }
+
+    /* -- Stepper -- */
+    .wiz-stepper { display: flex; align-items: flex-start; margin: 18px 0 26px; }
+    .wiz-step { display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; cursor: default; }
+    .wiz-step.clickable { cursor: pointer; }
+    .wiz-step .circ {
+      width: 34px; height: 34px; border-radius: 50%; background: var(--card-bg);
+      border: 2px solid var(--border-color); display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 13.5px; color: var(--text-muted); z-index: 2;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    .wiz-step.done .circ { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .wiz-step.active .circ { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 0 4px var(--accent-light); }
+    .wiz-step .lbl { font-size: 11.5px; font-weight: 700; color: var(--text-muted); margin-top: 7px; text-align: center; }
+    .wiz-step.active .lbl, .wiz-step.done .lbl { color: var(--text-primary); }
+    .wiz-step:not(:last-child)::after {
+      content: ''; position: absolute; top: 17px; left: calc(50% + 21px); right: calc(-50% + 21px);
+      height: 2px; background: var(--border-color); z-index: 1; transition: background var(--transition);
+    }
+    .wiz-step.done:not(:last-child)::after { background: var(--accent); }
+
+    /* -- Card / panels -- */
+    .wiz-card {
+      background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm); padding: 26px 28px 22px;
+    }
+    .wiz-step-panel { display: none; }
+    .wiz-step-panel.active { display: block; }
+    .wiz-step-title { font-size: 16.5px; font-weight: 800; color: var(--text-primary); margin: 0 0 3px; }
+    .wiz-step-desc { color: var(--text-muted); font-size: 12.8px; margin-bottom: 20px; }
+    .wiz-subhead {
+      font-size: 11.5px; font-weight: 800; color: var(--accent); text-transform: uppercase;
+      letter-spacing: .04em; margin: 22px 0 12px; padding-top: 14px; border-top: 1px dashed var(--border-color);
+    }
+    .wiz-subhead:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+
+    /* -- Field polish (page-scoped; does not affect other templates) -- */
+    .wiz-card .form-label { font-size: 12.5px; font-weight: 700; color: var(--text-muted); margin-bottom: 5px; }
+    .wiz-card .form-control, .wiz-card .form-select {
+      border-radius: 10px; border: 1px solid var(--border-color); font-size: 13.8px;
+    }
+    .wiz-card .form-control:focus, .wiz-card .form-select:focus {
+      border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light);
+    }
+    .wiz-card .form-floating > label { font-size: 13px; color: var(--text-muted); }
+
+    /* -- Footer nav -- */
+    .wiz-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 26px; gap: 10px; }
+    .wiz-step-hint { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+    .wiz-btn {
+      border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-primary);
+      padding: 9px 18px; border-radius: 10px; font-size: 13.8px; font-weight: 700;
+      display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    .wiz-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .wiz-btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .wiz-btn-primary:hover { background: var(--accent); opacity: .92; color: #fff; }
+    .wiz-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* -- Review step -- */
+    .wiz-review-sec-title {
+      font-size: 11.5px; font-weight: 800; color: var(--accent); text-transform: uppercase;
+      letter-spacing: .04em; margin: 18px 0 4px;
+    }
+    .wiz-review-sec-title:first-child { margin-top: 0; }
+    .wiz-review-item { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; border-bottom: 1px solid var(--border-color); font-size: 13.3px; }
+    .wiz-review-item .k { color: var(--text-muted); flex-shrink: 0; }
+    .wiz-review-item .v { font-weight: 600; color: var(--text-primary); text-align: right; word-break: break-word; }
+    .wiz-review-item .v.empty { color: var(--text-muted); font-weight: 400; font-style: italic; }
+
+    /* -- Photo upload + preview -- */
+    .wiz-photo-hint { font-size: 11px; font-weight: 600; color: var(--text-muted); margin-left: 4px; }
+    .wiz-photo-row { display: flex; align-items: flex-start; gap: 14px; }
+    .wiz-photo-preview {
+      width: 64px; height: 64px; flex-shrink: 0; border-radius: 50%;
+      background: var(--accent-light); color: var(--accent); border: 1px solid var(--border-color);
+      display: flex; align-items: center; justify-content: center; font-size: 26px; overflow: hidden;
+    }
+    .wiz-photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .wiz-photo-input-col { flex: 1; min-width: 0; }
+    .wiz-photo-status { font-size: 11.5px; margin-top: 5px; color: var(--text-muted); }
+    .wiz-photo-status.err { color: #dc2626; font-weight: 600; }
+    .wiz-photo-status.ok { color: #16a34a; font-weight: 600; }
+
+    @media (max-width: 620px) {
+      .wiz-card { padding: 20px 16px; }
+      .wiz-step .lbl { display: none; }
+    }
+  </style>
 
   <div class="container-fluid px-3">
-    <div class="mt-2 gy-5 mb-5">
+    <div class="mt-2 gy-5 mb-5 wiz-wrap">
       <div th:replace="~{components/ui :: page-header('Student Registration Form')}"></div>
 
-      <form th:action="@{/student/student}" th:object="${student}" method="post" class="row g-3" enctype="multipart/form-data" id="myForm">
-        <!-- Personal Info -->
-        <div class="col-12">
-          <h4>Personal Information</h4>
-        </div>
-        <div class="col-md-7">
-          <input type="hidden" name="school_id" id="school_id" th:field="*{school.id}"/>
-          <input type="hidden" name="academic_id" id="academic_id" th:field="*{academicYear.id}"/>
-        </div>
+      <div class="wiz-stepper" id="wizStepper">
+        <div class="wiz-step active" data-step-index="0"><div class="circ">1</div><div class="lbl">Personal</div></div>
+        <div class="wiz-step" data-step-index="1"><div class="circ">2</div><div class="lbl">Family &amp; Contact</div></div>
+        <div class="wiz-step" data-step-index="2"><div class="circ">3</div><div class="lbl">Academic</div></div>
+        <div class="wiz-step" data-step-index="3"><div class="circ">4</div><div class="lbl">Documents &amp; Bank</div></div>
+        <div class="wiz-step" data-step-index="4"><div class="circ">5</div><div class="lbl">Review</div></div>
+      </div>
 
-        <div class="col-md-6">
-          <label for="studentName" class="form-label">Student Name<span class="text-danger">*</span></label>
-          <input type="text" id="studentName" class="form-control" th:field="*{studentName}">
-          <p class="text-danger" th:if="${#fields.hasErrors('studentName')}" th:errors="*{studentName}">stu name Error</p>
-        </div>
+      <form th:action="@{/student/student}" th:object="${student}" method="post" enctype="multipart/form-data" id="myForm">
+        <input type="hidden" name="school_id" id="school_id" th:field="*{school.id}"/>
+        <input type="hidden" name="academic_id" id="academic_id" th:field="*{academicYear.id}"/>
 
-        <div class="col-md-3">
-          <label for="dob" class="form-label">Date of Birth</label>
-          <input type="text" id="dob" class="form-control" th:field="*{dob}">
-          <p class="text-danger" th:if="${#fields.hasErrors('dob')}" th:errors="*{dob}">f name Error</p>
-        </div>
+        <div class="wiz-card">
 
-        <div class="col-md-3">
+          <!-- ============ STEP 1 — PERSONAL INFORMATION ============ -->
+          <div class="wiz-step-panel active" id="wizStep0" data-step-index="0">
+            <h3 class="wiz-step-title">Personal Information</h3>
+            <div class="wiz-step-desc">Step 1 of 5 — the student's own identity and basic details.</div>
 
-        </div>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="studentName" class="form-label">Student Name<span class="text-danger">*</span></label>
+                <input type="text" id="studentName" class="form-control" th:field="*{studentName}">
+                <p class="text-danger" th:if="${#fields.hasErrors('studentName')}" th:errors="*{studentName}">stu name Error</p>
+              </div>
+              <div class="col-md-3">
+                <label for="dob" class="form-label">Date of Birth</label>
+                <input type="text" id="dob" class="form-control" th:field="*{dob}">
+                <p class="text-danger" th:if="${#fields.hasErrors('dob')}" th:errors="*{dob}">f name Error</p>
+              </div>
+              <div class="col-md-3">
+                <label for="gender" class="form-label">Gender<span class="text-danger">*</span></label>
+                <select id="gender" class="form-select" th:field="*{gender}">
+                  <option value="MALE" th:selected="MALE == ${student.gender}">Male</option>
+                  <option value="FEMALE" th:selected="FEMALE == ${student.gender}">Female</option>
+                  <option value="NO_PREFERENCE" th:selected="NO_PREFERENCE == ${student.gender}">No Preference</option>
+                </select>
+                <p class="text-danger" th:if="${#fields.hasErrors('gender')}" th:errors="*{gender}">m name Error</p>
+              </div>
 
+              <div class="col-md-3">
+                <label for="religion" class="form-label">Religion<span class="text-danger">*</span></label>
+                <select id="religion" class="form-select" th:field="*{religion}">
+                  <option th:each="religion : ${religions}" th:value="${religion}" th:text="${religion}"
+                          th:selected="${religion} == ${student.religion}"></option>
+                </select>
+                <p class="text-danger" th:if="${#fields.hasErrors('religion')}" th:errors="*{religion}">m name Error</p>
+              </div>
+              <div class="col-md-3">
+                <label for="nationality" class="form-label">Nationality<span class="text-danger">*</span></label>
+                <input type="text" id="nationality" class="form-control" th:field="*{nationality}" readonly="readonly">
+              </div>
+              <div class="col-md-3">
+                <label for="category" class="form-label">Category<span class="text-danger">*</span></label>
+                <select id="category" class="form-select" th:field="*{category}">
+                  <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.categoryName}"
+                          th:selected="${category} == ${student.category}"></option>
+                </select>
+                <p class="text-danger" th:if="${#fields.hasErrors('category')}" th:errors="*{category}">m name Error</p>
+              </div>
+              <div class="col-md-3">
+                <label for="cast" class="form-label">Caste<span class="text-danger">*</span></label>
+                <select id="cast" class="form-select" th:field="*{cast.id}">
+                  <option th:each="cast : ${casts}" th:value="${cast.id}" th:text="${cast.castName}"
+                          th:selected="${cast} == ${student.cast}"></option>
+                </select>
+                <p class="text-danger" th:if="${#fields.hasErrors('cast')}" th:errors="*{cast}">m name Error</p>
+              </div>
 
-        <div class="col-md-6">
-          <label for="fatherName" class="form-label">Father Name<span class="text-danger">*</span></label>
-          <input type="text" id="fatherName" class="form-control" th:field="*{fatherName}">
-          <p class="text-danger" th:if="${#fields.hasErrors('fatherName')}" th:errors="*{fatherName}">f name Error</p>
-        </div>
+              <div class="col-md-7">
+                <label for="description" class="form-label">Description</label>
+                <div class="form-floating">
+                  <textarea id="description" placeholder="Add description here" class="form-control" name="description" style="height: 100px;" rows="4" cols="50" th:field="*{description}"></textarea>
+                  <label for="description">Add Description Here</label>
+                </div>
+                <p class="text-danger" th:if="${#fields.hasErrors('description')}" th:errors="*{description}">description Error</p>
+              </div>
+              <div class="col-md-5">
+                <label for="customerPic" class="form-label">
+                  Student Image
+                  <span class="wiz-photo-hint" th:text="'(max ' + ${studentPhotoMaxSizeKb ?: 500} + 'KB, JPG/PNG)'">(max 500KB, JPG/PNG)</span>
+                </label>
+                <div class="wiz-photo-row">
+                  <div class="wiz-photo-preview" id="photoPreviewBox">
+                    <i class="bi bi-person" id="photoPreviewPlaceholder"></i>
+                    <img id="photoPreviewImg" class="d-none" alt="Selected student photo preview">
+                  </div>
+                  <div class="wiz-photo-input-col">
+                    <input type="file" class="form-control" id="customerPic" name="customerPic" accept="image/png,image/jpeg,image/jpg">
+                    <div class="wiz-photo-status" id="photoStatusText"></div>
+                  </div>
+                </div>
+                <p class="text-danger" th:if="${#fields.hasErrors('pic')}" th:errors="*{pic}">pic Error</p>
+              </div>
 
-        <div class="col-md-3">
-          <label for="fatherOccupation" class="form-label">Father Occupation</label>
-          <input type="text" id="fatherOccupation" class="form-control" th:field="*{fatherOccupation}">
-          <p class="text-danger" th:if="${#fields.hasErrors('fatherOccupation')}" th:errors="*{fatherOccupation}">f name Error</p>
-        </div>
-        <div class="col-md-3">
-          <label for="fatherQualification" class="form-label">Father Qualification</label>
-          <input type="text" id="fatherQualification" class="form-control" th:field="*{fatherQualification}">
-          <p class="text-danger" th:if="${#fields.hasErrors('fatherQualification')}" th:errors="*{fatherQualification}">m name Error</p>
-        </div>
-
-        <div class="col-md-6">
-          <label for="motherName" class="form-label">Mother Name<span class="text-danger">*</span></label>
-          <input type="text" id="motherName" class="form-control" th:field="*{motherName}">
-          <p class="text-danger" th:if="${#fields.hasErrors('motherName')}" th:errors="*{motherName}">m name Error</p>
-        </div>
-
-        <div class="col-md-3">
-          <label for="motherOccupation" class="form-label">Mother Occupation</label>
-          <input type="text" id="motherOccupation" class="form-control" th:field="*{motherOccupation}">
-          <p class="text-danger" th:if="${#fields.hasErrors('motherOccupation')}" th:errors="*{motherOccupation}">m name Error</p>
-        </div>
-        <div class="col-md-3">
-          <label for="motherQualification" class="form-label">Mother Qualification</label>
-          <input type="text" id="motherQualification" class="form-control" th:field="*{motherQualification}">
-          <p class="text-danger" th:if="${#fields.hasErrors('motherQualification')}" th:errors="*{motherQualification}">m name Error</p>
-        </div>
-
-        <div class="col-md-3">
-          <label for="religion" class="form-label">Religion<span class="text-danger">*</span></label>
-          <select id="religion" class="form-select" th:field="*{religion}">
-            <option th:each="religion : ${religions}" th:value="${religion}" th:text="${religion}"
-                    th:selected="${religion} == ${student.religion}"></option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('religion')}" th:errors="*{religion}">m name Error</p>
-        </div>
-
-
-        <div class="col-md-3">
-          <label for="nationality" class="form-label">Nationality<span class="text-danger">*</span></label>
-          <input type="text" id="nationality" class="form-control" th:field="*{nationality}" readonly="readonly">
-        </div>
-
-        <div class="col-md-3">
-          <label for="gender" class="form-label">Gender<span class="text-danger">*</span></label>
-          <select id="gender" class="form-select" th:field="*{gender}">
-            <option value="MALE" th:selected="MALE == ${student.gender}">Male</option>
-            <option value="FEMALE" th:selected="FEMALE == ${student.gender}">Female</option>
-            <option value="NO_PREFERENCE" th:selected="NO_PREFERENCE == ${student.gender}">No Preference</option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('gender')}" th:errors="*{gender}">m name Error</p>
-        </div>
-        <div class="col-md-3">
-        </div>
-        <div class="col-md-3">
-          <label for="category" class="form-label">Category<span class="text-danger">*</span></label>
-          <select id="category" class="form-select" th:field="*{category}">
-            <option th:each="category : ${categories}" th:value="${category.id}" th:text="${category.categoryName}"
-                    th:selected="${category} == ${student.category}"></option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('category')}" th:errors="*{category}">m name Error</p>
-        </div>
-
-        <div class="col-md-3">
-          <label for="cast" class="form-label">Caste<span class="text-danger">*</span></label>
-          <select id="cast" class="form-select" th:field="*{cast.id}">
-            <option th:each="cast : ${casts}" th:value="${cast.id}" th:text="${cast.castName}"
-                    th:selected="${cast} == ${student.cast}"></option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('cast')}" th:errors="*{cast}">m name Error</p>
-        </div>
-
-        <div class="col-md-7">
-          <label for="description" class="form-label">Description</label>
-          <div class="form-floating">
-            <textarea id="description" placeholder="Add description here" class="form-control" name="description" style="height: 100px;" rows="4" cols="50" th:field="*{description}"></textarea>
-            <label for="address">Add Description Here</label>
+              <div class="wiz-subhead">Physical Information</div>
+              <div class="col-md-3">
+                <label for="height" class="form-label">Height (cm)</label>
+                <input type="number" id="height" class="form-control" th:field="*{height}">
+              </div>
+              <div class="col-md-3">
+                <label for="weight" class="form-label">Weight (kg)</label>
+                <input type="number" id="weight" class="form-control" th:field="*{weight}">
+              </div>
+              <div class="col-md-3">
+                <label for="bloodGroup" class="form-label">Blood Group</label>
+                <select id="bloodGroup" class="form-select" th:field="*{bloodGroup}">
+                  <option th:each="bloodGroup : ${bloodGroups}" th:value="${bloodGroup}" th:text="${bloodGroup}" th:selected="${bloodGroup} == ${student.bloodGroup}"></option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label for="bodyType" class="form-label">Body Type</label>
+                <select id="bodyType" class="form-select" th:field="*{bodyType}">
+                  <option th:each="bodyType : ${bodyTypes}" th:value="${bodyType}" th:text="${bodyType}" th:selected="${bodyType} == ${student.bodyType}"></option>
+                </select>
+              </div>
+            </div>
           </div>
-          <p class="text-danger" th:if="${#fields.hasErrors('description')}" th:errors="*{description}">description Error</p>
-        </div>
-        <div class="col-md-5">
-          &nbsp;
-        </div>
 
-        <div class="col-md-4">
-          <label for="customerPic" class="form-label">Student Image</label>
-          <input type="file" class="form-control" id="customerPic" name="customerPic">
-          <p class="text-danger" th:if="${#fields.hasErrors('pic')}" th:errors="*{pic}">pic Error</p>
-          <!--<p class="text-danger" th:if="${picUploadError}" th:text="${picUploadError}"/>-->
-        </div>
-        <div class="col-md-8">
-          &nbsp;
-        </div>
+          <!-- ============ STEP 2 — FAMILY & CONTACT ============ -->
+          <div class="wiz-step-panel" id="wizStep1" data-step-index="1">
+            <h3 class="wiz-step-title">Family &amp; Contact</h3>
+            <div class="wiz-step-desc">Step 2 of 5 — parent/guardian details, address and contact information.</div>
 
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="fatherName" class="form-label">Father Name<span class="text-danger">*</span></label>
+                <input type="text" id="fatherName" class="form-control" th:field="*{fatherName}">
+                <p class="text-danger" th:if="${#fields.hasErrors('fatherName')}" th:errors="*{fatherName}">f name Error</p>
+              </div>
+              <div class="col-md-3">
+                <label for="fatherOccupation" class="form-label">Father Occupation</label>
+                <input type="text" id="fatherOccupation" class="form-control" th:field="*{fatherOccupation}">
+              </div>
+              <div class="col-md-3">
+                <label for="fatherQualification" class="form-label">Father Qualification</label>
+                <input type="text" id="fatherQualification" class="form-control" th:field="*{fatherQualification}">
+              </div>
 
-        <!-- Physical Info -->
-        <div class="col-12">
-          <h4>Physical Information</h4>
-        </div>
-        <div class="col-md-3">
-          <label for="height" class="form-label">Height (cm)</label>
-          <input type="number" id="height" class="form-control" th:field="*{height}">
-        </div>
-        <div class="col-md-3">
-        </div>
-        <div class="col-md-3">
-          <label for="weight" class="form-label">Weight (kg)</label>
-          <input type="number" id="weight" class="form-control" th:field="*{weight}">
-        </div>
-        <div class="col-md-3">
-        </div>
-        <div class="col-md-3">
-          <label for="bloodGroup" class="form-label">Blood Group</label>
-          <select id="bloodGroup" class="form-select" th:field="*{bloodGroup}">
-            <option th:each="bloodGroup : ${bloodGroups}" th:value="${bloodGroup}" th:text="${bloodGroup}" th:selected="${bloodGroup} == ${student.bloodGroup}"></option>
-          </select>
-        </div>
-        <div class="col-md-3">
-        </div>
-        <div class="col-md-3">
-          <label for="bodyType" class="form-label">Body Type</label>
-          <!--<input type="text" id="bodyType" class="form-control" th:field="*{bodyType}">-->
-          <select id="bodyType" class="form-select" th:field="*{bodyType}">
-            <option th:each="bodyType : ${bodyTypes}" th:value="${bodyType}" th:text="${bodyType}" th:selected="${bodyType} == ${student.bodyType}"></option>
-          </select>
-        </div>
-        <div class="col-md-3">
-        </div>
+              <div class="col-md-6">
+                <label for="motherName" class="form-label">Mother Name<span class="text-danger">*</span></label>
+                <input type="text" id="motherName" class="form-control" th:field="*{motherName}">
+                <p class="text-danger" th:if="${#fields.hasErrors('motherName')}" th:errors="*{motherName}">m name Error</p>
+              </div>
+              <div class="col-md-3">
+                <label for="motherOccupation" class="form-label">Mother Occupation</label>
+                <input type="text" id="motherOccupation" class="form-control" th:field="*{motherOccupation}">
+              </div>
+              <div class="col-md-3">
+                <label for="motherQualification" class="form-label">Mother Qualification</label>
+                <input type="text" id="motherQualification" class="form-control" th:field="*{motherQualification}">
+              </div>
 
-        <!-- Contact Info -->
-        <div class="col-12">
-          <h4>Contact Information</h4>
-        </div>
-        <div class="col-md-7">
-          <label for="address" class="form-label">Address<span class="text-danger">*</span></label>
-          <div class="form-floating">
-            <textarea id="address" placeholder="Add address here" class="form-control" name="address" style="height: 100px;" rows="4" cols="50" th:field="*{address}"></textarea>
-            <label for="address">Add Address</label>
+              <div class="wiz-subhead">Address &amp; Contact</div>
+              <div class="col-md-7">
+                <label for="address" class="form-label">Address<span class="text-danger">*</span></label>
+                <div class="form-floating">
+                  <textarea id="address" placeholder="Add address here" class="form-control" name="address" style="height: 100px;" rows="4" cols="50" th:field="*{address}"></textarea>
+                  <label for="address">Add Address</label>
+                </div>
+                <p class="text-danger" th:if="${#fields.hasErrors('address')}" th:errors="*{address}">Address Error</p>
+              </div>
+              <div class="col-md-5">
+                <label for="landmark" class="form-label">Landmark</label>
+                <input type="text" id="landmark" class="form-control" th:field="*{landmark}">
+              </div>
+
+              <div class="col-md-4">
+                <label for="province" class="form-label">Province<span class="text-danger">*</span></label>
+                <select id="province" th:field="*{province}" class="form-select" name="province">
+                  <option value="">Select Province</option>
+                  <option th:each="province : ${provinces}" th:value="${province.id}" th:text="${province.provinceName}"
+                          th:selected="${province} == ${student.province}">State</option>
+                </select>
+                <p class="text-danger" th:if="${#fields.hasErrors('province')}" th:errors="*{province}">Province Error</p>
+              </div>
+              <div class="col-md-4">
+                <label for="city" class="form-label">City<span class="text-danger">*</span></label>
+                <input type="hidden" th:value="${student.city != null ? student.city.id : ''}" id="hiddencity">
+                <select id="city" class="form-select" name="city" th:field="*{city}">
+                  <option value="">Select City</option>
+                </select>
+                <p class="text-danger" th:if="${#fields.hasErrors('city')}" th:errors="*{city}">City Error</p>
+              </div>
+              <div class="col-md-4">
+                <label for="pincode" class="form-label">Pincode</label>
+                <input type="text" id="pincode" class="form-control intfields" th:field="*{pincode}" maxlength="6"
+                       minlength="6"
+                       pattern="[0-9]{6}"
+                       inputmode="numeric"
+                       oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6)">
+                <p class="text-danger" th:if="${#fields.hasErrors('pincode')}" th:errors="*{pincode}">City Error</p>
+              </div>
+
+              <div class="col-md-3">
+                <label for="mobile1" class="form-label">Mobile 1<span class="text-danger">*</span></label>
+                <input type="text" id="mobile1" class="form-control intfields" th:field="*{mobile1}" maxlength="10"
+                       minlength="10"
+                       pattern="[0-9]{10}"
+                       inputmode="numeric"
+                       oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)">
+                <p class="text-danger" th:if="${#fields.hasErrors('mobile1')}" th:errors="*{mobile1}">City Error</p>
+              </div>
+              <div class="col-md-3">
+                <label for="mobile2" class="form-label">Mobile 2</label>
+                <input type="text" id="mobile2" class="form-control intfields" th:field="*{mobile2}" maxlength="10"
+                       minlength="10"
+                       pattern="[0-9]{10}"
+                       inputmode="numeric"
+                       oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)">
+                <p class="text-danger" th:if="${#fields.hasErrors('mobile2')}" th:errors="*{mobile2}">City Error</p>
+              </div>
+              <div class="col-md-3">
+                <label for="email" class="form-label">Email<span class="text-danger">*</span></label>
+                <input type="text" id="email" class="form-control" th:field="*{userEntity.email}">
+                <p class="text-danger" th:if="${#fields.hasErrors('userEntity.email')}" th:errors="*{userEntity.email}">City Error</p>
+              </div>
+              <div class="col-md-3">
+                <label for="distanceFromSchool" class="form-label">Distance From School</label>
+                <input type="text" id="distanceFromSchool" class="form-control intfields" th:field="*{distanceFromSchool}">
+                <p class="text-danger" th:if="${#fields.hasErrors('distanceFromSchool')}" th:errors="*{distanceFromSchool}">Distance From School</p>
+              </div>
+
+              <div class="wiz-subhead">In Case of Emergency</div>
+              <div class="col-md-6">
+                <label for="personName" class="form-label">Contact Person Name</label>
+                <input type="text" id="personName" class="form-control" th:field="*{personName}">
+                <p class="text-danger" th:if="${#fields.hasErrors('personName')}" th:errors="*{personName}">Province Error</p>
+              </div>
+              <div class="col-md-3">
+                <label for="personContact" class="form-label">Contact Person Number</label>
+                <input type="text" id="personContact" class="form-control intfields" th:field="*{personContact}">
+                <p class="text-danger" th:if="${#fields.hasErrors('personContact')}" th:errors="*{personContact}">Province Error</p>
+              </div>
+              <div class="col-md-3">
+                <label for="relationship" class="form-label">Relationship</label>
+                <select id="relationship" class="form-select" th:field="*{relationship}">
+                  <option th:each="entry : ${relationships}" th:value="${entry.key}" th:text="${entry.value}"
+                          th:selected="${entry} == ${student.relationship}"></option>
+                </select>
+              </div>
+            </div>
           </div>
-          <p class="text-danger" th:if="${#fields.hasErrors('address')}" th:errors="*{address}">Address Error</p>
-        </div>
-        <div class="col-md-5"></div>
-        <div class="col-md-4">
-          <label for="landmark" class="form-label">Landmark</label>
-          <input type="text" id="landmark" class="form-control" th:field="*{landmark}">
-        </div>
-        <div class="col-md-8"></div>
-        <div class="col-md-4">
-          <label for="province" class="form-label">Province<span class="text-danger">*</span></label>
-          <select id="province" th:field="*{province}" class="form-select" name="province">
-            <option value="">Select Province</option>
-            <option th:each="province : ${provinces}" th:value="${province.id}" th:text="${province.provinceName}"
-                    th:selected="${province} == ${student.province}">State</option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('province')}" th:errors="*{province}">Province Error</p>
-        </div>
-        <div class="col-md-2"></div>
-        <div class="col-md-4">
-          <label for="city" class="form-label">City<span class="text-danger">*</span></label>
-          <input type="hidden" th:value="${student.city != null ? student.city.id : ''}" id="hiddencity">
-          <select id="city" class="form-select" name="city" th:field="*{city}">
-            <option value="">Select City</option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('city')}" th:errors="*{city}">City Error</p>
-        </div>
-        <div class="col-md-2"></div>
-        <div class="col-md-3">
-          <label for="pincode" class="form-label">Pincode</label>
-          <input type="text" id="pincode" class="form-control intfields" th:field="*{pincode}" maxlength="6"
-                 minlength="6"
-                 pattern="[0-9]{6}"
-                 inputmode="numeric"
-                 oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6)">
-          <p class="text-danger" th:if="${#fields.hasErrors('pincode')}" th:errors="*{pincode}">City Error</p>
-        </div>
-        <div class="col-md-9"></div>
-        <div class="col-md-3">
-          <label for="mobile1" class="form-label">Mobile 1<span class="text-danger">*</span></label>
-          <input type="text" id="mobile1" class="form-control intfields" th:field="*{mobile1}" maxlength="10"
-                 minlength="10"
-                 pattern="[0-9]{10}"
-                 inputmode="numeric"
-                 oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)">
-          <p class="text-danger" th:if="${#fields.hasErrors('mobile1')}" th:errors="*{mobile1}">City Error</p>
-        </div>
-        <div class="col-md-3"></div>
-        <div class="col-md-3">
-          <label for="mobile2" class="form-label">Mobile 2</label>
-          <input type="text" id="mobile2" class="form-control intfields" th:field="*{mobile2}" maxlength="10"
-                 minlength="10"
-                 pattern="[0-9]{10}"
-                 inputmode="numeric"
-                 oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)">
-          <p class="text-danger" th:if="${#fields.hasErrors('mobile2')}" th:errors="*{mobile2}">City Error</p>
-        </div>
-        <div class="col-md-3"></div>
-        <div class="col-md-4">
-          <label for="email" class="form-label">Email<span class="text-danger">*</span></label>
-          <input type="text" id="email" class="form-control" th:field="*{userEntity.email}">
-          <p class="text-danger" th:if="${#fields.hasErrors('userEntity.email')}" th:errors="*{userEntity.email}">City Error</p>
-        </div>
-        <div class="col-md-8"></div>
-        <div class="col-md-4">
-          <label for="distanceFromSchool" class="form-label">Distance From School</label>
-          <input type="text" id="distanceFromSchool" class="form-control intfields" th:field="*{distanceFromSchool}">
-          <p class="text-danger" th:if="${#fields.hasErrors('distanceFromSchool')}" th:errors="*{distanceFromSchool}">Distance From School</p>
-        </div>
-        <div class="col-md-8"></div>
-        <!-- Previous Academic Details -->
-        <div class="col-12">
-          <h4>Previous Academic Details</h4>
-        </div>
-        <div class="col-md-6">
-          <label for="previousSchool" class="form-label">Previous School</label>
-          <input type="text" id="previousSchool" class="form-control" th:field="*{previousSchool}">
-        </div>
-        <div class="col-md-6">
-          <label for="removalCause" class="form-label">Removal Cause</label>
-          <input type="text" id="removalCause" class="form-control" th:field="*{removalCause}">
-        </div>
-        <div class="col-md-3">
-          <label for="previousClass" class="form-label">Previous Class</label>
-          <input type="text" id="previousClass" class="form-control" th:field="*{previousClass}">
-        </div><div class="col-md-1"></div>
-        <div class="col-md-3">
-          <label for="tcNo" class="form-label">TC Number</label>
-          <input type="text" id="tcNo" class="form-control" th:field="*{tcNo}">
-        </div><div class="col-md-1"></div>
 
-        <div class="col-md-3">
-          <label for="passingYear" class="form-label">Passing Year</label>
-          <input type="number" id="passingYear" class="form-control" th:field="*{passingYear}">
-        </div><div class="col-md-1"></div>
+          <!-- ============ STEP 3 — ACADEMIC DETAILS ============ -->
+          <div class="wiz-step-panel" id="wizStep2" data-step-index="2">
+            <h3 class="wiz-step-title">Academic Details</h3>
+            <div class="wiz-step-desc">Step 3 of 5 — grade, enrollment and prior schooling information.</div>
 
-        <!-- Emergency Contact -->
-        <div class="col-12">
-          <h4>In Case of Emergency</h4>
-        </div>
-        <div class="col-md-6">
-          <label for="personName" class="form-label">Contact Person Name</label>
-          <input type="text" id="personName" class="form-control" th:field="*{personName}">
-          <p class="text-danger" th:if="${#fields.hasErrors('personName')}" th:errors="*{personName}">Province Error</p>
-        </div>
-        <div class="col-md-3">
-          <label for="personContact" class="form-label">Contact Person Number</label>
-          <input type="text" id="personContact" class="form-control intfields" th:field="*{personContact}">
-          <p class="text-danger" th:if="${#fields.hasErrors('personContact')}" th:errors="*{personContact}">Province Error</p>
-        </div>
-        <div class="col-md-3">
-          <label for="relationship" class="form-label">Relationship</label>
-          <select id="relationship" class="form-select" th:field="*{relationship}">
-            <option th:each="entry : ${relationships}" th:value="${entry.key}" th:text="${entry.value}"
-            th:selected="${entry} == ${student.relationship}"></option>
-          </select>
-        </div>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label for="medium" class="form-label">Medium<span class="text-danger">*</span></label>
+                <select id="medium" class="form-select" th:field="*{medium}">
+                  <option th:each="medium : ${mediums}" th:value="${medium.id}" th:text="${medium.mediumName}"
+                          th:selected="${medium} == ${student.medium}"></option>
+                </select>
+                <p class="text-danger" th:if="${#fields.hasErrors('medium')}" th:errors="*{medium}">medium Error</p>
+              </div>
+              <div class="col-md-4">
+                <label for="grade" class="form-label">Grade<span class="text-danger">*</span></label>
+                <select id="grade" class="form-select" th:field="*{grade}">
+                  <option th:each="grade : ${grades}" th:value="${grade.id}" th:text="${grade.gradeName}"
+                          th:selected="${grade} == ${student.grade}"></option>
+                </select>
+                <p class="text-danger" th:if="${#fields.hasErrors('grade')}" th:errors="*{grade}">grade Error</p>
+              </div>
+              <div class="col-md-4">
+                <label for="section" class="form-label">Section<span class="text-danger">*</span></label>
+                <select id="section" class="form-select" th:field="*{section}">
+                  <option th:each="section : ${sections}" th:value="${section.id}" th:text="${section.sectionName}"
+                          th:selected="${section} == ${student.section}"></option>
+                </select>
+                <p class="text-danger" th:if="${#fields.hasErrors('section')}" th:errors="*{section}">section Error</p>
+              </div>
 
-        <!-- Extra Information -->
-        <div class="col-12">
-          <h4>Academic Registration Information</h4>
-        </div>
-        <div class="col-md-4">
-          <label for="medium" class="form-label">Medium<span class="text-danger">*</span></label>
-          <select id="medium" class="form-select" th:field="*{medium}">
-            <option th:each="medium : ${mediums}" th:value="${medium.id}" th:text="${medium.mediumName}"
-            th:selected="${medium} == ${student.medium}"></option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('medium')}" th:errors="*{medium}">medium Error</p>
-        </div>
-        <div class="col-md-4">
-          <label for="grade" class="form-label">Grade<span class="text-danger">*</span></label>
-          <select id="grade" class="form-select" th:field="*{grade}">
-            <option th:each="grade : ${grades}" th:value="${grade.id}" th:text="${grade.gradeName}"
-                    th:selected="${grade} == ${student.grade}"></option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('grade')}" th:errors="*{grade}">grade Error</p>
-        </div>
-        <div class="col-md-4">
-          <label for="section" class="form-label">Section</label>
-          <select id="section" class="form-select" th:field="*{section}">
-            <option th:each="section : ${sections}" th:value="${section.id}" th:text="${section.sectionName}"
-                    th:selected="${section} == ${student.section}"></option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('section')}" th:errors="*{section}">section Error</p>
-        </div>
+              <div class="col-md-4">
+                <label for="studentType" class="form-label">Student Type<span class="text-danger">*</span></label>
+                <select id="studentType" class="form-select" th:field="*{studentType}">
+                  <option value="OLD" th:selected="OLD == ${student.studentType}">Old</option>
+                  <option value="NEW" th:selected="NEW == ${student.studentType}">New</option>
+                </select>
+                <p class="text-danger" th:if="${#fields.hasErrors('studentType')}" th:errors="*{studentType}">studentType Error</p>
+              </div>
+              <div class="col-md-4">
+                <label for="schoolStatus" class="form-label">School Status</label>
+                <select id="schoolStatus" class="form-select" th:field="*{schoolStatus}">
+                  <option value="OWN" th:selected="OWN == ${student.schoolStatus}">Own</option>
+                  <option value="GRANT" th:selected="GRANT == ${student.schoolStatus}">Grant</option>
+                  <option value="OTHER" th:selected="OTHER == ${student.schoolStatus}">Other</option>
+                </select>
+                <p class="text-danger" th:if="${#fields.hasErrors('schoolStatus')}" th:errors="*{schoolStatus}">schoolStatus Error</p>
+              </div>
 
-        <div class="col-md-4">
-          <label for="studentType" class="form-label">Student Type<span class="text-danger">*</span></label>
-          <!--<input type="text" id="studentType" class="form-control" th:field="*{studentType}">-->
-          <select id="studentType" class="form-select" th:field="*{studentType}">
-            <option value="OLD" th:selected="OLD == ${student.studentType}">Old</option>
-            <option value="NEW" th:selected="NEW == ${student.studentType}">New</option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('studentType')}" th:errors="*{studentType}">studentType Error</p>
-        </div>
-        <div class="col-md-4">
-          <label for="schoolStatus" class="form-label">School Status</label>
-          <!--<input type="text" id="schoolStatus" class="form-control" th:field="*{schoolStatus}">-->
-          <select id="schoolStatus" class="form-select" th:field="*{schoolStatus}">
-            <option value="OWN" th:selected="OWN == ${student.schoolStatus}">Own</option>
-            <option value="GRANT" th:selected="GRANT == ${student.schoolStatus}">Grant</option>
-            <option value="OTHER" th:selected="OTHER == ${student.schoolStatus}">Other</option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('schoolStatus')}" th:errors="*{schoolStatus}">schoolStatus Error</p>
-        </div>
-        <div class="col-md-2"></div>
+              <div class="col-md-7">
+                <label for="remark" class="form-label">Remark</label>
+                <div class="form-floating">
+                  <textarea id="remark" placeholder="Add Remark here, if any" class="form-control" name="remark" style="height: 100px;" rows="4" cols="50" th:field="*{remark}"></textarea>
+                  <label for="remark">Add Remark</label>
+                </div>
+                <p class="text-danger" th:if="${#fields.hasErrors('remark')}" th:errors="*{remark}">remark Error</p>
+              </div>
 
-        <!--<div class="col-md-12">
-          <label for="remark" class="form-label">Remark</label>
-          <textarea id="remark" class="form-control" th:field="*{remark}"></textarea>
-        </div>-->
-        <div class="col-md-7">
-          <label for="remark" class="form-label">Remark</label>
-          <div class="form-floating">
-            <textarea id="remark" placeholder="Add Remark here, if any" class="form-control" name="remark" style="height: 100px;" rows="4" cols="50" th:field="*{remark}"></textarea>
-            <label for="address">Add Remark</label>
+              <div class="wiz-subhead">Previous Academic Details</div>
+              <div class="col-md-6">
+                <label for="previousSchool" class="form-label">Previous School</label>
+                <input type="text" id="previousSchool" class="form-control" th:field="*{previousSchool}">
+              </div>
+              <div class="col-md-6">
+                <label for="removalCause" class="form-label">Removal Cause</label>
+                <input type="text" id="removalCause" class="form-control" th:field="*{removalCause}">
+              </div>
+              <div class="col-md-4">
+                <label for="previousClass" class="form-label">Previous Class</label>
+                <input type="text" id="previousClass" class="form-control" th:field="*{previousClass}">
+              </div>
+              <div class="col-md-4">
+                <label for="tcNo" class="form-label">TC Number</label>
+                <input type="text" id="tcNo" class="form-control" th:field="*{tcNo}">
+              </div>
+              <div class="col-md-4">
+                <label for="passingYear" class="form-label">Passing Year</label>
+                <input type="number" id="passingYear" class="form-control" th:field="*{passingYear}">
+              </div>
+            </div>
           </div>
-          <p class="text-danger" th:if="${#fields.hasErrors('remark')}" th:errors="*{remark}">remark Error</p>
-        </div>
-        <div class="col-md-5"></div>
 
-        <!-- Bank & Aadhar Details -->
-        <div class="col-12">
-          <h4>Bank & Aadhar Details</h4>
-        </div>
-        <div class="col-md-6">
-          <label for="bank" class="form-label">Bank</label>
-          <select id="bank" class="form-select" th:field="*{bank}">
-            <option th:each="bank : ${banks}" th:value="${bank.id}" th:text="${bank.bankName}"
-            th:selected="${bank} == ${student.bank}"></option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('bank')}" th:errors="*{bank}">bank Error</p>
-        </div>
-        <div class="col-md-6">
-          <label for="branchName" class="form-label">Branch Name</label>
-          <input type="text" id="branchName" class="form-control" th:field="*{branchName}">
-        </div>
-        <div class="col-md-4">
-          <label for="ifscCode" class="form-label">IFSC Code</label>
-          <input type="text" id="ifscCode" class="form-control" th:field="*{ifscCode}">
-        </div>
-        <div class="col-md-4">
-          <label for="accountNo" class="form-label">Account Number</label>
-          <input type="text" id="accountNo" class="form-control" th:field="*{accountNo}">
-        </div>
-        <div class="col-md-4">
-          <label for="aadharNo" class="form-label">Aadhar Number</label>
-          <input type="text" id="aadharNo" class="form-control" th:field="*{aadharNo}">
-          <p class="text-danger" th:if="${#fields.hasErrors('aadharNo')}" th:errors="*{aadharNo}">aadharNo Error</p>
-        </div>
-        <div class="col-md-4">
-          <label for="apaarId" class="form-label">Apaar ID</label>
-          <input type="text" id="apaarId" class="form-control" th:field="*{apaarId}">
-          <p class="text-danger" th:if="${#fields.hasErrors('apaarId')}" th:errors="*{apaarId}">apaarId Error</p>
-        </div>
-        <div class="col-md-4 mb-4">
-          <label for="penNo" class="form-label">PEN Number</label>
-          <input type="text" id="penNo" class="form-control" th:field="*{penNo}">
-          <p class="text-danger" th:if="${#fields.hasErrors('penNo')}" th:errors="*{penNo}">PEN No Error</p>
-        </div>
+          <!-- ============ STEP 4 — DOCUMENTS & BANK ============ -->
+          <div class="wiz-step-panel" id="wizStep3" data-step-index="3">
+            <h3 class="wiz-step-title">Documents &amp; Bank</h3>
+            <div class="wiz-step-desc">Step 4 of 5 — bank account for fee refunds/payouts and government ID numbers.</div>
 
-        <!-- Submit Button -->
-        <hr/>
-        <div class="col-md-4">
-          <a class="btn btn-outline-secondary btn-sm" th:href="@{/student/student}"><i class="bi bi-arrow-left"></i> Back to List</a>
-        </div>
-        <div class="col-md-6 mb-5">
-          <button type="submit" class="btn btn-primary"><i class="bi bi-save2-fill"></i> Save</button>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="bank" class="form-label">Bank<span class="text-danger">*</span></label>
+                <select id="bank" class="form-select" th:field="*{bank}">
+                  <option th:each="bank : ${banks}" th:value="${bank.id}" th:text="${bank.bankName}"
+                          th:selected="${bank} == ${student.bank}"></option>
+                </select>
+                <p class="text-danger" th:if="${#fields.hasErrors('bank')}" th:errors="*{bank}">bank Error</p>
+              </div>
+              <div class="col-md-6">
+                <label for="branchName" class="form-label">Branch Name</label>
+                <input type="text" id="branchName" class="form-control" th:field="*{branchName}">
+              </div>
+              <div class="col-md-4">
+                <label for="ifscCode" class="form-label">IFSC Code</label>
+                <input type="text" id="ifscCode" class="form-control" th:field="*{ifscCode}">
+              </div>
+              <div class="col-md-4">
+                <label for="accountNo" class="form-label">Account Number</label>
+                <input type="text" id="accountNo" class="form-control" th:field="*{accountNo}">
+              </div>
+
+              <div class="wiz-subhead">Government IDs</div>
+              <div class="col-md-4">
+                <label for="aadharNo" class="form-label">Aadhar Number</label>
+                <input type="text" id="aadharNo" class="form-control" th:field="*{aadharNo}">
+                <p class="text-danger" th:if="${#fields.hasErrors('aadharNo')}" th:errors="*{aadharNo}">aadharNo Error</p>
+              </div>
+              <div class="col-md-4">
+                <label for="apaarId" class="form-label">Apaar ID</label>
+                <input type="text" id="apaarId" class="form-control" th:field="*{apaarId}">
+                <p class="text-danger" th:if="${#fields.hasErrors('apaarId')}" th:errors="*{apaarId}">apaarId Error</p>
+              </div>
+              <div class="col-md-4">
+                <label for="penNo" class="form-label">PEN Number</label>
+                <input type="text" id="penNo" class="form-control" th:field="*{penNo}">
+                <p class="text-danger" th:if="${#fields.hasErrors('penNo')}" th:errors="*{penNo}">PEN No Error</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- ============ STEP 5 — REVIEW & SUBMIT ============ -->
+          <div class="wiz-step-panel" id="wizStep4" data-step-index="4">
+            <h3 class="wiz-step-title">Review &amp; Submit</h3>
+            <div class="wiz-step-desc">Step 5 of 5 — please check the details below before registering the student.</div>
+            <div id="wizReviewBody"></div>
+          </div>
+
+          <!-- ============ FOOTER NAV ============ -->
+          <div class="wiz-foot">
+            <button type="button" class="wiz-btn" id="wizBackBtn" onclick="wizPrev()" style="visibility:hidden;">
+              <i class="bi bi-arrow-left"></i> Back
+            </button>
+            <div class="wiz-step-hint"><a th:href="@{/student/student}" class="text-decoration-none"><i class="bi bi-x-circle"></i> Cancel</a></div>
+            <button type="button" class="wiz-btn wiz-btn-primary" id="wizNextBtn" onclick="wizNext()">
+              Next <i class="bi bi-arrow-right"></i>
+            </button>
+            <button type="submit" class="wiz-btn wiz-btn-primary d-none" id="wizSubmitBtn">
+              <i class="bi bi-check2-circle"></i> Register Student
+            </button>
+          </div>
+
         </div>
       </form>
     </div>
@@ -422,9 +515,225 @@
 
   <script type="text/javascript" th:inline="javascript">
     const contextPath = /*[[@{/}]]*/ '/';
+    /*<![CDATA[*/
+    const serverError = [[${error}]];
+    const studentPhotoMaxSizeKb = [[${studentPhotoMaxSizeKb ?: 500}]];
+    /*]]>*/
+
     flatpickr("#dob", {
       dateFormat: "d/M/Y",  // Equivalent to dd/MMM/yyyy
     });
+
+    // ===================== Student photo: preview + size cap =====================
+    // Size limit itself is configurable server-side (system_config key
+    // STUDENT_PHOTO_MAX_SIZE_KB, default 500) and re-validated server-side on
+    // submit — this client-side check is just fast feedback + preview, not
+    // the security boundary.
+    let wizPhotoValid = true;
+    $(document).on('change', '#customerPic', function () {
+      const file = this.files && this.files[0];
+      const $status = $('#photoStatusText');
+      const $img = $('#photoPreviewImg');
+      const $placeholder = $('#photoPreviewPlaceholder');
+
+      if (!file) {
+        wizPhotoValid = true;
+        $status.removeClass('err ok').text('');
+        $img.addClass('d-none').attr('src', '');
+        $placeholder.removeClass('d-none');
+        return;
+      }
+
+      const sizeKb = file.size / 1024;
+      if (sizeKb > studentPhotoMaxSizeKb) {
+        wizPhotoValid = false;
+        $status.removeClass('ok').addClass('err').text(
+          'This photo is ' + Math.round(sizeKb) + 'KB — max allowed is ' + studentPhotoMaxSizeKb + 'KB. Please choose a smaller image.'
+        );
+        $img.addClass('d-none').attr('src', '');
+        $placeholder.removeClass('d-none');
+        $(this).val('');
+        showWarningMsg('error', 'Photo exceeds the ' + studentPhotoMaxSizeKb + 'KB limit.', 'Error');
+        return;
+      }
+
+      wizPhotoValid = true;
+      $status.removeClass('err').addClass('ok').text(Math.round(sizeKb) + 'KB — looks good.');
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        $img.attr('src', e.target.result).removeClass('d-none');
+        $placeholder.addClass('d-none');
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // ===================== Wizard state & navigation =====================
+    const WIZ_STEP_COUNT = 5;
+    let wizCurrent = 0;
+
+    // Per-step required-field validation, mirroring exactly what the old
+    // single-page form validated on submit (same field ids, same messages),
+    // now split by the step each field lives on. Section/Bank checks are new
+    // — both are @NotNull server-side (Student.java) but previously had no
+    // client-side check at all.
+    const wizStepValidators = [
+      function () { // Step 1 — Personal
+        const studentName = $("#studentName").val().trim();
+        const religion = $("#religion").val();
+        const gender = $("#gender").val();
+        const category = $("#category").val();
+        const castVal = $("#cast").val();
+        if (!studentName) return "Student Name is required.";
+        if (!gender) return "Gender is required.";
+        if (!religion) return "Religion is required.";
+        if (!category) return "Category is required.";
+        if (!castVal) return "Caste is required.";
+        if (!wizPhotoValid) return "Please choose a photo under " + studentPhotoMaxSizeKb + "KB, or clear the selection.";
+        return null;
+      },
+      function () { // Step 2 — Family & Contact
+        const fatherName = $("#fatherName").val().trim();
+        const motherName = $("#motherName").val().trim();
+        const address = $("#address").val().trim();
+        const mobile1 = $("#mobile1").val().trim();
+        const email = $("#email").val().trim();
+        const emailPattern = /^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$/;
+        if (!fatherName) return "Father Name is required.";
+        if (!motherName) return "Mother Name is required.";
+        if (!address) return "Address is required.";
+        if (!$("#province").val()) return "Province is required.";
+        if (!$("#city").val()) return "City is required.";
+        if (!mobile1) return "Mobile no is required.";
+        if (!email) return "Email is required.";
+        if (!emailPattern.test(email)) return "Enter a valid email.";
+        return null;
+      },
+      function () { // Step 3 — Academic
+        const medium = $("#medium").val();
+        const grade = $("#grade").val();
+        const section = $("#section").val();
+        const studentType = $("#studentType").val();
+        if (!medium) return "Medium is required.";
+        if (!grade) return "Grade is required.";
+        if (!section) return "Section is required.";
+        if (!studentType) return "Student Type is required.";
+        return null;
+      },
+      function () { // Step 4 — Documents & Bank
+        const bank = $("#bank").val();
+        if (!bank) return "Bank is required.";
+        return null;
+      },
+      function () { return null; } // Step 5 — Review, nothing to validate
+    ];
+
+    function wizStepEl(i) { return document.getElementById('wizStep' + i); }
+
+    function wizRenderStepper() {
+      $('#wizStepper .wiz-step').each(function () {
+        const idx = parseInt($(this).attr('data-step-index'), 10);
+        $(this).removeClass('active done clickable');
+        if (idx < wizCurrent) { $(this).addClass('done clickable'); }
+        else if (idx === wizCurrent) { $(this).addClass('active'); }
+      });
+    }
+
+    function wizShow(index) {
+      wizCurrent = index;
+      for (let i = 0; i < WIZ_STEP_COUNT; i++) {
+        const el = wizStepEl(i);
+        if (el) { el.classList.toggle('active', i === index); }
+      }
+      wizRenderStepper();
+      $('#wizBackBtn').css('visibility', index === 0 ? 'hidden' : 'visible');
+      if (index === WIZ_STEP_COUNT - 1) {
+        $('#wizNextBtn').addClass('d-none');
+        $('#wizSubmitBtn').removeClass('d-none');
+        wizBuildReview();
+      } else {
+        $('#wizNextBtn').removeClass('d-none');
+        $('#wizSubmitBtn').addClass('d-none');
+      }
+      window.scrollTo({ top: $('.wiz-card').offset().top - 90, behavior: 'smooth' });
+    }
+
+    function wizNext() {
+      const validator = wizStepValidators[wizCurrent];
+      const msg = validator ? validator() : null;
+      if (msg) {
+        showWarningMsg("error", msg, "Error");
+        return;
+      }
+      if (wizCurrent < WIZ_STEP_COUNT - 1) { wizShow(wizCurrent + 1); }
+    }
+
+    function wizPrev() {
+      if (wizCurrent > 0) { wizShow(wizCurrent - 1); }
+    }
+
+    // Clicking an already-completed step jumps back to it directly.
+    $(document).on('click', '#wizStepper .wiz-step.clickable', function () {
+      const idx = parseInt($(this).attr('data-step-index'), 10);
+      if (idx < wizCurrent) { wizShow(idx); }
+    });
+
+    // ===================== Review step summary =====================
+    function wizVal(selector) {
+      const $el = $(selector);
+      if ($el.length === 0) return '';
+      if ($el.is('select')) {
+        const text = $el.find('option:selected').text().trim();
+        return text;
+      }
+      if ($el.is(':file')) {
+        return $el.val() ? $el.val().split(/[\\/]/).pop() : '';
+      }
+      return ($el.val() || '').toString().trim();
+    }
+
+    function wizReviewRow(label, selector) {
+      const val = wizVal(selector);
+      const display = val ? val : 'Not provided';
+      const cls = val ? 'v' : 'v empty';
+      return '<div class="wiz-review-item"><span class="k">' + label + '</span><span class="' + cls + '">' + $('<div>').text(display).html() + '</span></div>';
+    }
+
+    function wizBuildReview() {
+      let html = '';
+      html += '<div class="wiz-review-sec-title">Personal Information</div>';
+      html += wizReviewRow('Student Name', '#studentName');
+      html += wizReviewRow('Date of Birth', '#dob');
+      html += wizReviewRow('Gender', '#gender');
+      html += wizReviewRow('Religion', '#religion');
+      html += wizReviewRow('Nationality', '#nationality');
+      html += wizReviewRow('Category', '#category');
+      html += wizReviewRow('Caste', '#cast');
+      html += wizReviewRow('Student Image', '#customerPic');
+
+      html += '<div class="wiz-review-sec-title">Family &amp; Contact</div>';
+      html += wizReviewRow("Father Name", '#fatherName');
+      html += wizReviewRow("Mother Name", '#motherName');
+      html += wizReviewRow('Address', '#address');
+      html += wizReviewRow('Province', '#province');
+      html += wizReviewRow('City', '#city');
+      html += wizReviewRow('Mobile 1', '#mobile1');
+      html += wizReviewRow('Email', '#email');
+
+      html += '<div class="wiz-review-sec-title">Academic Details</div>';
+      html += wizReviewRow('Medium', '#medium');
+      html += wizReviewRow('Grade', '#grade');
+      html += wizReviewRow('Section', '#section');
+      html += wizReviewRow('Student Type', '#studentType');
+
+      html += '<div class="wiz-review-sec-title">Documents &amp; Bank</div>';
+      html += wizReviewRow('Bank', '#bank');
+      html += wizReviewRow('Aadhar Number', '#aadharNo');
+
+      $('#wizReviewBody').html(html);
+    }
+
+    // ===================== Existing behaviour, unchanged =====================
     $(document).ready(function() {
       function loadCities(state, selectedCity) {
         if (state) {
@@ -433,15 +742,12 @@
             url: `${contextPath}student/student/cities`,
             data: { provinceId: state },
             success: function(cities) {
-              console.log("cities: "+cities);
               let $citySelect = $('#city');
               $citySelect.empty();
               $citySelect.append('<option value="">Select City</option>');
               $.each(cities, function(index, city) {
                 $citySelect.append('<option value="' + city.id + '">' + city.cityName + '</option>');
               });
-              console.log("selectedCity "+selectedCity);
-              // Set the previously selected city
               if (selectedCity) {
                 $citySelect.val(selectedCity);
               }
@@ -455,15 +761,11 @@
         loadCities(selectedState);
       });
 
-      // Trigger change to load cities if a state is already selected
       let initialSelectedState = $('#province').val();
       let initialSelectedNewCity = $('#hiddencity').val();
       /*<![CDATA[*/
       let initialSelectedCity = [[${student}]] ? '[[${student.city}]]' : '';
       /*]]>*/
-      console.log("initialSelectedState:> "+initialSelectedState);
-      console.log("initialSelectedNewCity:> "+initialSelectedNewCity);
-      console.log("initial:> "+initialSelectedCity);
       if (initialSelectedState) {
         loadCities(initialSelectedState, initialSelectedNewCity);
       }
@@ -471,9 +773,11 @@
         this.value = this.value.replace(/[^0-9]/g, '');
       });
 
-      //validating the phone and email data
+      // Final, authoritative validation — runs no matter how the user
+      // navigated the wizard, exactly mirroring (plus Section/Bank) the
+      // checks that used to run on the old single-page form's submit.
       $("#myForm").submit(function (e) {
-        e.preventDefault(); // Always prevent submission until all checks pass
+        e.preventDefault();
 
         const mobile1 = $("#mobile1").val().trim();
         const email = $("#email").val().trim();
@@ -494,106 +798,61 @@
         const province = $("#province").val().trim();
         const city = $("#city").val().trim();
         const grade = $("#grade").val().trim();
+        const section = $("#section").val().trim();
+        const bank = $("#bank").val().trim();
 
-        if (!studentName) {
-          showWarningMsg("error", "Student Name is required.", "Error");
+        function fail(step, msg) {
+          showWarningMsg("error", msg, "Error");
+          wizShow(step);
           return false;
         }
 
-        if (!fatherName) {
-          showWarningMsg("error", "Father Name is required.", "Error");
-          return false;
-        }
+        if (!studentName) return fail(0, "Student Name is required.");
+        if (!gender) return fail(0, "Gender is required.");
+        if (!religion) return fail(0, "Religion is required.");
+        if (!nationality) return fail(0, "Nationality is required.");
+        if (!category) return fail(0, "Category is required.");
+        if (!castVal) return fail(0, "Caste is required.");
+        if (!wizPhotoValid) return fail(0, "Please choose a photo under " + studentPhotoMaxSizeKb + "KB, or clear the selection.");
 
-        if (!motherName) {
-          showWarningMsg("error", "Mother Name is required.", "Error");
-          return false;
-        }
+        if (!fatherName) return fail(1, "Father Name is required.");
+        if (!motherName) return fail(1, "Mother Name is required.");
+        if (!address) return fail(1, "Address is required.");
+        if (!mobile1) return fail(1, "Mobile no is required.");
+        if (!email) return fail(1, "Email is required.");
+        if (!emailPattern.test(email)) return fail(1, "Enter a valid email.");
+        if (!province) return fail(1, "Province is required.");
+        if (!city) return fail(1, "City is required.");
 
-        if (!religion) {
-          showWarningMsg("error", "Religion is required.", "Error");
-          return false; // stop checking further
-        }
+        if (!medium) return fail(2, "Medium is required.");
+        if (!studentType) return fail(2, "Student Type is required.");
+        if (!grade) return fail(2, "Grade is required.");
+        if (!section) return fail(2, "Section is required.");
 
-        if (!nationality) {
-          showWarningMsg("error", "Nationality is required.", "Error");
-          return false;
-        }
+        if (!bank) return fail(3, "Bank is required.");
 
-        if (!gender) {
-          showWarningMsg("error", "Gender is required.", "Error");
-          return false;
-        }
-
-        if (!category) {
-          showWarningMsg("error", "Category is required.", "Error");
-          return false; // stop checking further
-        }
-
-        if (!castVal) {
-          showWarningMsg("error", "Caste is required.", "Error");
-          return false; // stop checking further
-        }
-
-        if (!address) {
-          showWarningMsg("error", "Address is required.", "Error");
-          return false; // stop checking further
-        }
-
-
-        if (!mobile1) {
-          showWarningMsg("error", "Mobile no is required.", "Error");
-          return false; // stop checking further
-        }
-
-        if (!email) {
-          showWarningMsg("error", "Email is required.", "Error");
-          return false;
-        }
-
-        if (!emailPattern.test(email)) {
-          showWarningMsg("error", "Enter a valid email.", "Error");
-          return false;
-        }
-
-        if (!medium) {
-          showWarningMsg("error", "Medium is required.", "Error");
-          return false;
-        }
-
-        if (!studentType) {
-          showWarningMsg("error", "Student Type is required.", "Error");
-          return false;
-        }
-
-        if (!province) {
-          showWarningMsg("error", "Province is required.", "Error");
-          return false;
-        }
-
-        if (!city) {
-          showWarningMsg("error", "City is required.", "Error");
-          return false; // stop checking further
-        }
-
-        if (!grade) {
-          showWarningMsg("error", "Grade is required.", "Error");
-          return false;
-        }
-
-        // If all validations pass, submit the form
+        // All checks passed — submit for real.
         this.submit();
       });
 
+      // If the server round-tripped a validation error (e.g. a Pattern
+      // check that only exists server-side), jump straight to whichever
+      // step actually contains the errored field instead of silently
+      // leaving the user on step 1 with no visible feedback.
+      let erroredStep = -1;
+      for (let i = 0; i < WIZ_STEP_COUNT; i++) {
+        const el = wizStepEl(i);
+        if (el && el.querySelector('.text-danger')) { erroredStep = i; break; }
+      }
+      if (erroredStep > -1) {
+        wizShow(erroredStep);
+      } else {
+        wizShow(0);
+      }
+      if (serverError) {
+        showWarningMsg("error", serverError, "Error");
+      }
     });
-
-    /*$("#dob").datepicker({
-      dateFormat: "dd-MMM-yyyy"
-    });*/
-
-
-
-
 
     function showWarningMsg(msgType, msg, headerValue){
       toastr.options = {
@@ -615,10 +874,7 @@
       }
       toastr[msgType](msg,headerValue);
     }
-
-
   </script>
-
 
   <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html
        now loads them in <head>, so they are available before this page's

@@ -16,6 +16,8 @@ import com.smsweb.sms.models.universal.City;
 import com.smsweb.sms.models.universal.Grade;
 import com.smsweb.sms.repositories.admin.ExamDetailsRepository;
 import com.smsweb.sms.repositories.admin.ExaminationRepository;
+import com.smsweb.sms.repositories.admin.SystemConfigRepository;
+import com.smsweb.sms.models.admin.SystemConfig;
 import com.smsweb.sms.repositories.student.AttendanceRepository;
 import com.smsweb.sms.services.admin.AcademicyearService;
 import com.smsweb.sms.services.admin.SchoolService;
@@ -69,8 +71,17 @@ public class StudentController extends BaseController {
 
     private final ExaminationRepository examinationRepository;
     private final ExamDetailsRepository examDetailsRepository;
+    private final SystemConfigRepository systemConfigRepository;
+
+    // system_config key for the student registration photo size cap (KB).
+    // Configurable at runtime (no restart needed) via the system_config
+    // table, same pattern as BirthdayNotificationSettingsController's cron
+    // config — falls back to DEFAULT_STUDENT_PHOTO_MAX_SIZE_KB if unset.
+    private static final String CONFIG_KEY_STUDENT_PHOTO_MAX_SIZE_KB = "STUDENT_PHOTO_MAX_SIZE_KB";
+    private static final int DEFAULT_STUDENT_PHOTO_MAX_SIZE_KB = 500;
+
     @Autowired
-    public StudentController(StudentService studentService, AcademicStudentService academicStudentService, DropdownService dropdownService, AcademicyearService academicyearService, SchoolService schoolService, UserService userService, UserService userService1, AttendanceRepository attendanceRepository, ExaminationRepository examinationRepository, ExamDetailsRepository examDetailsRepository){
+    public StudentController(StudentService studentService, AcademicStudentService academicStudentService, DropdownService dropdownService, AcademicyearService academicyearService, SchoolService schoolService, UserService userService, UserService userService1, AttendanceRepository attendanceRepository, ExaminationRepository examinationRepository, ExamDetailsRepository examDetailsRepository, SystemConfigRepository systemConfigRepository){
         this.studentService = studentService;
         this.academicStudentService = academicStudentService;
         this.dropdownService = dropdownService;
@@ -80,6 +91,23 @@ public class StudentController extends BaseController {
         this.attendanceRepository = attendanceRepository;
         this.examinationRepository = examinationRepository;
         this.examDetailsRepository = examDetailsRepository;
+        this.systemConfigRepository = systemConfigRepository;
+    }
+
+    /** Reads the configurable student-photo size cap (KB) from system_config, defaulting to 500KB if unset. */
+    private int getStudentPhotoMaxSizeKb() {
+        return systemConfigRepository.findByConfigName(CONFIG_KEY_STUDENT_PHOTO_MAX_SIZE_KB)
+                .map(SystemConfig::getConfigValue)
+                .filter(v -> v != null && !v.isBlank())
+                .map(v -> {
+                    try {
+                        return Integer.parseInt(v.trim());
+                    } catch (NumberFormatException nfe) {
+                        log.warn("Invalid {} value '{}', falling back to default {}KB", CONFIG_KEY_STUDENT_PHOTO_MAX_SIZE_KB, v, DEFAULT_STUDENT_PHOTO_MAX_SIZE_KB);
+                        return DEFAULT_STUDENT_PHOTO_MAX_SIZE_KB;
+                    }
+                })
+                .orElse(DEFAULT_STUDENT_PHOTO_MAX_SIZE_KB);
     }
 
     @CheckAccess(screen = "STUDENT_LIST", type = AccessType.VIEW)
@@ -90,6 +118,27 @@ public class StudentController extends BaseController {
         log.debug("inside student list");
         if(isSuperAdminLoggedIn()){
             model.addAttribute("hasSuperAdmin", true);
+        } else {
+            // Stat tiles on the redesigned Student List header (Total / Inactive /
+            // New this month) — school+academic-year scoped, same criteria the
+            // table itself already uses (see StudentService.getStudentsPage).
+            School school = (School) model.getAttribute("school");
+            AcademicYear academicYear = (AcademicYear) model.getAttribute("academicYear");
+            log.info("StudentList stat-tiles: school={}, academicYear={}",
+                    school != null ? school.getId() : "NULL",
+                    academicYear != null ? academicYear.getId() : "NULL");
+            if (school != null && academicYear != null) {
+                int totalCount = studentService.getAllStudentsCount(school.getId(), academicYear.getId());
+                int inactiveCount = studentService.getAllInactiveStudentsCount(school.getId(), academicYear.getId());
+                long newThisMonth = studentService.getNewThisMonthCount(school.getId(), academicYear.getId());
+                log.info("StudentList stat-tiles: totalCount={}, inactiveCount={}, newThisMonth={}",
+                        totalCount, inactiveCount, newThisMonth);
+                model.addAttribute("totalStudentsCount", totalCount);
+                model.addAttribute("inactiveStudentsCount", inactiveCount);
+                model.addAttribute("newThisMonthCount", newThisMonth);
+            } else {
+                log.warn("StudentList stat-tiles: school or academicYear is NULL, tiles will show 0");
+            }
         }
         model.addAttribute("hasStudent", true);
         model.addAttribute("page", "datatable");
@@ -163,6 +212,7 @@ public class StudentController extends BaseController {
         model.addAttribute("bloodGroups", dropdownService.getBloodGroups());
         model.addAttribute("religions", dropdownService.getReligions());
         model.addAttribute("bodyTypes", dropdownService.getBodyTypes());
+        model.addAttribute("studentPhotoMaxSizeKb", getStudentPhotoMaxSizeKb());
         return model;
     }
 
@@ -211,6 +261,16 @@ public class StudentController extends BaseController {
         if(result.hasErrors()){
             model = getAllGlobalModels(model);
             model.addAttribute("error", result.getFieldError().getDefaultMessage());
+            return returnStr;
+        }
+        // Student-photo size cap: configurable (system_config, default 500KB),
+        // stricter than FileHandleHelper's blanket 2MB ceiling for all image
+        // uploads app-wide. Enforced here, server-side, since the client-side
+        // check in add-student.html/edit-student.html can be bypassed.
+        int photoMaxSizeKb = getStudentPhotoMaxSizeKb();
+        if (customerPic != null && !customerPic.isEmpty() && customerPic.getSize() > (long) photoMaxSizeKb * 1024) {
+            model = getAllGlobalModels(model);
+            model.addAttribute("error", "Student photo must not exceed " + photoMaxSizeKb + "KB.");
             return returnStr;
         }
         SimpleDateFormat sf = new SimpleDateFormat(FORMAT_PREFIX);
@@ -633,6 +693,7 @@ public class StudentController extends BaseController {
         model.addAttribute("mediums", dropdownService.getMediums());
         model.addAttribute("grades", dropdownService.getGrades());
         model.addAttribute("sections", dropdownService.getSections());
+        model.addAttribute("page", "datatable");
         return "student/update-aadhar";
     }
 

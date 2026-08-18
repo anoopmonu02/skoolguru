@@ -15,13 +15,136 @@
        because this page's <head> is discarded by the base::Layout th:replace —
        only the <section> contents get rendered into the final page. */
     #student-list, #student-list th, #student-list td { font-size: 0.82rem; }
-    /* Safety net alongside DataTables' scrollX:true — guarantees a horizontal
-       scrollbar shows up instead of the table squashing/overflowing whenever
-       it's wider than the viewport (narrow screens, many visible columns). */
-    #student-list_wrapper .dataTables_scrollBody { overflow-x: auto !important; }
     /* Keep the edit/delete action buttons on one line instead of wrapping
        onto two rows when the Actions column is narrow. */
     #student-list td.text-nowrap { white-space: nowrap; }
+
+    /* This page's header has no divider (the stat tiles right below it
+       already read as a clear section break) — page-scoped, does not touch
+       .page-header on any other screen. */
+    .page-header { border-bottom: none; }
+    /* "+ Add Student" is an <a>, not a <button>; without this it inherits
+       the app's default link underline. */
+    .btn-cta { text-decoration: none; }
+    .btn-cta:hover { text-decoration: none; }
+    /* Student name is plain text now (View is its own action button). */
+    .stu-name-text { color: var(--text-primary); font-weight: 600; }
+
+    /* ── Card shell around the search toolbar + table ──────────────────────
+       Everything below the stat tiles (search, exports, table, footer/
+       pagination) reads as one surface, matching the rest of the app's list
+       pages. DataTables is still doing the data fetching/sorting/export work
+       under the hood, but ALL of its own auto-generated chrome is disabled
+       (see layout: {...null} in the script below) — search, exports and
+       pagination here are custom markup wired to the DataTable's API
+       (table.search()/.page()/.buttons()), so they render pixel-for-pixel
+       like the approved mockup instead of DataTables' stock look. */
+    .stu-table-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-xs);
+      overflow: hidden;
+    }
+    .stu-toolbar { justify-content: space-between; }
+    .stu-export-slot {
+      margin-left: auto; flex-shrink: 0;
+      display: flex; align-items: center; gap: 6px; flex-wrap: nowrap;
+    }
+    .stu-export-slot .dt-buttons { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+    /* !important throughout: the Buttons extension also attaches its own
+       Bootstrap classes (btn, btn-secondary, buttons-html5, ...) alongside
+       .stu-export-btn, and those carry a solid grey/blue Bootstrap button
+       look (padding, background, border) that otherwise wins the cascade. */
+    .stu-export-slot .stu-export-btn {
+      width: 32px !important; height: 32px !important;
+      border-radius: var(--radius-sm) !important;
+      border: 1px solid var(--border-color) !important;
+      background: var(--card-bg) !important;
+      color: var(--text-muted) !important;
+      display: inline-flex !important; align-items: center; justify-content: center;
+      padding: 0 !important; margin: 0 !important;
+      box-shadow: none !important;
+      font-size: .92rem;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    .stu-export-slot .stu-export-btn:hover {
+      background: var(--accent-light) !important; border-color: var(--accent) !important; color: var(--accent) !important;
+    }
+
+    /* Safety net alongside DataTables' scrollX:true — guarantees a horizontal
+       scrollbar shows up instead of the table squashing/overflowing whenever
+       it's wider than the viewport (narrow screens, many visible columns).
+       DataTables 2's scrollX wraps the table in .dt-scroll > .dt-scroll-body
+       (not the old #id_wrapper .dataTables_scrollBody from DataTables 1.x). */
+    .stu-table-card .dt-scroll-body { overflow-x: auto !important; }
+
+    /* Clean table look (no vertical grid lines, no zebra stripes) instead of
+       Bootstrap's table-bordered/table-striped — matches the mockup's plain,
+       hover-highlighted row list. !important beats Bootstrap's own
+       border-color/border-width table variables. */
+    #student-list.table { border: none; }
+    #student-list thead th {
+      text-align: left;
+      padding: 10px 14px;
+      color: var(--text-muted);
+      font-weight: 700;
+      font-size: .68rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      background: var(--body-bg);
+      white-space: nowrap;
+      border-top: none !important;
+      border-bottom: 1px solid var(--border-color) !important;
+    }
+    #student-list tbody td {
+      padding: 9px 14px;
+      vertical-align: middle;
+      border-top: none !important;
+      border-left: none !important;
+      border-right: none !important;
+      border-bottom: 1px solid var(--border-color) !important;
+      background-color: transparent !important;
+    }
+    #student-list tbody tr:hover td { background-color: var(--body-bg) !important; }
+    #student-list tbody tr:last-child td { border-bottom: none !important; }
+
+    /* ── Footer: rows-per-page + "Showing X-Y of Z" + page-number pagination,
+       all custom-built and wired to table.page()/table.page.len(). ─────── */
+    .stu-table-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      border-top: 1px solid var(--border-color);
+      flex-wrap: wrap;
+    }
+    .stu-footer-left { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+    .stu-length-label { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--text-muted); }
+    .stu-length-select {
+      border-radius: var(--radius-sm); border: 1px solid var(--border-color);
+      background: var(--card-bg); color: var(--text-primary); padding: 4px 8px; font-size: .8rem;
+    }
+    .stu-page-info { font-size: .8rem; color: var(--text-muted); }
+    .stu-pagination { display: flex; gap: 5px; }
+    .stu-page-btn {
+      min-width: 30px; height: 30px; padding: 0 8px;
+      border-radius: var(--radius-sm); border: 1px solid var(--border-color);
+      background: var(--card-bg); color: var(--text-primary);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: .8rem; font-weight: 600; cursor: pointer;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    .stu-page-btn:hover:not(.disabled):not(.active) {
+      background: var(--accent-light); border-color: var(--accent); color: var(--accent);
+    }
+    .stu-page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; cursor: default; }
+    .stu-page-btn.disabled { opacity: .45; cursor: default; pointer-events: none; }
+    .stu-page-ellipsis {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; color: var(--text-muted); font-size: .8rem;
+    }
   </style>
 
 
@@ -29,51 +152,125 @@
     <div class="row mt-2 ">
       <div class="col-md-12">
         <div class="page-header page-header-row">
-          <h1 class="page-header-title">Student List</h1>
+          <div>
+            <h1 class="page-header-title">Student List</h1>
+            <p class="page-header-subtitle" th:if="${academicYear != null and (hasSuperAdmin==null || !hasSuperAdmin)}">
+              Session <span th:text="${academicYear.sessionFormat}">2026-27</span>
+            </p>
+          </div>
           <div class="page-header-actions" th:if="${hasSuperAdmin==null  || !hasSuperAdmin}">
-            <a class="btn btn-success btn-sm" sms:access="STUDENT_ADD:CREATE" th:href="@{/student/student/add}"><i class="bi bi-plus-lg"></i> Add Student</a>
+            <a class="btn-cta" sms:access="STUDENT_ADD:CREATE" th:href="@{/student/student/add}"><i class="bi bi-plus-lg"></i> Add Student</a>
+          </div>
+        </div>
+
+        <!-- Total / Inactive / New-this-month at a glance. Non-superadmin only —
+             scoped to a single school + academic year, same as the table below
+             (see StudentController.studentData / StudentService.getNewThisMonthCount).
+             "Inactive" stands in for the mockup's "Active" tile: every student
+             in the table below already has status=Active (soft-deleted students
+             are filtered out and live on the separate Inactive Students page),
+             so an "Active" count here would always equal Total — Inactive is the
+             number that's actually informative. -->
+        <div class="stat-tile-row" th:if="${hasSuperAdmin==null || !hasSuperAdmin}">
+          <div class="stat-tile">
+            <div class="stat-tile-icon" style="background:var(--accent-light);color:var(--accent)"><i class="bi bi-people-fill"></i></div>
+            <div>
+              <div class="stat-tile-val" th:text="${totalStudentsCount ?: 0}">0</div>
+              <div class="stat-tile-lbl">Total students</div>
+            </div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-tile-icon" style="background:rgba(220,38,38,.10);color:#dc2626"><i class="bi bi-person-dash-fill"></i></div>
+            <div>
+              <div class="stat-tile-val" th:text="${inactiveStudentsCount ?: 0}">0</div>
+              <div class="stat-tile-lbl">Inactive</div>
+            </div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-tile-icon" style="background:rgba(22,163,74,.10);color:#16a34a"><i class="bi bi-person-plus-fill"></i></div>
+            <div>
+              <div class="stat-tile-val" th:text="${newThisMonthCount ?: 0}">0</div>
+              <div class="stat-tile-lbl">New this month</div>
+            </div>
           </div>
         </div>
 
         <input type="hidden" name="isSuperAdmin" id="isSuperAdmin" th:value="${hasSuperAdmin}">
-        <!-- Skeleton placeholder, faded out by DataTables' initComplete (see the
-             existing $('#studentListLoader').fadeOut call). It replaces a fixed,
-             full-screen white curtain: that hid the whole layout so the wait felt
-             like a stall, whereas this occupies the space the table will fill. -->
-        <div id="studentListLoader" class="skeleton-table" aria-hidden="true">
-          <div class="skeleton-row skeleton-head"></div>
-          <div class="skeleton-row"></div>
-          <div class="skeleton-row"></div>
-          <div class="skeleton-row"></div>
-          <div class="skeleton-row"></div>
-          <div class="skeleton-row"></div>
-          <div class="skeleton-row"></div>
-          <div class="skeleton-row"></div>
-        </div>
 
-        <table class="table table-bordered table-striped table-hover table-sm"
-               id="student-list">
-          <thead>
-          <tr>
-            <th>Student Name</th>
-            <th th:if="${hasSuperAdmin==null || !hasSuperAdmin}">Grade-Section</th>
-            <th th:if="${hasSuperAdmin==null || !hasSuperAdmin}">SR</th>
-            <th>Regis. Date</th>
-            <th>Mother Name</th>
-            <th>Father Name</th>
-            <th>Aadhaar No.</th>
-            <th>Religion</th>
-            <th>Caste</th>
-            <th>Mobile</th>
-            <th>Email</th>
-            <th>Address</th>
-            <th th:if="${hasSuperAdmin==null || !hasSuperAdmin}">Actions</th>
-          </tr>
-          </thead>
-          <tbody class="table-group-divider">
-          <!-- rows injected by server-side DataTable AJAX -->
-          </tbody>
-        </table>
+        <div class="stu-table-card">
+          <div class="config-list-toolbar stu-toolbar">
+            <div class="config-search-wrap">
+              <i class="bi bi-search"></i>
+              <input type="text" class="form-control form-control-sm" id="studentSearchInput"
+                     placeholder="Search by name, SR no., mobile…">
+            </div>
+            <!-- DataTables Buttons' own container gets appended here by
+                 table.buttons().container() after init (see script below),
+                 so exports sit inline with search instead of on their own row. -->
+            <div id="stuExportSlot" class="stu-export-slot"></div>
+          </div>
+
+          <!-- Skeleton placeholder, faded out by DataTables' initComplete (see the
+               existing $('#studentListLoader').fadeOut call). It replaces a fixed,
+               full-screen white curtain: that hid the whole layout so the wait felt
+               like a stall, whereas this occupies the space the table will fill. -->
+          <div id="studentListLoader" class="skeleton-table" aria-hidden="true">
+            <div class="skeleton-row skeleton-head"></div>
+            <div class="skeleton-row"></div>
+            <div class="skeleton-row"></div>
+            <div class="skeleton-row"></div>
+            <div class="skeleton-row"></div>
+            <div class="skeleton-row"></div>
+            <div class="skeleton-row"></div>
+            <div class="skeleton-row"></div>
+          </div>
+
+          <table class="table table-sm" id="student-list">
+            <thead>
+            <tr>
+              <th>Student Name</th>
+              <th th:if="${hasSuperAdmin==null || !hasSuperAdmin}">Grade-Section</th>
+              <th th:if="${hasSuperAdmin==null || !hasSuperAdmin}">SR</th>
+              <th>Regis. Date</th>
+              <th>Mother Name</th>
+              <th>Father Name</th>
+              <th>Aadhaar No.</th>
+              <th>Religion</th>
+              <th>Caste</th>
+              <th>Mobile</th>
+              <th>Email</th>
+              <th>Address</th>
+              <th th:if="${hasSuperAdmin==null || !hasSuperAdmin}">Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            <!-- rows injected by server-side DataTable AJAX -->
+            </tbody>
+          </table>
+
+          <!-- Custom footer: rows-per-page + "Showing X-Y of Z" + page-number
+               pagination — replaces DataTables' own default footer chrome
+               (disabled via layout.bottomStart/bottomEnd = null below) so it
+               matches the mockup exactly. Built/kept in sync by
+               renderPagination() in the script below, wired to the
+               DataTable's own table.page()/table.page.len() API so sorting,
+               searching and server-side paging all keep working unchanged. -->
+          <div class="stu-table-footer">
+            <div class="stu-footer-left">
+              <label class="stu-length-label">Rows per page
+                <select id="stuPageLength" class="stu-length-select">
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                  <option value="25" selected>25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+              </label>
+              <span id="stuPageInfo" class="stu-page-info">Showing 0 of 0 students</span>
+            </div>
+            <div class="stu-pagination" id="stuPagination"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -137,19 +334,85 @@
   </div>
 
 
+  <!-- Powers the custom Print button below (not part of base.html's global
+       scripts — only loaded where a page actually needs it, same as
+       fees/receipt.html does). -->
+  <script th:src="@{/js/printThis.js}"></script>
+
   <script type="text/javascript" th:inline="javascript">
+    const studentSuccessMessage = [[${success}]];
+    const studentErrorMessage   = [[${error}]];
     $(document).ready(function() {
+      if (studentSuccessMessage) showMsg("success", studentSuccessMessage, "Success");
+      if (studentErrorMessage)   showMsg("error",   studentErrorMessage,   "Error");
+
       const hasSuperAdmin   = $("#isSuperAdmin").val();
       const dataUrl         = /*[[@{/student/student/data}]]*/ '/student/student/data';
       const showDetailBase  = /*[[@{/student/student/show/}]]*/ '/student/student/show/';
       const editBase        = /*[[@{/student/student/edit/}]]*/ '/student/student/edit/';
 
-      // Student Name column — present for both roles, always first.
+      // Escapes a value for safe use inside an HTML attribute (student names/
+      // addresses can contain quotes, ampersands, etc.).
+      const escapeAttr = function(value) {
+        return String(value == null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      };
+
+      // Avatar-initials chip shown next to the student's name.
+      const avatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+      const initialsOf = function(name) {
+        return (name || '').trim().split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+      };
+
+      // ── PII masking (Mobile / Aadhaar) ──────────────────────────────────
+      // Display-only: masks the value on screen with a click-to-reveal eye
+      // icon, matching the approved mockup. NOTE this is NOT a substitute for
+      // server-side masking — the real value is still present in this page's
+      // AJAX response (view it in the browser's network tab), so it protects
+      // against someone glancing at the screen, not against inspecting the
+      // page. A stronger version (server sends masked values by default, a
+      // permission-checked endpoint returns the real one on demand) is a
+      // separate, larger change if that's ever needed.
+      const maskMobile = function (raw) {
+        var v = String(raw || '');
+        if (v.length <= 4) { return v; }
+        return v.slice(0, 2) + 'x'.repeat(v.length - 4) + v.slice(-2);
+      };
+      const maskAadhaar = function (raw) {
+        var digits = String(raw || '').replace(/\D/g, '');
+        if (digits.length === 12) {
+          return 'xxxx xxxx ' + digits.slice(-4);
+        }
+        var v = String(raw || '');
+        return v.length <= 4 ? v : 'x'.repeat(v.length - 4) + v.slice(-4);
+      };
+      const maskedCell = function (raw, maskFn) {
+        if (!raw) { return ''; }
+        var full = escapeAttr(raw);
+        var masked = escapeAttr(maskFn(raw));
+        return '<span class="mask-cell">' +
+          '<span class="mask-text" data-full="' + full + '" data-masked="' + masked + '">' + masked + '</span>' +
+          '<button type="button" class="mask-toggle" title="Show"><i class="bi bi-eye"></i></button>' +
+          '</span>';
+      };
+
+      // Student Name column — present for both roles, always first. Plain
+      // text (not a link) — View is now its own explicit action in the
+      // Actions column, so the name itself no longer needs to double as one.
       const studentNameColumn = {
         data: 'studentName',
         render: function(data, type, row) {
           if (type === 'display') {
-            return '<a href="' + showDetailBase + row.uuid + '">' + (data || '') + '</a>';
+            var name = data || '';
+            var color = avatarColors[row.id % avatarColors.length];
+            return '<div class="stu-cell">' +
+              '<div class="stu-avatar" style="background:' + color + '22;color:' + color + '">' + initialsOf(name) + '</div>' +
+              '<span class="stu-name-text">' + escapeAttr(name) + '</span>' +
+              '</div>';
           }
           return data || '';
         }
@@ -169,34 +432,36 @@
         { data: 'registrationDate' },
         { data: 'motherName' },
         { data: 'fatherName' },
-        { data: 'aadharNo' },
+        {
+          data: 'aadharNo',
+          render: function (data, type) {
+            return type === 'display' ? maskedCell(data, maskAadhaar) : (data || '');
+          }
+        },
         { data: 'religion' },
         { data: 'castName', orderable: false },
-        { data: 'mobile1' },
+        {
+          data: 'mobile1',
+          render: function (data, type) {
+            return type === 'display' ? maskedCell(data, maskMobile) : (data || '');
+          }
+        },
         { data: 'email', orderable: false },
         { data: 'address' }
       ];
 
-      // Escapes a value for safe use inside an HTML attribute (student names/
-      // addresses can contain quotes, ampersands, etc.).
-      const escapeAttr = function(value) {
-        return String(value == null ? '' : value)
-          .replace(/&/g, '&amp;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#39;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;');
-      };
-
-      // Actions column for non-superadmin (last column)
+      // Actions column for non-superadmin (last column) — View / Edit / Delete.
       const actionsColumn = {
         data: null,
         orderable: false,
         className: 'text-center text-nowrap',
         render: function(data, type, row) {
-          return '<a class="btn btn-primary btn-sm me-1" href="' + editBase + row.uuid + '">' +
-                 '<i class="bi bi-pencil-square"></i></a>' +
-                 '<a class="btn btn-danger btn-sm delete-btn" data-id="' + row.id + '" ' +
+          return '<div class="row-actions">' +
+                 '<a class="config-icon-btn view" title="View" href="' + showDetailBase + row.uuid + '">' +
+                 '<i class="bi bi-eye"></i></a>' +
+                 '<a class="config-icon-btn" title="Edit" href="' + editBase + row.uuid + '">' +
+                 '<i class="bi bi-pencil"></i></a>' +
+                 '<button type="button" class="config-icon-btn danger delete-btn" title="Delete" data-id="' + row.id + '" ' +
                  'data-name="'          + escapeAttr(row.studentName)   + '" ' +
                  'data-grade-section="' + escapeAttr(row.gradeSection)  + '" ' +
                  'data-sr="'            + escapeAttr(row.sr)            + '" ' +
@@ -204,7 +469,8 @@
                  'data-mother="'        + escapeAttr(row.motherName)    + '" ' +
                  'data-address="'       + escapeAttr(row.address)       + '" ' +
                  'data-bs-toggle="modal" data-bs-target="#deleteConfirmationModal">' +
-                 '<i class="bi bi-trash3-fill"></i></a>';
+                 '<i class="bi bi-trash3"></i></button>' +
+                 '</div>';
         }
       };
 
@@ -224,7 +490,15 @@
         ? [{ orderable: false, targets: [6,8] }]
         : [{ orderable: false, targets: [1,2,8,10,12] }];
 
-      $('#student-list').DataTable({
+      // Every bit of DataTables' own auto-generated chrome (top length/search,
+      // bottom info/paging) is disabled via layout: {...null} below — the
+      // toolbar search box, export buttons, and footer/pagination in this
+      // page's HTML are custom markup wired to the DataTable's own API
+      // (table.search()/.page()/.page.len()/.buttons()), so they can match
+      // the approved mockup pixel-for-pixel instead of DataTables' stock
+      // Bootstrap look. The underlying data engine — server-side ajax,
+      // sorting, searching, paging — is completely unchanged.
+      const table = $('#student-list').DataTable({
         serverSide: true,
         processing: true,
         ajax: {
@@ -239,40 +513,181 @@
         autoWidth: false,
         responsive: false,
         layout: {
-          bottomEnd: {
-            paging: { firstLast: false }
-          },
-          top1Start: {
-            buttons: [
-              {
-                extend: 'excelHtml5',
-                text: '<i class="bi bi-file-excel-fill text-success"></i>',
-                titleAttr: 'Excel',
-                title: 'Students Data export',
-                exportOptions: { columns: exportCols }
-              },
-              {
-                extend: 'csvHtml5',
-                text: '<i class="bi bi-filetype-csv text-info"></i>',
-                titleAttr: 'CSV',
-                title: 'Students Data export'
-              },
-              {
-                extend: 'pdfHtml5',
-                text: '<i class="bi bi-file-pdf-fill text-danger"></i>',
-                titleAttr: 'PDF',
-                title: 'Students Data export',
-                exportOptions: { columns: exportCols }
-              },
-              'colvis'
-            ]
-          }
+          topStart: null,
+          topEnd: null,
+          top1Start: null,
+          bottomStart: null,
+          bottomEnd: null
         },
+        // className: 'stu-export-btn' on every button is what my CSS targets
+        // (see .stu-export-slot .stu-export-btn below) — that way the look is
+        // fully under my control regardless of whichever default Bootstrap/
+        // DataTables classes (btn, btn-secondary, buttons-html5, ...) the
+        // Buttons extension also attaches.
+        buttons: [
+          {
+            extend: 'excelHtml5',
+            text: '<i class="bi bi-file-excel-fill"></i>',
+            titleAttr: 'Excel',
+            title: 'Students Data export',
+            className: 'stu-export-btn',
+            exportOptions: { columns: exportCols }
+          },
+          {
+            extend: 'csvHtml5',
+            text: '<i class="bi bi-filetype-csv"></i>',
+            titleAttr: 'CSV',
+            title: 'Students Data export',
+            className: 'stu-export-btn'
+          },
+          {
+            extend: 'pdfHtml5',
+            text: '<i class="bi bi-file-pdf-fill"></i>',
+            titleAttr: 'PDF',
+            title: 'Students Data export',
+            className: 'stu-export-btn',
+            exportOptions: { columns: exportCols }
+          }
+          // NOTE: no 'print' entry here — DataTables' built-in print button
+          // needs a dedicated buttons.print.js that this app doesn't load
+          // (only buttons.html5.js, for Excel/CSV/PDF). Print is added as a
+          // separate plain button below instead, using printThis.js (already
+          // loaded elsewhere in the app, e.g. fees/receipt.html) rather than
+          // pulling in another DataTables extension file.
+        ],
         lengthMenu: [pageSizes, pageLabels],
         pageLength: 25,
         columnDefs: columnDefs,
         initComplete: function () {
-          $('#studentListLoader').fadeOut(200);
+          // Place the Buttons extension's own container (built regardless of
+          // whether a layout slot renders it) inline with the search box —
+          // wrapped defensively so a Buttons-extension hiccup here can never
+          // take the skeleton-hide logic (below, on its own 'draw' listener)
+          // down with it.
+          try {
+            $('#stuExportSlot').append(table.buttons().container());
+            $('#stuExportSlot').append(
+              $('<button type="button" class="stu-export-btn" title="Print"><i class="bi bi-printer"></i></button>')
+                .on('click', function () {
+                  $('#student-list').printThis({
+                    header: $('<h4>').text('Students — ' + new Date().toLocaleDateString()).prop('outerHTML'),
+                    importCSS: true
+                  });
+                })
+            );
+          } catch (e) {
+            console.error('Export/print buttons failed to initialize', e);
+          }
+        }
+      });
+
+      // Skeleton → real table handoff, decoupled from the buttons/export
+      // logic above (table.one fires exactly once, on the first successful
+      // draw, regardless of anything else in initComplete succeeding or
+      // throwing).
+      table.one('draw', function () {
+        $('#studentListLoader').fadeOut(200);
+      });
+
+      // With scrollX, DataTables computes the header row and body rows as
+      // separate elements sized to the container's width AT DRAW TIME. The
+      // sidebar's collapse/expand is a CSS width transition on a sibling
+      // element, not a window resize, so DataTables never hears about it and
+      // the header stays sized for the old width — columns drift out from
+      // under their labels. Re-measuring after the sidebar's own transition
+      // finishes (and on a real window resize, e.g. rotating a tablet) keeps
+      // them in sync.
+      var sidebarEl = document.getElementById('sidebar');
+      if (sidebarEl) {
+        sidebarEl.addEventListener('transitionend', function () {
+          table.columns.adjust();
+        });
+      }
+      let resizeDebounce;
+      $(window).on('resize', function () {
+        clearTimeout(resizeDebounce);
+        resizeDebounce = setTimeout(function () { table.columns.adjust(); }, 150);
+      });
+
+      // Custom search pill (replaces DataTables' default top search box,
+      // which is disabled above via layout.topEnd = null) — debounced so
+      // fast typing doesn't fire a request per keystroke.
+      let searchDebounce;
+      $('#studentSearchInput').on('input', function () {
+        var value = this.value;
+        clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(function () {
+          table.search(value).draw();
+        }, 300);
+      });
+
+      // Custom "rows per page" selector (replaces the disabled default
+      // pageLength dropdown).
+      $('#stuPageLength').on('change', function () {
+        table.page.len(parseInt(this.value, 10)).draw();
+      });
+
+      // Custom footer: "Showing X-Y of Z students" + numbered page buttons,
+      // kept in sync with the table via the 'draw' event (fires after every
+      // ajax load — initial load, search, sort, page change, length change).
+      const renderPagination = function () {
+        var info = table.page.info();
+        var shown = info.recordsDisplay === 0 ? 0 : info.start + 1;
+        $('#stuPageInfo').text(
+          'Showing ' + shown + '–' + info.end + ' of ' + info.recordsDisplay.toLocaleString() + ' students'
+        );
+
+        var $pg = $('#stuPagination').empty();
+        var cur = info.page, total = info.pages;
+
+        var addBtn = function (label, page, opts) {
+          opts = opts || {};
+          var $b = $('<button type="button" class="stu-page-btn"></button>').html(label);
+          if (opts.active) { $b.addClass('active'); }
+          if (opts.disabled) {
+            $b.addClass('disabled').attr('disabled', 'disabled');
+          } else {
+            $b.on('click', function () { table.page(page).draw('page'); });
+          }
+          $pg.append($b);
+        };
+
+        addBtn('<i class="bi bi-chevron-left"></i>', cur - 1, { disabled: cur <= 0 });
+
+        var pages = [];
+        if (total <= 7) {
+          for (var i = 0; i < total; i++) { pages.push(i); }
+        } else {
+          pages.push(0);
+          if (cur > 2) { pages.push('…'); }
+          for (var j = Math.max(1, cur - 1); j <= Math.min(total - 2, cur + 1); j++) { pages.push(j); }
+          if (cur < total - 3) { pages.push('…'); }
+          if (total > 1) { pages.push(total - 1); }
+        }
+        pages.forEach(function (p) {
+          if (p === '…') {
+            $pg.append('<span class="stu-page-ellipsis">…</span>');
+            return;
+          }
+          addBtn(String(p + 1), p, { active: p === cur });
+        });
+
+        addBtn('<i class="bi bi-chevron-right"></i>', cur + 1, { disabled: cur >= total - 1 });
+      };
+      table.on('draw', renderPagination);
+
+      // Mask/reveal toggle for Mobile & Aadhaar cells (event delegation —
+      // rows are rendered dynamically by DataTables).
+      $(document).on('click', '.mask-toggle', function () {
+        var $btn = $(this);
+        var $text = $btn.siblings('.mask-text');
+        var revealed = $text.attr('data-revealed') === 'true';
+        if (revealed) {
+          $text.text($text.attr('data-masked')).attr('data-revealed', 'false');
+          $btn.attr('title', 'Show').find('i').attr('class', 'bi bi-eye');
+        } else {
+          $text.text($text.attr('data-full')).attr('data-revealed', 'true');
+          $btn.attr('title', 'Hide').find('i').attr('class', 'bi bi-eye-slash');
         }
       });
 
@@ -286,10 +701,6 @@
         $('#deleteFatherName').text(btn.data('father') || '-');
         $('#deleteMotherName').text(btn.data('mother') || '-');
         $('#deleteAddress').text(btn.data('address') || '-');
-      });
-      $(".buttons-excel, .buttons-csv, .buttons-pdf").each(function() {
-        // Remove the btn-secondary class from each button
-        $(this).removeClass("btn-secondary");
       });
     });
 
@@ -313,7 +724,7 @@
 
 
 
-    
+
 
 
 
