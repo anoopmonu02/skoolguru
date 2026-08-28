@@ -1,5 +1,7 @@
 package com.smsweb.sms.controllers.admin;
 
+import com.smsweb.sms.config.permission.CheckAccess;
+import com.smsweb.sms.models.permission.AccessType;
 import com.smsweb.sms.dto.MobileUserRowDto;
 import com.smsweb.sms.dto.MobileUserStatsDto;
 import com.smsweb.sms.models.student.FamilyAccount;
@@ -22,9 +24,9 @@ import java.util.Map;
  * Global, not scoped to a school/session — one mobile number's FamilyAccount
  * can span branches, same as Family Migration and Mobile Sessions Cleanup.
  *
- * Same gating as the closely-related Mobile Sessions Cleanup screen
- * (ROLE_ADMIN/ROLE_SUPERADMIN, plain @PreAuthorize — this feature area doesn't
- * use the finer-grained @CheckAccess/AppScreen system, matching that precedent).
+ * ROLE_ADMIN/ROLE_SUPERADMIN always bypass the fine-grained check below (see
+ * PermissionService.isSuperOrAdmin); a ROLE_STAFF login only sees this screen
+ * once granted ADMIN_MOBILE_USERS on the User Permissions screen.
  *
  * GET  /admin/mobile-users                     — page
  * GET  /admin/mobile-users/list?search=...     — stats + searchable row list (JSON)
@@ -45,6 +47,7 @@ public class MobileUserController {
         this.familyAccountService = familyAccountService;
     }
 
+    @CheckAccess(screen = "ADMIN_MOBILE_USERS", type = AccessType.VIEW)
     @GetMapping
     public String view(Model model) {
         log.info("Inside mobile users page");
@@ -54,6 +57,7 @@ public class MobileUserController {
         return "admin/mobileUsers";
     }
 
+    @CheckAccess(screen = "ADMIN_MOBILE_USERS", type = AccessType.VIEW)
     @GetMapping("/list")
     @ResponseBody
     public ResponseEntity<?> list(@RequestParam(required = false, defaultValue = "") String search) {
@@ -74,6 +78,7 @@ public class MobileUserController {
         }
     }
 
+    // generate-password stays UNGATED - it returns a random string with no data access.
     @GetMapping("/generate-password")
     @ResponseBody
     public ResponseEntity<?> generatePassword() {
@@ -81,6 +86,7 @@ public class MobileUserController {
         return ResponseEntity.ok(Map.of("password", familyAccountService.generateTempPassword()));
     }
 
+    @CheckAccess(screen = "ADMIN_MOBILE_USERS", type = AccessType.EDIT)
     @PostMapping("/{id}/reset-password")
     @ResponseBody
     public ResponseEntity<?> resetPassword(@PathVariable Long id, @RequestBody Map<String, String> payload) {
@@ -103,6 +109,7 @@ public class MobileUserController {
         }
     }
 
+    @CheckAccess(screen = "ADMIN_MOBILE_USERS", type = AccessType.EDIT)
     @PostMapping("/{id}/force-logout")
     @ResponseBody
     public ResponseEntity<?> forceLogout(@PathVariable Long id) {

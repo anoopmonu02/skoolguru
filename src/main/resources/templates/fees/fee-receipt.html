@@ -437,7 +437,7 @@
                       <div class="col-md-6">
                             <label class="col-md-2"></label>
                             <label class="col-md-4 col-form-label"><strong>Payment: </strong></label>
-                            <label class="col-md-5 col-form-label">${data.feeSubmission.paymentType!=null?data.feeSubmission.paymentType:"--"}</label>
+                            <label class="col-md-5 col-form-label" ${data.feeSubmission.paymentDisplay && String(data.feeSubmission.paymentDisplay).indexOf('+') !== -1 ? 'style="font-size:0.78rem;"' : ''}>${data.feeSubmission.paymentDisplay!=null?data.feeSubmission.paymentDisplay:"--"}</label>
                         </div>
                   </div>
                   <hr/>

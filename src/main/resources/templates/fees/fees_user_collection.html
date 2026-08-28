@@ -434,11 +434,13 @@
                         console.log("feeSubmission.paymentType---"+feeSubmission.paymentType+"  receipt: "+feeSubmission.receiptNo);
                         totalAmountSubmitted+=feeSubmission.paidAmount;
                         totalAmount+=feeSubmission.totalAmount;
-                        if(feeSubmission.paymentType==='Online'){
-                            onlineAmount+=feeSubmission.paidAmount;
-                        } else {
-                            cashAmount+=feeSubmission.paidAmount;
-                        }
+                        // Cash/Online split for the footer totals - uses the per-mode breakup
+                        // when present (correct for "Both" submissions), falls back to the old
+                        // paymentType-based split for historical rows saved before the breakup
+                        // table existed. Per-row "Payment" column display elsewhere in this
+                        // table intentionally still shows the plain paymentType - untouched.
+                        cashAmount+=feeSubmission.cashAmount || 0;
+                        onlineAmount+=feeSubmission.onlineAmount || 0;
                         counter++;
                     });
                     const totalCols = selectedOption === 'range' ? 13 : 12;

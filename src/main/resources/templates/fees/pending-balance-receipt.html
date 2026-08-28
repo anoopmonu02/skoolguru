@@ -70,7 +70,8 @@
                             <div class="col-md-6">
                                 <label class="col-md-2"></label>
                                 <label class="col-md-4 col-form-label"><strong>Payment: </strong></label>
-                                <label class="col-md-5 col-form-label" th:text="${feeSubmission['paymentType']}"></label>
+                                <label class="col-md-5 col-form-label" th:text="${feeSubmission['paymentDisplay']}"
+                                       th:style="${feeSubmission['paymentDisplay'] != null and #strings.contains(feeSubmission['paymentDisplay'], '+')} ? 'font-size:0.78rem;' : ''"></label>
                             </div>
                         </div>
                         <hr/>

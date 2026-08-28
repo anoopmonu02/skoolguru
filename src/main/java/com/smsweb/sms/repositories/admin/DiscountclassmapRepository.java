@@ -11,7 +11,10 @@ import java.util.Optional;
 public interface DiscountclassmapRepository extends JpaRepository<DiscountClassMap, Long> {
     List<DiscountClassMap> findAllBySchool_IdAndAcademicYear_Id(Long school_id, Long academic_id);
 
-    List<DiscountClassMap> findAllByGrade_IdAndSchool_IdAndAcademicYear_Id(Long grade_id, Long school_id, Long academic_id);
+    // findAllByGrade_IdAndSchool_IdAndAcademicYear_Id — REMOVED. Medium is now
+    // mandatory on DiscountClassMap, so a grade alone no longer identifies one
+    // set of rows (a grade can have a separate row set per medium).
+    List<DiscountClassMap> findAllByGrade_IdAndMedium_IdAndSchool_IdAndAcademicYear_Id(Long grade_id, Long medium_id, Long school_id, Long academic_id);
 
     @Query(value = "SELECT SUM(fcm.amount) as amt, fh.discount_name as DiscountName, count(fmm.month_master_id) as qty, fcm.discounthead_id, fcm.amount as SAmount " +
             "FROM discount_class_map fcm " +
@@ -32,6 +35,33 @@ public interface DiscountclassmapRepository extends JpaRepository<DiscountClassM
                                                   @Param("monthMasterIds") List<Long> monthMasterIds,
                                                   @Param("gradeId") Long gradeId,
                                                   @Param("discountId") Long discountId);
+
+    /**
+     * Medium-aware overload of findAmountAndDiscountHeadNames above. Prefer this
+     * one whenever the student's medium is resolvable — the grade-only version
+     * stays for defensive fallback call sites where it isn't.
+     */
+    @Query(value = "SELECT SUM(fcm.amount) as amt, fh.discount_name as DiscountName, count(fmm.month_master_id) as qty, fcm.discounthead_id, fcm.amount as SAmount " +
+            "FROM discount_class_map fcm " +
+            "JOIN discount_month_map fmm ON fcm.academic_year_id = fmm.academic_year_id " +
+            "AND fcm.school_id = fmm.school_id " +
+            "AND fcm.discounthead_id = fmm.discounthead_id " +
+            "JOIN discounthead fh ON fh.id = fcm.discounthead_id " +
+            "WHERE fcm.academic_year_id = :academicYearId " +
+            "AND fmm.academic_year_id = :academicYearId " +
+            "AND fmm.school_id = :schoolId " +
+            "AND fcm.school_id = :schoolId " +
+            "AND fmm.month_master_id IN (:monthMasterIds) " +
+            "AND fmm.is_applicable = true " +
+            "AND fcm.grade_id = :gradeId AND fh.id = :discountId " +
+            "AND fcm.medium_id = :mediumId " +
+            "GROUP BY fh.discount_name, fcm.discounthead_id", nativeQuery = true)
+    List<Object[]> findAmountAndDiscountHeadNames(@Param("academicYearId") Long academicYearId,
+                                                  @Param("schoolId") Long schoolId,
+                                                  @Param("monthMasterIds") List<Long> monthMasterIds,
+                                                  @Param("gradeId") Long gradeId,
+                                                  @Param("discountId") Long discountId,
+                                                  @Param("mediumId") Long mediumId);
 
     /**
      * Per-month discount breakdown — same shape as
@@ -55,5 +85,31 @@ public interface DiscountclassmapRepository extends JpaRepository<DiscountClassM
                                                @Param("gradeId") Long gradeId,
                                                @Param("discountId") Long discountId);
 
+    /**
+     * Medium-aware overload of findDiscountDetailsPerMonth above.
+     */
+    @Query(value = "SELECT fcm.amount as amt, fh.discount_name as DiscountName, fmm.month_master_id " +
+            "FROM discount_class_map fcm " +
+            "JOIN discount_month_map fmm ON fcm.academic_year_id = fmm.academic_year_id " +
+            "AND fcm.school_id = fmm.school_id AND fcm.discounthead_id = fmm.discounthead_id " +
+            "JOIN discounthead fh ON fh.id = fcm.discounthead_id " +
+            "WHERE fcm.academic_year_id = :academicYearId " +
+            "AND fcm.school_id = :schoolId " +
+            "AND fmm.month_master_id IN (:monthMasterIds) " +
+            "AND fmm.is_applicable = true " +
+            "AND fcm.grade_id = :gradeId AND fh.id = :discountId " +
+            "AND fcm.medium_id = :mediumId", nativeQuery = true)
+    List<Object[]> findDiscountDetailsPerMonth(@Param("academicYearId") Long academicYearId,
+                                               @Param("schoolId") Long schoolId,
+                                               @Param("monthMasterIds") List<Long> monthMasterIds,
+                                               @Param("gradeId") Long gradeId,
+                                               @Param("discountId") Long discountId,
+                                               @Param("mediumId") Long mediumId);
+
     Optional<DiscountClassMap> findByDiscounthead_DiscountNameAndAcademicYear_IdAndSchool_IdAndGrade_Id(String discountName, Long academic_year, Long school, Long grade);
+
+    /**
+     * Medium-aware overload of the sibling-discount lookup above.
+     */
+    Optional<DiscountClassMap> findByDiscounthead_DiscountNameAndAcademicYear_IdAndSchool_IdAndGrade_IdAndMedium_Id(String discountName, Long academic_year, Long school, Long grade, Long medium);
 }

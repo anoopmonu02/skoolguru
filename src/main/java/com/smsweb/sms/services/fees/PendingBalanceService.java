@@ -4,6 +4,7 @@ import com.smsweb.sms.models.admin.AcademicYear;
 import com.smsweb.sms.models.admin.School;
 import com.smsweb.sms.models.fees.FeeSubmission;
 import com.smsweb.sms.models.fees.FeeSubmissionBalance;
+import com.smsweb.sms.models.fees.FeeSubmissionPaymentBreakup;
 import com.smsweb.sms.models.fees.ReceiptSequence;
 import com.smsweb.sms.models.student.AcademicStudent;
 import com.smsweb.sms.repositories.fees.FeeSubmissionRepository;
@@ -158,6 +159,23 @@ public class PendingBalanceService {
                 return result;
             }
 
+            BigDecimal cashAmountForValidation = null;
+            BigDecimal onlineAmountForValidation = null;
+            if ("Both".equalsIgnoreCase(paymentType)) {
+                cashAmountForValidation = parseAmountParam(params, "cashAmount");
+                onlineAmountForValidation = parseAmountParam(params, "onlineAmount");
+                if (cashAmountForValidation == null || onlineAmountForValidation == null
+                        || cashAmountForValidation.compareTo(BigDecimal.ZERO) <= 0
+                        || onlineAmountForValidation.compareTo(BigDecimal.ZERO) <= 0) {
+                    result.put("error", "For payment type \"Both\", both Cash amount and Online amount are required and must be greater than zero.");
+                    return result;
+                }
+                if (cashAmountForValidation.add(onlineAmountForValidation).compareTo(submitAmount) != 0) {
+                    result.put("error", "Cash amount + Online amount must equal the Submit Amount.");
+                    return result;
+                }
+            }
+
             // ── Fetch AcademicStudent via latest Active submission ─────────────
             List<FeeSubmission> latest = feeSubmissionRepository
                     .findTopBySchoolIdAndAcademicYearIdAndAcademicStudentIdOrderByIdDesc(
@@ -191,6 +209,7 @@ public class PendingBalanceService {
             fs.setPreviousFeeBalanceRemark(totalAmount.toPlainString());
             fs.setFeeSubmissionSub(new ArrayList<>());      // intentionally empty
             fs.setFeeSubmissionMonths(new ArrayList<>());   // intentionally empty
+            fs.setPaymentBreakup(buildPaymentBreakupList(fs, paymentType, submitAmount, params, cashAmountForValidation, onlineAmountForValidation));
             fs.setCreatedBy(userService.getLoggedInUser());
 
             // ── Build FeeSubmissionBalance ────────────────────────────────────
@@ -265,6 +284,17 @@ public class PendingBalanceService {
             fsMap.put("paidAmount",      fs.getPaidAmount());
             fsMap.put("balanceAmount",   fs.getBalanceAmount());
             fsMap.put("feeRemark",       fs.getFeeRemark()    != null ? fs.getFeeRemark()    : "");
+            List<Map<String, Object>> breakupList = new ArrayList<>();
+            if (fs.getPaymentBreakup() != null) {
+                for (FeeSubmissionPaymentBreakup breakup : fs.getPaymentBreakup()) {
+                    Map<String, Object> breakupRow = new HashMap<>();
+                    breakupRow.put("paymentMode", breakup.getPaymentMode());
+                    breakupRow.put("amount", breakup.getAmount());
+                    breakupList.add(breakupRow);
+                }
+            }
+            fsMap.put("paymentBreakup", breakupList);
+            fsMap.put("paymentDisplay", buildPaymentDisplayText(fs, breakupList));
             model.put("feeSubmission", fsMap);
 
             model.put("academicYear", as.getAcademicYear().getSessionFormat());
@@ -290,11 +320,89 @@ public class PendingBalanceService {
         return String.format("%s/%d/%d", branchCode, currentYear, next);
     }
 
+    /**
+     * Parses a Cash/Online breakup amount field (cashAmount/onlineAmount) directly
+     * off the raw params map - these are not part of the FeeSubmission model
+     * allowlist, so they're read the same way submissionToken/previousBalance
+     * style fields are elsewhere in this class. Returns null if missing/blank/
+     * unparsable, letting the caller decide how to treat that.
+     */
+    private BigDecimal parseAmountParam(Map<String, String[]> params, String paramName) {
+        if (!params.containsKey(paramName)) return null;
+        String[] values = params.get(paramName);
+        if (values == null || values.length == 0) return null;
+        String raw = values[0] == null ? "" : values[0].trim();
+        if (raw.isEmpty()) return null;
+        try {
+            return new BigDecimal(raw);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Builds the FeeSubmissionPaymentBreakup rows for a saved balance payment.
+     * Cash/Online-only submissions get exactly 1 row for the full submitAmount;
+     * "Both" submissions get exactly 2 rows (Cash + Online) summing to
+     * submitAmount, using the already-validated cash/online amounts from
+     * savePendingBalance's own validation block above (validatedCashAmount /
+     * validatedOnlineAmount) rather than re-parsing params here.
+     */
+    private List<FeeSubmissionPaymentBreakup> buildPaymentBreakupList(FeeSubmission fs,
+                                                                       String paymentType,
+                                                                       BigDecimal submitAmount,
+                                                                       Map<String, String[]> params,
+                                                                       BigDecimal validatedCashAmount,
+                                                                       BigDecimal validatedOnlineAmount) {
+        List<FeeSubmissionPaymentBreakup> breakupList = new ArrayList<>();
+        if ("Both".equalsIgnoreCase(paymentType)) {
+            FeeSubmissionPaymentBreakup cashRow = new FeeSubmissionPaymentBreakup();
+            cashRow.setFeeSubmission(fs);
+            cashRow.setPaymentMode("Cash");
+            cashRow.setAmount(validatedCashAmount);
+            breakupList.add(cashRow);
+
+            FeeSubmissionPaymentBreakup onlineRow = new FeeSubmissionPaymentBreakup();
+            onlineRow.setFeeSubmission(fs);
+            onlineRow.setPaymentMode("Online");
+            onlineRow.setAmount(validatedOnlineAmount);
+            breakupList.add(onlineRow);
+        } else {
+            FeeSubmissionPaymentBreakup row = new FeeSubmissionPaymentBreakup();
+            row.setFeeSubmission(fs);
+            row.setPaymentMode(paymentType);
+            row.setAmount(submitAmount);
+            breakupList.add(row);
+        }
+        return breakupList;
+    }
+
+    /**
+     * Ready-to-print "Payment:" text for the balance-payment receipt. Mirrors
+     * FeeSubmissionService.buildPaymentDisplayText's logic exactly (duplicated
+     * locally, not shared/injected - matches this class's own isolation
+     * convention documented in its class-level javadoc).
+     */
+    private String buildPaymentDisplayText(FeeSubmission fs, List<Map<String, Object>> breakupList) {
+        if (breakupList != null && breakupList.size() == 2) {
+            StringBuilder sb = new StringBuilder();
+            for (Map<String, Object> row : breakupList) {
+                if (sb.length() > 0) sb.append(" + ");
+                Object mode = row.get("paymentMode");
+                Object amount = row.get("amount");
+                sb.append(mode).append(" \u20B9").append(amount);
+            }
+            return sb.toString();
+        }
+        return fs.getPaymentType() != null ? fs.getPaymentType() : "";
+    }
+
     private String resolveSchoolCode(String schoolName) {
         if (schoolName == null || schoolName.isEmpty()) return "";
         String lower = schoolName.toLowerCase();
         if (lower.contains("college")) return "UC";
         if (lower.contains("school"))  return "US";
+        if (lower.contains("sansthan")) return "DM";
         return "";
     }
 }
