@@ -316,6 +316,7 @@ public interface FeeSubmissionRepository extends JpaRepository<FeeSubmission, Lo
       AND sec.section_name = :sectionName
       AND dm.is_applicable = true
       AND (a.grade_id = dc.grade_id OR dc.grade_id IS NULL)
+      AND (a.medium_id = dc.medium_id OR dc.medium_id IS NULL)
     GROUP BY a.grade_id, a.section_id, dc.amount
 """, nativeQuery = true)
     List<Object[]> getStudentDiscountSummary(

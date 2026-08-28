@@ -265,8 +265,14 @@ public class FeeSubmissionService {
         // isOldStudent above).
         Map<Long, BigDecimal> amountByMonthId = new HashMap<>();
         if (!monthIds.isEmpty()) {
-            List<Object[]> feeRows = feeclassmapRepository.findFeeDetailsPerMonth(
-                    academicYearId, schoolId, monthIds, gradeId);
+            // Student's medium - used for the medium-aware fee_class_map lookup below. Falls
+            // back to the grade-only overload if it can't be resolved (defensive -
+            // AcademicStudent.medium is mandatory so this should not normally happen).
+            Long feeMediumId = forStudent != null && forStudent.getMedium() != null
+                    ? forStudent.getMedium().getId() : null;
+            List<Object[]> feeRows = feeMediumId != null
+                    ? feeclassmapRepository.findFeeDetailsPerMonth(academicYearId, schoolId, monthIds, gradeId, feeMediumId)
+                    : feeclassmapRepository.findFeeDetailsPerMonth(academicYearId, schoolId, monthIds, gradeId);
             if (feeRows != null) {
                 for (Object[] row : feeRows) {
                     String feeHeadName = row.length > 1 && row[1] != null ? row[1].toString() : null;
@@ -294,8 +300,17 @@ public class FeeSubmissionService {
                                 schoolId, academicYearId, academicStudentId, "Active");
                 if (activeDiscount.isPresent() && activeDiscount.get().getDiscounthead() != null) {
                     Long discountId = activeDiscount.get().getDiscounthead().getId();
-                    List<Object[]> discountRows = discountclassmapRepository.findDiscountDetailsPerMonth(
-                            academicYearId, schoolId, monthIds, gradeId, discountId);
+                    // Medium-aware discount lookup - reuses the AcademicStudent (forStudent)
+                    // already fetched above for the old/new-student check. Falls back to the
+                    // grade-only overload if the student's medium can't be resolved (defensive
+                    // - AcademicStudent.medium is mandatory so this should not normally happen).
+                    Long discountMediumId = forStudent != null && forStudent.getMedium() != null
+                            ? forStudent.getMedium().getId() : null;
+                    List<Object[]> discountRows = discountMediumId != null
+                            ? discountclassmapRepository.findDiscountDetailsPerMonth(
+                                    academicYearId, schoolId, monthIds, gradeId, discountId, discountMediumId)
+                            : discountclassmapRepository.findDiscountDetailsPerMonth(
+                                    academicYearId, schoolId, monthIds, gradeId, discountId);
                     if (discountRows != null) {
                         for (Object[] row : discountRows) {
                             BigDecimal amt = row[0] != null ? new BigDecimal(row[0].toString()) : BigDecimal.ZERO;
@@ -544,6 +559,12 @@ public class FeeSubmissionService {
             }
             Grade grade = gradeRepository.findById(grade_id).orElse(null);
             AcademicStudent academicStudent = academicStudentRepository.findById(academic_stu_id).orElse(null);
+            // Student's medium - used below for the medium-aware FullPayment lookup and the
+            // discount lookup inside calculateFullPaymentForDiscountedStudent. Resolved once
+            // here since both need it. AcademicStudent.medium is mandatory, so this is null
+            // only when academicStudent itself couldn't be found.
+            Long mediumId = academicStudent != null && academicStudent.getMedium() != null
+                    ? academicStudent.getMedium().getId() : null;
             List<FeeSubmission> stuFeeSubmissionList = feeSubmissionRepository.findAllBySchoolIdAndAcademicIdAndAcademicStudentId(school_id, academic_id, academic_stu_id);
 
             if(stuFeeSubmissionList!=null && !stuFeeSubmissionList.isEmpty()){
@@ -555,7 +576,9 @@ public class FeeSubmissionService {
             if(monthCount == 12){
                 lst.put("lastDate", new Date());
                 lst.put("amount", 0.0);
-                FullPayment fullPayment = fullpaymentRepository.findBySchool_IdAndAcademicYear_IdAndGrade_Id(school_id, academic_id, grade_id).orElse(null);
+                FullPayment fullPayment = mediumId != null
+                        ? fullpaymentRepository.findBySchool_IdAndAcademicYear_IdAndGrade_IdAndMedium_Id(school_id, academic_id, grade_id, mediumId).orElse(null)
+                        : null;
                 if(fullPayment != null){
                     if(new Date().compareTo(fullPayment.getPaymentLastDate()) <= 0){
                         StudentDiscount existingDiscount = studentDiscountRepository
@@ -569,7 +592,7 @@ public class FeeSubmissionService {
                         } else {
                             // Has student discount — compute effective monthly payment via dedicated method
                             BigDecimal effectiveMonthly = calculateFullPaymentForDiscountedStudent(
-                                    academic_id, school_id, grade_id, existingDiscount);
+                                    academic_id, school_id, grade_id, mediumId, existingDiscount);
                             if(effectiveMonthly.compareTo(BigDecimal.ZERO) > 0){
                                 lst.put("lastDate", fullPayment.getPaymentLastDate());
                                 lst.put("amount", effectiveMonthly);
@@ -579,7 +602,7 @@ public class FeeSubmissionService {
                 }
             }
             //Fees Calculated
-            List<Object[]> feeData = feeclassmapRepository.findAmountAndFeeHeadNames(academic_id, school_id, monIdList, grade_id);
+            List<Object[]> feeData = feeclassmapRepository.findAmountAndFeeHeadNames(academic_id, school_id, monIdList, grade_id, mediumId);
             Student student = academicStudent.getStudent();
             int stuCounting = academicStudentRepository.countByStudent(student);
             List lst1 = new ArrayList<>();
@@ -607,7 +630,7 @@ public class FeeSubmissionService {
      * @return effective monthly amount, or ZERO if config is missing / amounts are invalid
      */
     private BigDecimal calculateFullPaymentForDiscountedStudent(
-            Long academicId, Long schoolId, Long gradeId, StudentDiscount existingDiscount) {
+            Long academicId, Long schoolId, Long gradeId, Long mediumId, StudentDiscount existingDiscount) {
         try {
             // ── 1. Read config keys ──────────────────────────────────────────────────
             String tuitionFeeHeadIdStr = systemConfigRepository
@@ -633,16 +656,19 @@ public class FeeSubmissionService {
             // Direct lookup from fee_class_map — amount is a flat per-month value per grade.
             // No month join needed; the JOIN query is only used for multi-month totals.
             BigDecimal fee1Month = feeclassmapRepository
-                    .findByAcademicYear_IdAndSchool_IdAndGrade_IdAndFeehead_Id(
-                            academicId, schoolId, gradeId, tuitionFeeHeadId)
+                    .findByAcademicYear_IdAndSchool_IdAndGrade_IdAndMedium_IdAndFeehead_Id(
+                            academicId, schoolId, gradeId, mediumId, tuitionFeeHeadId)
                     .map(FeeClassMap::getAmount)
                     .orElse(BigDecimal.ZERO);
 
             // ── 4. Student discount per month ────────────────────────────────────────
             // Use reference month to confirm is_applicable = true for this discount.
             // result[4] = SAmount = raw per-month amount from discount_class_map (not multiplied by months).
-            List<Object[]> discountData = discountclassmapRepository
-                    .findAmountAndDiscountHeadNames(
+            List<Object[]> discountData = mediumId != null
+                    ? discountclassmapRepository.findAmountAndDiscountHeadNames(
+                            academicId, schoolId, refMonthIdList,
+                            gradeId, existingDiscount.getDiscounthead().getId(), mediumId)
+                    : discountclassmapRepository.findAmountAndDiscountHeadNames(
                             academicId, schoolId, refMonthIdList,
                             gradeId, existingDiscount.getDiscounthead().getId());
 
@@ -717,7 +743,14 @@ public class FeeSubmissionService {
                 discountId = studentDiscount.getDiscounthead().getId();
             }
 
-            List<Object[]> discountData = discountclassmapRepository.findAmountAndDiscountHeadNames(academic_id, school_id, monIdList, grade_id, discountId);
+            // Medium-aware lookup - this method doesn't have a medium resolved elsewhere
+            // (the commented-out academicStudent fetch above is unused), so resolve it here.
+            AcademicStudent discountStudent = academicStudentRepository.findById(academic_stu_id).orElse(null);
+            Long discountMediumId = (discountStudent != null && discountStudent.getMedium() != null)
+                    ? discountStudent.getMedium().getId() : null;
+            List<Object[]> discountData = discountMediumId != null
+                    ? discountclassmapRepository.findAmountAndDiscountHeadNames(academic_id, school_id, monIdList, grade_id, discountId, discountMediumId)
+                    : discountclassmapRepository.findAmountAndDiscountHeadNames(academic_id, school_id, monIdList, grade_id, discountId);
             if(discountData!=null && !discountData.isEmpty()){
                 List<Map<String, Object>> resultList = new ArrayList<>();
                 for (Object[] result : discountData) {
@@ -834,6 +867,38 @@ public class FeeSubmissionService {
                             }
                         }
 
+                        // Validation: "Both" payment mode must carry a Cash amount and an
+                        // Online amount (from the breakup popup's hidden fields, cashAmount/
+                        // onlineAmount - not part of the FeeSubmission model allowlist, so read
+                        // directly off paramsMap same as submissionToken/previousBalance above)
+                        // that are each > 0 and sum EXACTLY to paidAmount. Server-side check on
+                        // top of the popup's own client-side validation - a tampered or stale
+                        // request must not be able to save a submission whose recorded Cash+
+                        // Online split doesn't match what was actually collected. Runs before
+                        // receipt-number generation below, same as the other early-reject
+                        // validations in this method, so a rejected submission never burns a
+                        // receipt sequence number.
+                        String paymentTypeForValidation = feeMap != null && feeMap.containsKey("paymentType")
+                                ? feeMap.get("paymentType").toString().trim() : null;
+                        if ("Both".equalsIgnoreCase(paymentTypeForValidation)) {
+                            BigDecimal paidAmountForValidation = feeMap.containsKey("paidAmount")
+                                    ? new BigDecimal(feeMap.get("paidAmount").toString()) : BigDecimal.ZERO;
+                            BigDecimal cashAmountForValidation = parseAmountParam(paramsMap, "cashAmount");
+                            BigDecimal onlineAmountForValidation = parseAmountParam(paramsMap, "onlineAmount");
+                            if (cashAmountForValidation == null || onlineAmountForValidation == null
+                                    || cashAmountForValidation.compareTo(BigDecimal.ZERO) <= 0
+                                    || onlineAmountForValidation.compareTo(BigDecimal.ZERO) <= 0) {
+                                resultMap.put("fee_submission_not_allowed",
+                                        "For payment type \"Both\", both Cash amount and Online amount are required and must be greater than zero.");
+                                return resultMap;
+                            }
+                            if (cashAmountForValidation.add(onlineAmountForValidation).compareTo(paidAmountForValidation) != 0) {
+                                resultMap.put("fee_submission_not_allowed",
+                                        "Cash amount + Online amount must equal the total Paid Amount.");
+                                return resultMap;
+                            }
+                        }
+
                         FeeSubmission feeSubmission = new FeeSubmission();
                         if(feeMap!=null){
                             if(feeMap.containsKey("academicStudent.id")){
@@ -909,6 +974,7 @@ public class FeeSubmissionService {
                         feeSubmission.setFeeSubmissionMonths(submissionMonthsList);
                         feeSubmission.setCreatedBy(userService.getLoggedInUser());
                         feeSubmission.setPreviousFeeBalanceRemark(""+paramsMap.get("previousBalance")[0]);
+                        feeSubmission.setPaymentBreakup(buildPaymentBreakupList(feeSubmission, paramsMap));
                         feeSubmissionRepository.save(feeSubmission);
                         resultMap.put("Feesubmission", feeSubmission);
                         resultMap.put("feeid", feeSubmission.getId());
@@ -943,6 +1009,101 @@ public class FeeSubmissionService {
             resultMap.put("error", e.getLocalizedMessage());
         }
         return resultMap;
+    }
+
+    /**
+     * Reads a single decimal-valued request parameter (e.g. the breakup popup's hidden
+     * cashAmount/onlineAmount fields) directly off the raw paramsMap - these aren't
+     * FeeSubmission model fields so they never go through getColumnsValue's allowlist.
+     * Returns null (not zero) when missing/blank/unparseable, so callers can tell "not
+     * provided" apart from "provided as zero".
+     */
+    private BigDecimal parseAmountParam(Map<String, String[]> paramsMap, String paramName) {
+        if (paramsMap == null || !paramsMap.containsKey(paramName)) return null;
+        String[] values = paramsMap.get(paramName);
+        if (values == null || values.length == 0 || values[0] == null || values[0].isBlank()) return null;
+        try {
+            return new BigDecimal(values[0].trim());
+        } catch (NumberFormatException nfe) {
+            return null;
+        }
+    }
+
+    /**
+     * Builds the 1 or 2 FeeSubmissionPaymentBreakup rows for a submission, based on the
+     * already-set feeSubmission.paymentType ("Cash" / "Online" / "Both"):
+     *   - Cash or Online: exactly 1 row, the full paidAmount, reusing feeRemark as the
+     *     description (no separate breakup remark field exists for single-mode payments).
+     *   - Both: exactly 2 rows, amounts/remarks from the breakup popup's hidden fields
+     *     (cashAmount/cashRemark/onlineAmount/onlineRemark) - already validated (present,
+     *     >0, summing to paidAmount) by the caller before feeSubmission was built.
+     *   - Anything else (null/blank/unrecognized - shouldn't happen given form validation,
+     *     but must not crash an otherwise-valid submission): no rows, same as before this
+     *     table existed.
+     * Each row's feeSubmission back-reference is set here so cascade ALL (see
+     * FeeSubmission.paymentBreakup) persists them together with the parent in one save.
+     */
+    private List<FeeSubmissionPaymentBreakup> buildPaymentBreakupList(FeeSubmission feeSubmission, Map<String, String[]> paramsMap) {
+        List<FeeSubmissionPaymentBreakup> breakupList = new ArrayList<>();
+        String paymentType = feeSubmission.getPaymentType();
+        if (paymentType == null) return breakupList;
+        if ("Cash".equalsIgnoreCase(paymentType) || "Online".equalsIgnoreCase(paymentType)) {
+            FeeSubmissionPaymentBreakup row = new FeeSubmissionPaymentBreakup();
+            row.setFeeSubmission(feeSubmission);
+            row.setPaymentMode(paymentType);
+            row.setAmount(feeSubmission.getPaidAmount() != null ? feeSubmission.getPaidAmount() : BigDecimal.ZERO);
+            row.setDescription(feeSubmission.getFeeRemark());
+            breakupList.add(row);
+        } else if ("Both".equalsIgnoreCase(paymentType)) {
+            BigDecimal cashAmount = parseAmountParam(paramsMap, "cashAmount");
+            BigDecimal onlineAmount = parseAmountParam(paramsMap, "onlineAmount");
+            String cashRemark = paramsMap.containsKey("cashRemark") ? paramsMap.get("cashRemark")[0] : null;
+            String onlineRemark = paramsMap.containsKey("onlineRemark") ? paramsMap.get("onlineRemark")[0] : null;
+
+            FeeSubmissionPaymentBreakup cashRow = new FeeSubmissionPaymentBreakup();
+            cashRow.setFeeSubmission(feeSubmission);
+            cashRow.setPaymentMode("Cash");
+            cashRow.setAmount(cashAmount != null ? cashAmount : BigDecimal.ZERO);
+            cashRow.setDescription(cashRemark);
+            breakupList.add(cashRow);
+
+            FeeSubmissionPaymentBreakup onlineRow = new FeeSubmissionPaymentBreakup();
+            onlineRow.setFeeSubmission(feeSubmission);
+            onlineRow.setPaymentMode("Online");
+            onlineRow.setAmount(onlineAmount != null ? onlineAmount : BigDecimal.ZERO);
+            onlineRow.setDescription(onlineRemark);
+            breakupList.add(onlineRow);
+        }
+        return breakupList;
+    }
+
+    /**
+     * Ready-to-print text for the receipt's "Payment:" line. "Cash ₹300.00 + Online ₹200.00"
+     * when there are exactly 2 breakup rows (always Cash first, regardless of DB return order
+     * - matches how the amounts were entered in the split-payment popup), otherwise just the
+     * plain paymentType string ("Cash"/"Online"/"Both" if breakup rows are somehow missing) -
+     * identical to what the receipt showed before this table existed.
+     */
+    private String buildPaymentDisplayText(FeeSubmission feeSubmission, List<Map<String, Object>> breakupList) {
+        if (breakupList != null && breakupList.size() == 2) {
+            BigDecimal cashAmt = null;
+            BigDecimal onlineAmt = null;
+            for (Map<String, Object> row : breakupList) {
+                Object mode = row.get("paymentMode");
+                Object amount = row.get("amount");
+                BigDecimal amt = amount instanceof BigDecimal ? (BigDecimal) amount : BigDecimal.ZERO;
+                if ("Cash".equalsIgnoreCase(String.valueOf(mode))) {
+                    cashAmt = amt;
+                } else if ("Online".equalsIgnoreCase(String.valueOf(mode))) {
+                    onlineAmt = amt;
+                }
+            }
+            if (cashAmt != null && onlineAmt != null) {
+                return "Cash ₹" + cashAmt.setScale(2, java.math.RoundingMode.HALF_UP)
+                        + " + Online ₹" + onlineAmt.setScale(2, java.math.RoundingMode.HALF_UP);
+            }
+        }
+        return feeSubmission.getPaymentType();
     }
 
     public Map<String, Map> getColumnsValue(Map<String, String[]> paramsMap, List<String> columnsList){
@@ -1126,7 +1287,7 @@ public class FeeSubmissionService {
                                     BigDecimal discountAmount = BigDecimal.ZERO;
                                     String headNames  = "";
                                     //Calculate Fee for rest months
-                                    List<Object[]> amtHeadList = feeclassmapRepository.findAmountAndFeeHeadNames(academicYear.getId(), school.getId(), restMonthsList.stream().map(MonthMaster::getId).collect(Collectors.toList()),gradeId);
+                                    List<Object[]> amtHeadList = feeclassmapRepository.findAmountAndFeeHeadNames(academicYear.getId(), school.getId(), restMonthsList.stream().map(MonthMaster::getId).collect(Collectors.toList()),gradeId, mediumId);
                                     String feeTypeToexclude = academicStudent.getStudent().getStudentType().equalsIgnoreCase("Old")?"Admission Fee":"Annual Fee";
                                     if(amtHeadList!=null && !amtHeadList.isEmpty()){
                                         for(Object[] rowData : amtHeadList){
@@ -1168,7 +1329,7 @@ public class FeeSubmissionService {
                                     //BigDecimal discountAmt = BigDecimal.ZERO;
                                     StudentDiscount studentDiscount = studentDiscountRepository.findBySchool_IdAndAcademicYear_IdAndAcademicStudent_IdAndStatus(school.getId(), academicYear.getId(), academicStudent.getId(),"Active").orElse(null);
                                     if(studentDiscount!=null){
-                                        List<Object[]> disAmtHeadList = discountclassmapRepository.findAmountAndDiscountHeadNames(academicYear.getId(), school.getId(), restMonthsList.stream().map(MonthMaster::getId).collect(Collectors.toList()),gradeId, studentDiscount.getDiscounthead().getId());
+                                        List<Object[]> disAmtHeadList = discountclassmapRepository.findAmountAndDiscountHeadNames(academicYear.getId(), school.getId(), restMonthsList.stream().map(MonthMaster::getId).collect(Collectors.toList()),gradeId, studentDiscount.getDiscounthead().getId(), mediumId);
                                         if(disAmtHeadList!=null && !disAmtHeadList.isEmpty()){
                                             for(Object[] rowData : disAmtHeadList){
                                                 if(studentDiscount.getDiscounthead().getDiscountName().equalsIgnoreCase(rowData[1].toString())){
@@ -1218,7 +1379,7 @@ public class FeeSubmissionService {
                                         .collect(Collectors.toList());
                                 if(allMonthsList!=null && !allMonthsList.isEmpty()){
                                     String feeTypeToexclude = academicStudent.getStudent().getStudentType().equalsIgnoreCase("Old")?"Admission Fee":"Annual Fee";
-                                    List<Object[]> feedetails = feeclassmapRepository.findAmountAndFeeHeadNames(academicYear.getId(), school.getId(), allMonthsList.stream().map(MonthMaster::getId).collect(Collectors.toList()), gradeId);
+                                    List<Object[]> feedetails = feeclassmapRepository.findAmountAndFeeHeadNames(academicYear.getId(), school.getId(), allMonthsList.stream().map(MonthMaster::getId).collect(Collectors.toList()), gradeId, mediumId);
                                     if(feedetails!=null && !feedetails.isEmpty()){
                                         for(Object[] rowData : feedetails){
                                             if(!feeTypeToexclude.equalsIgnoreCase(rowData[1].toString())){
@@ -1271,7 +1432,7 @@ public class FeeSubmissionService {
                                     BigDecimal discountAmt = BigDecimal.ZERO;
                                     StudentDiscount studentDiscount = studentDiscountRepository.findBySchool_IdAndAcademicYear_IdAndAcademicStudent_IdAndStatus(school.getId(), academicYear.getId(), academicStudent.getId(),"Active").orElse(null);
                                     if(studentDiscount!=null){
-                                        List<Object[]> disAmtHeadList = discountclassmapRepository.findAmountAndDiscountHeadNames(academicYear.getId(), school.getId(), allMonthsList.stream().map(MonthMaster::getId).collect(Collectors.toList()),gradeId, studentDiscount.getDiscounthead().getId());
+                                        List<Object[]> disAmtHeadList = discountclassmapRepository.findAmountAndDiscountHeadNames(academicYear.getId(), school.getId(), allMonthsList.stream().map(MonthMaster::getId).collect(Collectors.toList()),gradeId, studentDiscount.getDiscounthead().getId(), mediumId);
                                         if(disAmtHeadList!=null && !disAmtHeadList.isEmpty()){
                                             for(Object[] rowData : disAmtHeadList){
                                                 if(studentDiscount.getDiscounthead().getDiscountName().equalsIgnoreCase(rowData[1].toString())){
@@ -1410,6 +1571,26 @@ public class FeeSubmissionService {
                 fsMap.put("previousFeeBalanceRemark", feeSubmission.getPreviousFeeBalanceRemark() != null ? feeSubmission.getPreviousFeeBalanceRemark() : "");
                 fsMap.put("migrationDiscountAmount", feeSubmission.getMigrationDiscountAmount() != null ? feeSubmission.getMigrationDiscountAmount() : BigDecimal.ZERO);
                 fsMap.put("status", feeSubmission.getStatus() != null ? feeSubmission.getStatus() : "");
+
+                // Cash+Online breakup, for the "Payment:" line on the receipt. paymentDisplay
+                // is the ready-to-print text: "Cash ₹300.00 + Online ₹200.00" when exactly 2
+                // breakup rows exist (a "Both" submission), otherwise just the plain
+                // paymentType ("Cash"/"Online") - same as before this table existed. That
+                // covers historical submissions saved before this table existed too (no
+                // breakup rows for those). paymentBreakup is the raw list alongside it, for
+                // any future consumer that needs the structured amounts rather than the
+                // pre-formatted string.
+                List<Map<String, Object>> breakupList = new ArrayList<>();
+                if (feeSubmission.getPaymentBreakup() != null) {
+                    for (FeeSubmissionPaymentBreakup breakup : feeSubmission.getPaymentBreakup()) {
+                        Map<String, Object> breakupRow = new HashMap<>();
+                        breakupRow.put("paymentMode", breakup.getPaymentMode());
+                        breakupRow.put("amount", breakup.getAmount());
+                        breakupList.add(breakupRow);
+                    }
+                }
+                fsMap.put("paymentBreakup", breakupList);
+                fsMap.put("paymentDisplay", buildPaymentDisplayText(feeSubmission, breakupList));
                 if (feeSubmission.getDiscounthead() != null) {
                     fsMap.put("discounthead", Map.of("discountName", feeSubmission.getDiscounthead().getDiscountName() != null ? feeSubmission.getDiscounthead().getDiscountName() : ""));
                 }
@@ -1477,7 +1658,7 @@ public class FeeSubmissionService {
 
             if (grade != null && !monthIds.isEmpty()) {
                 List<Object[]> feeData = feeclassmapRepository.findAmountAndFeeHeadNames(
-                        academicYear.getId(), school.getId(), monthIds, grade.getId());
+                        academicYear.getId(), school.getId(), monthIds, grade.getId(), academicStudent.getMedium().getId());
                 for (Object[] row : feeData) {
                     try {
                         Long feeheadId = ((Number) row[3]).longValue();
@@ -1802,7 +1983,7 @@ public class FeeSubmissionService {
                                         BigDecimal discountAppliedForMonth = BigDecimal.ZERO;
                                         //Calculating Discount based on month
                                         if (discountAmt.compareTo(BigDecimal.ZERO) > 0 && feeSubmission.getDiscounthead()!=null) {
-                                            List<Object[]> discountBasedOnMonths = discountclassmapRepository.findAmountAndDiscountHeadNames(academicId, school.getId(), monthIdList, Long.parseLong(grade), feeSubmission.getDiscounthead().getId());
+                                            List<Object[]> discountBasedOnMonths = discountclassmapRepository.findAmountAndDiscountHeadNames(academicId, school.getId(), monthIdList, Long.parseLong(grade), feeSubmission.getDiscounthead().getId(), Long.parseLong(medium));
                                             feeDetailMap.put("discountApplied", BigDecimal.valueOf(0.0));
                                             if(discountBasedOnMonths!=null && !discountBasedOnMonths.isEmpty()){
                                                 discountAppliedForMonth = (discountBasedOnMonths.get(0)[0]!=null)?new BigDecimal(""+discountBasedOnMonths.get(0)[0]): BigDecimal.valueOf(0.0);
@@ -1820,7 +2001,7 @@ public class FeeSubmissionService {
                                             feeDetailMap.put("adminSpecialDiscountAmount", totalMigrationDiscount);
                                         }
 
-                                        List<Object[]> feesBasedOnMonths = feeclassmapRepository.findAmountAndFeeHeadNames(academicId, school.getId(), monthIdList, Long.parseLong(grade));
+                                        List<Object[]> feesBasedOnMonths = feeclassmapRepository.findAmountAndFeeHeadNames(academicId, school.getId(), monthIdList, Long.parseLong(grade), Long.parseLong(medium));
                                         BigDecimal amt = BigDecimal.ZERO;
                                         if(feesBasedOnMonths!=null && !feesBasedOnMonths.isEmpty()) {
                                             //fee heads + amount for selected months
@@ -2162,6 +2343,34 @@ public class FeeSubmissionService {
             }
         }
         row.put("feeSubmissionMonths", monthsList);
+
+        // Cash/Online split for collection reports (fees_user_collection.html /
+        // fees_own_collection.html footer totals). Uses the breakup table when present
+        // (covers Cash/Online/Both rows saved after that table was introduced); falls back
+        // to the plain paymentType-based split for legacy rows saved before it existed -
+        // "Both" never existed as an option back then, so that fallback is exactly correct
+        // for every historical row, not an approximation.
+        BigDecimal cashAmt = BigDecimal.ZERO;
+        BigDecimal onlineAmt = BigDecimal.ZERO;
+        if (fs.getPaymentBreakup() != null && !fs.getPaymentBreakup().isEmpty()) {
+            for (FeeSubmissionPaymentBreakup b : fs.getPaymentBreakup()) {
+                BigDecimal amt = b.getAmount() != null ? b.getAmount() : BigDecimal.ZERO;
+                if ("Online".equalsIgnoreCase(b.getPaymentMode())) {
+                    onlineAmt = onlineAmt.add(amt);
+                } else {
+                    cashAmt = cashAmt.add(amt);
+                }
+            }
+        } else {
+            BigDecimal paid = fs.getPaidAmount() != null ? fs.getPaidAmount() : BigDecimal.ZERO;
+            if ("Online".equalsIgnoreCase(fs.getPaymentType())) {
+                onlineAmt = paid;
+            } else {
+                cashAmt = paid;
+            }
+        }
+        row.put("cashAmount", cashAmt);
+        row.put("onlineAmount", onlineAmt);
         return row;
     }
 
@@ -2245,8 +2454,12 @@ public class FeeSubmissionService {
             }
 
             // ── 5. Per-grade caches ───────────────────────────────────────────
-            // gradeFeePerMonth: gradeId → monthId → list of [amount, headName]
-            Map<Long, Map<Long, List<Object[]>>> gradeFeePerMonth = new HashMap<>();
+            // gradeFeePerMonth: "gradeId:mediumId" → monthId → list of [amount, headName].
+            // Keyed by (grade, medium) rather than just grade - fee_class_map rows are now
+            // medium-scoped, so a grade offering 2+ mediums must not share one cache entry
+            // across students of different mediums. Built lazily per-student (see 6d) rather
+            // than once per grade, since a grade's students can span more than one medium.
+            Map<String, Map<Long, List<Object[]>>> gradeFeePerMonth = new HashMap<>();
             // gradeDiscountPerHead: gradeId → discountHeadId → [totalDiscount for ALL selectedMonths]
             // We will compute on-demand per student with their specific unpaid months
             // Fine cache: firstUnpaidMonthName → fine amount
@@ -2270,21 +2483,8 @@ public class FeeSubmissionService {
                 if (!selectedGradeIds.contains(gradeId)) continue;
                 if (!selectedSectionIds.isEmpty() && !selectedSectionIds.contains(sectionId)) continue;
 
-                // ── 6a. Cache per-month fee details for this grade ────────────
-                if (!gradeFeePerMonth.containsKey(gradeId)) {
-                    // One query per grade (not per student): returns [amount, headName, monthId]
-                    List<Object[]> feeRows = feeclassmapRepository.findFeeDetailsPerMonth(
-                            academicYear.getId(), school.getId(), selectedMonthIds, gradeId);
-                    Map<Long, List<Object[]>> monthMap = new HashMap<>();
-                    if (feeRows != null) {
-                        for (Object[] fr : feeRows) {
-                            Long mId = ((Number) fr[2]).longValue();
-                            monthMap.computeIfAbsent(mId, k -> new ArrayList<>()).add(fr);
-                        }
-                    }
-                    gradeFeePerMonth.put(gradeId, monthMap);
-                }
-                Map<Long, List<Object[]>> feeByMonth = gradeFeePerMonth.get(gradeId);
+                // ── 6a. Per-month fee-details cache is now built per-student (see 6d) since
+                // it must be keyed by the student's medium, not just this grade.
 
                 // ── 6b. Fetch students ────────────────────────────────────────
                 List<AcademicStudent> students = (mediumId != null)
@@ -2367,6 +2567,31 @@ public class FeeSubmissionService {
                             stu.getStudent() != null ? stu.getStudent().getStudentType() : "Old")
                             ? "Admission Fee" : "Annual Fee";
 
+                    // Per-student medium (not the top-level mediumId filter above, which is
+                    // null when "All Mediums" is selected) - AcademicStudent.medium is
+                    // mandatory so this is always resolvable for a real student row. Used to
+                    // pick the right (grade, medium) fee-rows cache entry, building it on
+                    // first use for that pair.
+                    Long feeMediumId = stu.getMedium() != null ? stu.getMedium().getId() : null;
+                    String feeCacheKey = gradeId + ":" + feeMediumId;
+                    Map<Long, List<Object[]>> feeByMonth = gradeFeePerMonth.get(feeCacheKey);
+                    if (feeByMonth == null) {
+                        List<Object[]> feeRows = feeMediumId != null
+                                ? feeclassmapRepository.findFeeDetailsPerMonth(
+                                        academicYear.getId(), school.getId(), selectedMonthIds, gradeId, feeMediumId)
+                                : feeclassmapRepository.findFeeDetailsPerMonth(
+                                        academicYear.getId(), school.getId(), selectedMonthIds, gradeId);
+                        Map<Long, List<Object[]>> monthMap = new HashMap<>();
+                        if (feeRows != null) {
+                            for (Object[] fr : feeRows) {
+                                Long mId = ((Number) fr[2]).longValue();
+                                monthMap.computeIfAbsent(mId, k -> new ArrayList<>()).add(fr);
+                            }
+                        }
+                        gradeFeePerMonth.put(feeCacheKey, monthMap);
+                        feeByMonth = monthMap;
+                    }
+
                     BigDecimal stuFee = BigDecimal.ZERO;
                     for (Long mId : unpaidMonthIds) {
                         List<Object[]> monthFees = feeByMonth.getOrDefault(mId, Collections.emptyList());
@@ -2383,9 +2608,17 @@ public class FeeSubmissionService {
                     StudentDiscount stuDiscount = discountByStudentId.get(stu.getId());
                     if (stuDiscount != null) {
                         try {
-                            List<Object[]> disRows = discountclassmapRepository.findAmountAndDiscountHeadNames(
-                                    academicYear.getId(), school.getId(), unpaidMonthIds,
-                                    gradeId, stuDiscount.getDiscounthead().getId());
+                            // Per-student medium (not the top-level mediumId filter above, which
+                            // is null when "All Mediums" is selected) - AcademicStudent.medium is
+                            // mandatory so this is always resolvable for a real student row.
+                            Long stuMediumId = stu.getMedium() != null ? stu.getMedium().getId() : null;
+                            List<Object[]> disRows = stuMediumId != null
+                                    ? discountclassmapRepository.findAmountAndDiscountHeadNames(
+                                            academicYear.getId(), school.getId(), unpaidMonthIds,
+                                            gradeId, stuDiscount.getDiscounthead().getId(), stuMediumId)
+                                    : discountclassmapRepository.findAmountAndDiscountHeadNames(
+                                            academicYear.getId(), school.getId(), unpaidMonthIds,
+                                            gradeId, stuDiscount.getDiscounthead().getId());
                             if (disRows != null) {
                                 for (Object[] dr : disRows) {
                                     if (dr[0] != null) discountAmt = discountAmt.add((BigDecimal) dr[0]);

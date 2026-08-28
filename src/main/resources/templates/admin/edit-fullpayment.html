@@ -22,7 +22,16 @@
           <label for="grade1" class="form-label">Grade</label>
           <input type="text"  class="form-control" id="grade1" name="grade1" th:field="*{grade.gradeName}" readonly="readonly"/>
         </div>
-        <div class="col-md-7">
+        <div class="col-md-5">
+          <label for="medium" class="form-label">Medium</label>
+          <select id="medium" th:field="*{medium}" class="form-select" name="medium">
+            <option value="">Select Medium</option>
+            <option th:each="medium : ${mediums}" th:value="${medium.id}" th:text="${medium.mediumName}"
+                    th:selected="${medium} == ${fullpayment.medium}">medium</option>
+          </select>
+          <p class="text-danger" th:if="${#fields.hasErrors('medium')}" th:errors="*{medium}">medium Error</p>
+        </div>
+        <div class="col-md-2">
           &nbsp;
         </div>
 

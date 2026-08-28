@@ -453,9 +453,13 @@ public class StudentMigrationService {
                     String feeTypeToExclude = academicStudent.getStudent().getStudentType() != null
                             && academicStudent.getStudent().getStudentType().equalsIgnoreCase("Old")
                             ? "Admission Fee" : "Annual Fee";
-                    List<Object[]> amtHeadList = feeclassmapRepository.findAmountAndFeeHeadNames(
-                            academicYearId, schoolId,
-                            unpaidMonths.stream().map(MonthMaster::getId).collect(Collectors.toList()), gradeId);
+                    // AcademicStudent.medium is mandatory, so this is resolvable for any real student row.
+                    Long feeMediumId = academicStudent.getMedium() != null ? academicStudent.getMedium().getId() : null;
+                    List<Object[]> amtHeadList = feeMediumId != null
+                            ? feeclassmapRepository.findAmountAndFeeHeadNames(
+                                    academicYearId, schoolId,
+                                    unpaidMonths.stream().map(MonthMaster::getId).collect(Collectors.toList()), gradeId, feeMediumId)
+                            : null;
                     if (amtHeadList != null) {
                         for (Object[] row : amtHeadList) {
                             if (row != null && row.length >= 2 && row[0] instanceof BigDecimal

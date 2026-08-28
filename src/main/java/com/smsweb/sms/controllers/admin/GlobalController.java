@@ -16,6 +16,7 @@ import com.smsweb.sms.models.universal.Discounthead;
 import com.smsweb.sms.models.universal.Feehead;
 import com.smsweb.sms.models.universal.Grade;
 import com.smsweb.sms.models.universal.MonthMaster;
+import com.smsweb.sms.models.universal.Medium;
 import com.smsweb.sms.repositories.users.RoleRepository;
 import com.smsweb.sms.services.Employee.EmployeeService;
 import com.smsweb.sms.services.admin.*;
@@ -61,6 +62,7 @@ public class GlobalController extends BaseController {
     private final DiscountService discountService;
     private final GradeService gradeService;
     private final DiscountclassmapService discountclassmapService;
+    private final MediumService mediumService;
     private final DiscountmonthmapService discountmonthmapService;
     private final FullpaymentService fullpaymentService;
     private final UserService userService;
@@ -76,7 +78,7 @@ public class GlobalController extends BaseController {
     @Autowired
     public GlobalController(AcademicyearService academicyearService, SchoolService schoolService, MonthmappingService monthmappingService, MonthMasterService monthMasterService,
                             FeedateService feedateService, FineService fineService, FineheadService fineheadService, FeeclassmapService feeclassmapService,
-                            FeeheadService feeheadService, GradeService gradeService, FeemonthmapService feemonthmapService, DiscountclassmapService discountclassmapService,
+                            FeeheadService feeheadService, GradeService gradeService, FeemonthmapService feemonthmapService, DiscountclassmapService discountclassmapService, MediumService mediumService,
                             DiscountService discountService, DiscountmonthmapService discountmonthmapService, FullpaymentService fullpaymentService, UserService userService, EmployeeService employeeService, RoleRepository roleRepository, AcademicYearHolder academicYearHolder, SchoolHolder schoolHolder, HolidayService holidayService, ExaminationService examinationService){
         this.academicyearService = academicyearService;
         this.schoolService = schoolService;
@@ -90,6 +92,7 @@ public class GlobalController extends BaseController {
         this.gradeService = gradeService;
         this.feemonthmapService = feemonthmapService;
         this.discountclassmapService = discountclassmapService;
+        this.mediumService = mediumService;
         this.discountService = discountService;
         this.discountmonthmapService = discountmonthmapService;
         this.fullpaymentService = fullpaymentService;
@@ -512,15 +515,16 @@ public class GlobalController extends BaseController {
         log.info("Inside getAddFeeClassMappingForm");
         //model.addAttribute("feeheads", feeheadService.getAllFeeheads());
         model.addAttribute("grades", gradeService.getAllGrades());
+        model.addAttribute("mediums", mediumService.getAllMediums());
         FeeClassMapWrapper feeClassMapWrapper = new FeeClassMapWrapper();
         model.addAttribute("feeClassMapWrapper", feeClassMapWrapper);
         return "admin/add-feeclassmap";
     }
 
     @CheckAccess(screen = "ADMIN_FEE_CLASS", type = AccessType.VIEW)
-    @PostMapping("/fee-class/getAllFeeData/{classId}")
+    @PostMapping("/fee-class/getAllFeeData/{classId}/{mediumId}")
     @ResponseBody
-    public Map<String, Map<String, String>> getAllFeeData(@PathVariable("classId")Long classId, HttpSession session, Model model){
+    public Map<String, Map<String, String>> getAllFeeData(@PathVariable("classId")Long classId, @PathVariable("mediumId")Long mediumId, HttpSession session, Model model){
         log.info("Inside getAllFeeData");
         Map<String, Map<String, String>> responseMap = new HashMap<>();
         //map - fee - amount
@@ -533,7 +537,7 @@ public class GlobalController extends BaseController {
                 model.addAttribute("errorMessage", "Academic Year not found in session");
                 responseMap.put("error", new HashMap<>()); // Redirect to an error page or display an error message
             }
-            List<FeeClassMap> feeClassMapList = feeclassmapService.getAllFeeClassMappingByGrade(classId, school.getId(), academicYear.getId());
+            List<FeeClassMap> feeClassMapList = feeclassmapService.getAllFeeClassMappingByGrade(classId, mediumId, school.getId(), academicYear.getId());
             List<Feehead> feeheadList = feeheadService.getAllFeeheads();
             if(feeClassMapList!=null && !feeClassMapList.isEmpty()){
                 feeClassMapList.forEach(fcm -> {
@@ -578,10 +582,12 @@ public class GlobalController extends BaseController {
             School school = (School)model.getAttribute("school");
             AcademicYear academicYear = (AcademicYear)model.getAttribute("academicYear");
             Grade grade = feeClassMaps.get(0).getGrade();
+            Medium medium = feeClassMaps.get(0).getMedium();
             for (FeeClassMap fee : feeClassMaps) {
                 fee.setAcademicYear(academicYear);
                 fee.setSchool(school);
                 fee.setGrade(grade);
+                fee.setMedium(medium);
                 fee.setCreatedBy(userService.getLoggedInUser());
                 feeClassMapList.add(feeclassmapService.save(fee));
             }
@@ -607,6 +613,7 @@ public class GlobalController extends BaseController {
                 .orElseThrow(() -> new IllegalArgumentException("Invalid fee-class Id:" + id));
         model.addAttribute("feeclassmap",feeClassMap);
         model.addAttribute("gradename",feeClassMap.getGrade().getGradeName());
+        model.addAttribute("mediums", mediumService.getAllMediums());
         return "admin/edit-feeclassmap";
     }
 
@@ -615,6 +622,7 @@ public class GlobalController extends BaseController {
     public String updateFeeClassMap(@Valid @ModelAttribute("feeclassmap")FeeClassMap feeClassMap, BindingResult result, Model model, RedirectAttributes ra){
         log.info("Inside updateFeeClassMap");
         if(result.hasErrors()){
+            model.addAttribute("mediums", mediumService.getAllMediums());
             return "admin/edit-feeclassmap";
         }
         try{
@@ -624,6 +632,7 @@ public class GlobalController extends BaseController {
         }catch(Exception e){
             e.printStackTrace();
             model.addAttribute("error","Error: "+e.getLocalizedMessage());
+            model.addAttribute("mediums", mediumService.getAllMediums());
             return "admin/edit-feeclassmap";
         }
         return "redirect:/admin/fee-class";
@@ -841,15 +850,16 @@ public class GlobalController extends BaseController {
     public String getAddDiscountClassMappingForm(Model model){
         log.info("Inside getAddDiscountClassMappingForm");
         model.addAttribute("grades", gradeService.getAllGrades());
+        model.addAttribute("mediums", mediumService.getAllMediums());
         DiscountClassMapWrapper discountClassMapWrapper = new DiscountClassMapWrapper();
         model.addAttribute("discountClassMapWrapper", discountClassMapWrapper);
         return "admin/add-discountclassmap";
     }
 
     @CheckAccess(screen = "ADMIN_DISCOUNT_CLASS", type = AccessType.VIEW)
-    @PostMapping("/discount-class/getAllDiscountData/{classId}")
+    @PostMapping("/discount-class/getAllDiscountData/{classId}/{mediumId}")
     @ResponseBody
-    public Map<String, Map<String, String>> getAllDiscountData(@PathVariable("classId")Long classId, Model model){
+    public Map<String, Map<String, String>> getAllDiscountData(@PathVariable("classId")Long classId, @PathVariable("mediumId")Long mediumId, Model model){
         log.info("Inside getAllDiscountData");
         Map<String, Map<String, String>> responseMap = new HashMap<>();
         //map - fee - amount
@@ -858,7 +868,7 @@ public class GlobalController extends BaseController {
             Set<String> processedDiscountHeads = new HashSet<>();
             School school = (School)model.getAttribute("school");
             AcademicYear academicYear = (AcademicYear)model.getAttribute("academicYear");
-            List<DiscountClassMap> discountClassMapList = discountclassmapService.getAllDiscountClassMappingByGrade(school.getId(), academicYear.getId(), classId);
+            List<DiscountClassMap> discountClassMapList = discountclassmapService.getAllDiscountClassMappingByGrade(school.getId(), academicYear.getId(), classId, mediumId);
             List<Discounthead> discountheadList = discountService.getAllDiscountheads();
             if(discountClassMapList!=null && !discountClassMapList.isEmpty()){
                 discountClassMapList.forEach(fcm -> {
@@ -902,10 +912,12 @@ public class GlobalController extends BaseController {
             School school = (School)model.getAttribute("school");
             AcademicYear academicYear = (AcademicYear)model.getAttribute("academicYear");
             Grade grade = discountClassMaps.get(0).getGrade();
+            Medium medium = discountClassMaps.get(0).getMedium();
             for (DiscountClassMap fee : discountClassMaps) {
                 fee.setAcademicYear(academicYear);
                 fee.setSchool(school);
                 fee.setGrade(grade);
+                fee.setMedium(medium);
                 fee.setCreatedBy(userService.getLoggedInUser());
                 discountClassMapList.add(discountclassmapService.save(fee));
             }
@@ -931,6 +943,7 @@ public class GlobalController extends BaseController {
                 .orElseThrow(() -> new IllegalArgumentException("Invalid discount-class Id:" + id));
         model.addAttribute("discountclassmap",discountClassMap);
         model.addAttribute("gradename",discountClassMap.getGrade().getGradeName());
+        model.addAttribute("mediums", mediumService.getAllMediums());
         return "admin/edit-discountclassmap";
     }
 
@@ -939,6 +952,7 @@ public class GlobalController extends BaseController {
     public String updateDiscountClassMap(@Valid @ModelAttribute("discountclassmap")DiscountClassMap discountClassMap, BindingResult result, Model model, RedirectAttributes ra){
         log.info("Inside updateDiscountClassMap");
         if(result.hasErrors()){
+            model.addAttribute("mediums", mediumService.getAllMediums());
             return "admin/edit-discountclassmap";
         }
         try{
@@ -948,6 +962,7 @@ public class GlobalController extends BaseController {
         }catch(Exception e){
             e.printStackTrace();
             model.addAttribute("error","Error: "+e.getLocalizedMessage());
+            model.addAttribute("mediums", mediumService.getAllMediums());
             return "admin/edit-discountclassmap";
         }
         return "redirect:/admin/discount-class";
@@ -1164,6 +1179,7 @@ public class GlobalController extends BaseController {
     public String getAddFullPaymentForm(Model model){
         log.info("Inside getAddFullPaymentForm");
         model.addAttribute("grades", gradeService.getAllGrades());
+        model.addAttribute("mediums", mediumService.getAllMediums());
         model.addAttribute("fullpayment", new FullPayment());
         return "admin/add-fullpayment";
     }
@@ -1174,6 +1190,7 @@ public class GlobalController extends BaseController {
         log.info("Inside saveFullPayment");
         if(result.hasErrors()){
             model.addAttribute("grades", gradeService.getAllGrades());
+            model.addAttribute("mediums", mediumService.getAllMediums());
             return "admin/add-fullpayment";
         }
         try{
@@ -1190,14 +1207,17 @@ public class GlobalController extends BaseController {
         }catch(UniqueConstraintsException de){
             model.addAttribute("error", de.getLocalizedMessage());
             model.addAttribute("grades", gradeService.getAllGrades());
+            model.addAttribute("mediums", mediumService.getAllMediums());
             return "admin/add-fullpayment";
         } catch(ObjectNotSaveException oe){
             model.addAttribute("error", oe.getLocalizedMessage());
             model.addAttribute("grades", gradeService.getAllGrades());
+            model.addAttribute("mediums", mediumService.getAllMediums());
             return "admin/add-fullpayment";
         } catch(Exception e){
             model.addAttribute("error", e.getLocalizedMessage());
             model.addAttribute("grades", gradeService.getAllGrades());
+            model.addAttribute("mediums", mediumService.getAllMediums());
             return "admin/add-fullpayment";
         }
         return "redirect:/admin/full-payment-discount";
@@ -1209,6 +1229,7 @@ public class GlobalController extends BaseController {
         FullPayment fullPayment = fullpaymentService.getFullPaymentById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid full-payment Id:" + id));
         model.addAttribute("fullpayment",fullPayment);
+        model.addAttribute("mediums", mediumService.getAllMediums());
         return "admin/edit-fullpayment";
     }
 
@@ -1306,9 +1327,15 @@ public class GlobalController extends BaseController {
     @CheckAccess(screen = "ADMIN_USERROLE", type = AccessType.VIEW)
     @GetMapping("/api/user-role/existing-roles/{employeeId}")
     @PreAuthorize("hasAnyRole('ROLE_SUPERADMIN','ROLE_ADMIN')")
-    public ResponseEntity<?> getExistingRoles(@PathVariable("employeeId") Long employeeId) {
+    public ResponseEntity<?> getExistingRoles(@PathVariable("employeeId") Long employeeId, Model model) {
         log.info("Inside getExistingRoles");
         try {
+            if (!isSuperAdminLoggedIn()) {
+                School school = (School) model.getAttribute("school");
+                if (school == null || !employeeService.employeeBelongsToSchool(employeeId, school.getId())) {
+                    return ResponseEntity.status(403).body("You do not have access to this employee.");
+                }
+            }
             List<String> roleNames = employeeService.getExistingRoleNames(employeeId);
             return ResponseEntity.ok(roleNames);
         } catch (Exception e) {
@@ -1318,13 +1345,19 @@ public class GlobalController extends BaseController {
 
     @CheckAccess(screen = "ADMIN_USERROLE", type = AccessType.CREATE)
     @PostMapping("/api/user-role/save")
-    public ResponseEntity<?> saveRoleUserMapping(@RequestBody Map<String, Long> payload){
+    public ResponseEntity<?> saveRoleUserMapping(@RequestBody Map<String, Long> payload, Model model){
         log.info("Inside saveRoleUserMapping");
         try {
             log.debug("saveRoleUserMapping payload={}", payload);
             if(payload!=null){
                 Long employeeId = payload.get("employeeId");
                 Long roleId = payload.get("roleId");
+                if (!isSuperAdminLoggedIn()) {
+                    School school = (School) model.getAttribute("school");
+                    if (school == null || !employeeService.employeeBelongsToSchool(employeeId, school.getId())) {
+                        return ResponseEntity.status(403).body("You do not have access to this employee.");
+                    }
+                }
                 boolean b = employeeService.saveRoleUserMapping(employeeId, roleId);
                 if(!b){
                     return ResponseEntity.ok("Either unable to assign the Role to User or Role already assigned");
@@ -1336,6 +1369,76 @@ public class GlobalController extends BaseController {
             return ResponseEntity.status(500).body("Error assigning role: " + e.getMessage());
         }
         return ResponseEntity.status(400).body("Unexpected error occurred");
+    }
+
+    // Roles currently assigned to an employee, WITH role IDs - feeds the Manage
+    // Roles / Revoke modal. getExistingRoles (above) only returns display
+    // strings, no ID, so it can't be used to build a revoke call.
+    @CheckAccess(screen = "ADMIN_USERROLE", type = AccessType.VIEW)
+    @GetMapping("/api/user-role/existing-roles-detailed/{employeeId}")
+    @PreAuthorize("hasAnyRole('ROLE_SUPERADMIN','ROLE_ADMIN')")
+    public ResponseEntity<?> getExistingRolesDetailed(@PathVariable("employeeId") Long employeeId, Model model) {
+        log.info("Inside getExistingRolesDetailed");
+        try {
+            if (!isSuperAdminLoggedIn()) {
+                School school = (School) model.getAttribute("school");
+                if (school == null || !employeeService.employeeBelongsToSchool(employeeId, school.getId())) {
+                    return ResponseEntity.status(403).body("You do not have access to this employee.");
+                }
+            }
+            return ResponseEntity.ok(employeeService.getExistingRolesDetailed(employeeId));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error fetching roles: " + e.getMessage());
+        }
+    }
+
+    // Revoke a role from a user. Restricted to ROLE_SUPERADMIN/ROLE_ADMIN - same
+    // access level the whole Role-User Mapping page already requires. A user can
+    // never revoke their OWN Super Admin (ROLE_SUPERADMIN/ROLE_ADMIN) role here -
+    // that guard is enforced below regardless of who's logged in, to prevent an
+    // accidental self-lockout with nobody left to undo it.
+    @CheckAccess(screen = "ADMIN_USERROLE", type = AccessType.DELETE)
+    @PostMapping("/api/user-role/revoke")
+    @PreAuthorize("hasAnyRole('ROLE_SUPERADMIN','ROLE_ADMIN')")
+    public ResponseEntity<?> revokeRoleUserMapping(@RequestBody Map<String, Long> payload, Model model){
+        log.info("Inside revokeRoleUserMapping");
+        try {
+            log.debug("revokeRoleUserMapping payload={}", payload);
+            if(payload == null){
+                return ResponseEntity.status(400).body("Unexpected error occurred");
+            }
+            Long employeeId = payload.get("employeeId");
+            Long roleId = payload.get("roleId");
+            if(employeeId == null || roleId == null){
+                return ResponseEntity.status(400).body("employeeId and roleId are required");
+            }
+
+            if (!isSuperAdminLoggedIn()) {
+                School school = (School) model.getAttribute("school");
+                if (school == null || !employeeService.employeeBelongsToSchool(employeeId, school.getId())) {
+                    return ResponseEntity.status(403).body("You do not have access to this employee.");
+                }
+            }
+
+            Roles role = roleRepository.findById(roleId).orElse(null);
+            boolean isSuperAdminRole = role != null &&
+                    ("ROLE_SUPERADMIN".equals(role.getName()) || "ROLE_ADMIN".equals(role.getName()));
+            if(isSuperAdminRole){
+                Long targetUserId = employeeService.getUserIdForEmployee(employeeId);
+                Long loggedInUserId = userService.getLoggedInUser() != null ? userService.getLoggedInUser().getId() : null;
+                if(targetUserId != null && targetUserId.equals(loggedInUserId)){
+                    return ResponseEntity.ok("You cannot revoke your own Super Admin role.");
+                }
+            }
+            boolean removed = employeeService.removeRoleFromUser(employeeId, roleId);
+            if(!removed){
+                return ResponseEntity.ok("Either unable to revoke the role or it is not currently assigned");
+            } else{
+                return ResponseEntity.ok("Role revoked successfully");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error revoking role: " + e.getMessage());
+        }
     }
 
     private boolean isSuperAdminLoggedIn(){
