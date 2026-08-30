@@ -90,6 +90,14 @@
     flatpickr("#holidayStartDate", {
       dateFormat: "d/M/Y",  // Equivalent to dd/MMM/yyyy
     });
+
+    // Surfaces a same-page validation/duplicate error (set as a plain model
+    // attribute when this form re-renders after a failed POST) - was set
+    // server-side but never actually displayed anywhere on this page.
+    const holidayErrorMessage = [[${error}]];
+    $(document).ready(function () {
+      if (holidayErrorMessage) showMsg("error", holidayErrorMessage, "Error");
+    });
     toastr.options = {
       "closeButton": true,
       "debug": false,

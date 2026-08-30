@@ -337,6 +337,7 @@ public class FamilyAccountService {
             dto.setMustChangePassword(account.isMustChangePassword());
 
             List<String> studentLines = new ArrayList<>();
+            List<MobileUserRowDto.StudentLink> studentLinks = new ArrayList<>();
             List<Long> academicStudentIds = new ArrayList<>();
             for (Student s : account.getStudents()) {
                 List<AcademicStudent> asList = academicByStudentId.getOrDefault(s.getId(), Collections.emptyList());
@@ -346,15 +347,18 @@ public class FamilyAccountService {
                     String section = as.getSection() != null ? as.getSection().getSectionName() : "";
                     String school = as.getSchool() != null ? as.getSchool().getSchoolName() : "";
                     String classPart = grade.isEmpty() ? "" : (section.isEmpty() ? grade : grade + "-" + section);
-                    String label = s.getStudentName()
-                            + (classPart.isEmpty() ? "" : " (" + classPart + (school.isEmpty() ? "" : ", " + school) + ")");
+                    String classInfo = classPart.isEmpty() ? "" : (classPart + (school.isEmpty() ? "" : ", " + school));
+                    String label = s.getStudentName() + (classInfo.isEmpty() ? "" : " (" + classInfo + ")");
                     studentLines.add(label);
+                    studentLinks.add(new MobileUserRowDto.StudentLink(s.getStudentName(), classInfo));
                     academicStudentIds.add(as.getId());
                 } else {
                     studentLines.add(s.getStudentName() + " (inactive)");
+                    studentLinks.add(new MobileUserRowDto.StudentLink(s.getStudentName(), "Inactive"));
                 }
             }
             dto.setStudents(studentLines);
+            dto.setStudentLinks(studentLinks);
             dto.setAcademicStudentIds(academicStudentIds);
 
             List<MobileRefreshToken> tokens = new ArrayList<>();

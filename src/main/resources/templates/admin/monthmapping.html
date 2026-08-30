@@ -10,10 +10,35 @@
 
   <div class="container-fluid px-3">
     <div class="row mt-2 ">
-      <div class="col-md-12 ">
-        <div th:replace="~{components/ui :: page-header('Month-Mapping List')}"></div>
+      <div class="col-md-12">
 
-        <table class="table table-bordered table-striped table-hover table-sm" th:if="${hasMonthMappings}">
+      <div th:replace="~{components/ui :: list-page-header('Month-Mapping List', null, ~{::monthMappingActions})}"></div>
+      <!-- Only the Add action exists for this page today - Edit/Delete were
+           never wired up server-side (see the commented-out row markup this
+           replaced), so none is added here either; this is a chrome/styling
+           pass only, not a new-feature pass. Wrapped in display:none, not
+           th:remove, for the same reason as employee.html's equivalent. -->
+      <div style="display:none">
+        <div th:fragment="monthMappingActions">
+          <button type="button" class="btn-cta" sms:access="ADMIN_MONTH_MAP:CREATE" th:data-href="@{/admin/month-mapping/add}"
+             th:if="${hasMonthMappings}" data-bs-toggle="modal" data-bs-target="#regenerateMappingModal">
+            <i class="bi bi-node-plus-fill"></i> Add Month-Mapping</button>
+          <a class="btn-cta" sms:access="ADMIN_MONTH_MAP:CREATE" th:href="@{/admin/month-mapping/add}"
+             th:if="${!hasMonthMappings}"><i class="bi bi-node-plus-fill"></i> Add Month-Mapping</a>
+        </div>
+      </div>
+
+      <div class="list-table-card">
+        <div class="config-list-toolbar list-page-toolbar">
+          <div class="config-search-wrap">
+            <i class="bi bi-search"></i>
+            <input type="text" class="form-control form-control-sm" id="monthMappingSearchInput"
+                   placeholder="Search months…">
+          </div>
+          <div id="mmExportSlot" class="list-export-slot"></div>
+        </div>
+
+        <table class="table table-sm list-table" id="month-mapping-list" th:if="${hasMonthMappings}">
           <thead>
           <tr>
             <th>#</th>
@@ -21,40 +46,110 @@
             <th>Priority</th>
           </tr>
           </thead>
-          <tbody class="table-group-divider">
-
+          <tbody>
           <tr th:each="monthmap,iterStat : ${monthmappings}">
             <td th:text="${iterStat.index + 1}"></td>
             <td th:text="${monthmap.monthMaster.monthName}"></td>
             <td th:text="${monthmap.priority}"></td>
-            <!--<td style="white-space: nowrap" class="text-center">
-              <a sms:access="ADMIN_MONTH_MAP:EDIT" class="btn btn-primary" th:href="@{/admin/monthmap/edit/{id}(id=${monthmap.id})}" data-bs-toggle="tooltip" data-bs-title="Default tooltip">
-                <i class="bi bi-pencil-square"></i> </a>
-              <a sms:access="ADMIN_MONTH_MAP:DELETE" class="btn btn-danger" th:href="@{/admin/monthmap/delete/{id}(id=${monthmap.id})}" onclick="return confirm('Are you sure? its not recoverable.')" data-bs-toggle="tooltip" data-bs-placement="top"
-                 data-bs-custom-class="custom-tooltip"
-                 data-bs-title="Delete the school record">
-                <i class="bi bi-journal-x"></i> </a>
-            </td>-->
           </tr>
           </tbody>
         </table>
-        <div th:if="${!hasMonthMappings}">
+
+        <div th:if="${!hasMonthMappings}" class="p-3">
           <div th:replace="~{components/ui :: empty-state('No Month-Mapping found.', 'bi-inbox')}"></div>
         </div>
-        <div class="pt-5">
-          <a sms:access="ADMIN_MONTH_MAP:CREATE" class="btn btn-success" th:href="@{/admin/month-mapping/add}"
-             th:if="${hasMonthMappings}" onclick="return confirm('Are you sure? Only one time mapping will generated for each academic year. If want to generate again it will automatically remove the existing mapping for current academic year.')">
-            <i class="bi bi-node-plus-fill"></i> Add Month-Mapping</a>
 
-          <a class="btn btn-success" th:href="@{/admin/month-mapping/add}"
-             th:if="${!hasMonthMappings}"><i class="bi bi-node-plus-fill"></i> Add Month-Mapping</a>
+        <div class="list-table-footer" th:if="${hasMonthMappings}">
+          <div class="list-footer-left">
+            <label class="list-length-label">Rows per page
+              <select id="mmPageLength" class="list-length-select">
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </label>
+            <span id="mmPageInfo" class="list-page-info">Showing 0 of 0 months</span>
+          </div>
+          <div class="list-pagination" id="mmPagination"></div>
         </div>
+      </div>
       </div>
     </div>
   </div>
 
-  <!-- Library <script> tags removed: this page has no JavaScript of its own,
-       and base.html already loads jQuery, Bootstrap, toastr and select2. -->
+  <script type="text/javascript" th:inline="javascript">
+    // Surfaces the flash success/error the save endpoint already sets on
+    // redirect (validation/duplicate failures on the Add form re-render that
+    // same page instead - see add-month-mapping.html for that half of the fix).
+    const monthMappingSuccessMessage = [[${success}]];
+    const monthMappingErrorMessage   = [[${error}]];
+
+    $(document).ready(function () {
+      if (monthMappingSuccessMessage) showMsg("success", monthMappingSuccessMessage, "Success");
+      if (monthMappingErrorMessage)   showMsg("error", monthMappingErrorMessage, "Error");
+
+      let regenerateMappingHref = null;
+      $(document).on('show.bs.modal', '#regenerateMappingModal', function (event) {
+        regenerateMappingHref = $(event.relatedTarget).data('href');
+      });
+      $('#confirmRegenerateMappingButton').on('click', function () {
+        if (regenerateMappingHref) {
+          window.location.href = regenerateMappingHref;
+        }
+      });
+
+      if ($('#month-mapping-list').length) {
+        initListDataTable({
+          tableSelector: '#month-mapping-list',
+          searchInputSelector: '#monthMappingSearchInput',
+          exportSlotSelector: '#mmExportSlot',
+          lengthSelectSelector: '#mmPageLength',
+          pageInfoSelector: '#mmPageInfo',
+          paginationSelector: '#mmPagination',
+          itemLabel: 'months',
+          exportTitle: 'Month Mapping Data export',
+          exportColumns: [0, 1, 2],
+          printHeaderText: 'Month Mapping',
+          dtOptions: {
+            columnDefs: [{ orderable: false, targets: [0] }]
+          }
+        });
+      }
+    });
+  </script>
+
+  <!-- Regenerate Month-Mapping Confirmation Modal - replaces the old native
+       window.confirm() popup with the same styled-modal pattern used for
+       Academic Year's delete confirmation, so the warning looks and behaves
+       consistently with the rest of the redesigned admin UI. This is a plain
+       GET navigation (no state changes on this page itself), so there's no
+       form/CSRF involved - just remembering which link was clicked and
+       following it only if the user confirms. -->
+  <div class="modal fade" id="regenerateMappingModal" tabindex="-1" aria-labelledby="regenerateMappingModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header bg-warning-subtle">
+          <h5 class="modal-title" id="regenerateMappingModalLabel">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>Regenerate Month-Mapping
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-3">Only one month-mapping can exist per academic year.</p>
+          <div class="alert alert-warning d-flex align-items-start mb-0" role="alert">
+            <i class="bi bi-info-circle-fill me-2 mt-1"></i>
+            <div>Continuing will <strong>remove the existing mapping</strong> for the current academic year and generate a new one in its place. This cannot be undone.</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancel</button>
+          <button type="button" class="btn btn-warning" id="confirmRegenerateMappingButton"><i class="bi bi-arrow-repeat"></i> Continue &amp; Regenerate</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </section>
 </body>
 </html>

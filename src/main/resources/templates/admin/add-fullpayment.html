@@ -2,98 +2,106 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="~{base::Layout(~{::section})}" th:inline="javascript">
 <head>
   <meta charset="UTF-8">
-  <title>Add academic year</title>
+  <title>Add Full-Payment Discount</title>
 </head>
 <body>
 
 <section class="container-fluid px-3">
-  <div class="mt-2 mb-5">
+  <style>
+    .form-card-wrap { max-width: 800px; margin: 4px auto 40px; }
+    .form-card {
+      background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm); padding: 26px 28px 22px;
+    }
+    .form-card .form-label { font-size: 12.5px; font-weight: 700; color: var(--text-muted); margin-bottom: 5px; }
+    .form-card .form-control, .form-card .form-select {
+      border-radius: 10px; border: 1px solid var(--border-color); font-size: 13.8px;
+    }
+    .form-card .form-control:focus, .form-card .form-select:focus {
+      border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light);
+    }
+    .form-card .text-danger { font-size: 12px; margin-top: 4px; }
+    .form-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 22px; gap: 10px; padding-top: 18px; border-top: 1px dashed var(--border-color); }
+    .form-btn {
+      border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-primary);
+      padding: 9px 18px; border-radius: 10px; font-size: 13.8px; font-weight: 700;
+      display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    .form-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .form-btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .form-btn-primary:hover { background: var(--accent); opacity: .92; color: #fff; }
+  </style>
+
+  <div class="form-card-wrap">
     <div th:replace="~{components/ui :: page-header('Full-Payment Discount Form')}"></div>
 
-
-    <form th:action="@{/admin/full-payment-discount}" th:object="${fullpayment}" method="post" >
-      <div class="row g-2">
+    <div class="form-card">
+      <form th:action="@{/admin/full-payment-discount}" th:object="${fullpayment}" method="post">
         <input type="hidden" name="school_id" id="school_id" th:field="*{school.id}"/>
         <input type="hidden" name="academicYear" id="academicYear" th:field="*{academicYear.id}" />
 
-        <div class="col-md-5">
-          <label for="fine" class="form-label">Grade</label>
-          <select id="fine" th:field="*{grade}" class="form-select" name="fine">
-            <option value="">Select Grade</option>
-            <option th:each="grade : ${grades}" th:value="${grade.id}" th:text="${grade.gradeName}"
-                    th:selected="${grade} == ${fullpayment.grade}">grade</option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('grade')}" th:errors="*{grade}">grade Error</p>
-        </div>
-        <div class="col-md-5">
-          <label for="medium" class="form-label">Medium</label>
-          <select id="medium" th:field="*{medium}" class="form-select" name="medium">
-            <option value="">Select Medium</option>
-            <option th:each="medium : ${mediums}" th:value="${medium.id}" th:text="${medium.mediumName}"
-                    th:selected="${medium} == ${fullpayment.medium}">medium</option>
-          </select>
-          <p class="text-danger" th:if="${#fields.hasErrors('medium')}" th:errors="*{medium}">medium Error</p>
-        </div>
-        <div class="col-md-1">
-          &nbsp;
-        </div>
-
-
-        <div class="col-md-3">
-          <label for="frequency" class="form-label">Last Date</label>
-          <input type="text"  class="form-control" id="frequency" name="frequency" th:field="*{paymentLastDate}" />
-          <p class="text-danger" th:if="${#fields.hasErrors('paymentLastDate')}" th:errors="*{paymentLastDate}">date Error</p>
-        </div>
-        <div class="col-md-8">
-          &nbsp;
-        </div>
-
-        <div class="col-md-3">
-          <label for="amount" class="form-label">Amount</label>
-          <input type="number"  class="form-control" id="amount" name="amount" th:field="*{amount}" />
-
-          <p class="text-danger" th:if="${#fields.hasErrors('amount')}" th:errors="*{amount}">Amount Error</p>
-        </div>
-        <div class="col-md-8">
-          &nbsp;
-        </div>
-
-
-        <div class="col-md-7">
-          <label for="description" class="form-label">Description</label>
-          <div class="form-floating">
-            <textarea id="description" placeholder="Add description here" class="form-control" name="description" style="height: 100px;" rows="4" cols="50" th:field="*{description}"></textarea>
-            <label for="description">Add Description Here</label>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="fine" class="form-label">Grade</label>
+            <select id="fine" th:field="*{grade}" class="form-select" name="fine">
+              <option value="">Select Grade</option>
+              <option th:each="grade : ${grades}" th:value="${grade.id}" th:text="${grade.gradeName}"
+                      th:selected="${grade} == ${fullpayment.grade}">grade</option>
+            </select>
+            <p class="text-danger" th:if="${#fields.hasErrors('grade')}" th:errors="*{grade}">grade Error</p>
           </div>
-          <p class="text-danger" th:if="${#fields.hasErrors('description')}" th:errors="*{description}">description Error</p>
+
+          <div class="col-md-6">
+            <label for="medium" class="form-label">Medium</label>
+            <select id="medium" th:field="*{medium}" class="form-select" name="medium">
+              <option value="">Select Medium</option>
+              <option th:each="medium : ${mediums}" th:value="${medium.id}" th:text="${medium.mediumName}"
+                      th:selected="${medium} == ${fullpayment.medium}">medium</option>
+            </select>
+            <p class="text-danger" th:if="${#fields.hasErrors('medium')}" th:errors="*{medium}">medium Error</p>
+          </div>
+
+          <div class="col-md-6">
+            <label for="frequency" class="form-label">Payment Last Date</label>
+            <input type="text" class="form-control" id="frequency" name="frequency" th:field="*{paymentLastDate}" />
+            <p class="text-danger" th:if="${#fields.hasErrors('paymentLastDate')}" th:errors="*{paymentLastDate}">date Error</p>
+          </div>
+
+          <div class="col-md-6">
+            <label for="amount" class="form-label">Amount</label>
+            <input type="number" class="form-control" id="amount" name="amount" th:field="*{amount}" />
+            <p class="text-danger" th:if="${#fields.hasErrors('amount')}" th:errors="*{amount}">Amount Error</p>
+          </div>
+
+          <div class="col-md-12">
+            <label for="description" class="form-label">Description</label>
+            <textarea id="description" placeholder="Add description here" class="form-control" name="description" style="height: 90px;" rows="4" th:field="*{description}"></textarea>
+            <p class="text-danger" th:if="${#fields.hasErrors('description')}" th:errors="*{description}">description Error</p>
+          </div>
         </div>
-        <div class="col-md-2">
-          &nbsp;
+
+        <div class="form-foot">
+          <a class="form-btn" th:href="@{/admin/full-payment-discount}"><i class="bi bi-arrow-left"></i> Back to List</a>
+          <button type="submit" class="form-btn form-btn-primary"><i class="bi bi-save2-fill"></i> Save</button>
         </div>
-
-
-        <hr/>
-        <div class="col-md-4">
-          <a class="btn btn-outline-secondary btn-sm" th:href="@{/admin/full-payment-discount}"><i class="bi bi-arrow-left"></i> Back to List</a>
-        </div>
-        <div class="col-md-6 mb-5">
-          <button type="submit" class="btn btn-primary"><i class="bi bi-save2-fill"></i> Save</button>
-        </div>
-      </div>
-    </form>
-
-
-
-
-
+      </form>
+    </div>
   </div>
 
   <link type="text/css" rel="stylesheet" th:href="@{/css/flatpickr.min.css}"/>
   <script th:src="@{/js/flatpickr.js}"></script>
   <script type="text/javascript" th:inline="javascript">
-
     flatpickr("#frequency", {
       dateFormat: "d/M/Y",  // Equivalent to dd/MMM/yyyy
+    });
+
+    // Surfaces a same-page validation/duplicate error (set as a plain model
+    // attribute when this form re-renders after a failed POST) - was set
+    // server-side but never actually displayed anywhere on this page.
+    const fullPaymentErrorMessage = [[${error}]];
+    $(document).ready(function () {
+      if (fullPaymentErrorMessage) showMsg("error", fullPaymentErrorMessage, "Error");
     });
 
     toastr.options = {
@@ -113,11 +121,7 @@
       "showMethod": "fadeIn",
       "hideMethod": "fadeOut"
     }
-    
-
-
   </script>
-
 
   <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html
        now loads them in <head>, so they are available before this page's
@@ -127,5 +131,3 @@
 
 </body>
 </html>
-
-

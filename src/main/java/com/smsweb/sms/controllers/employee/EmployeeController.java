@@ -75,8 +75,36 @@ public class EmployeeController extends BaseController {
         } else{
             employees = employeeService.getAllActiveEmployees(school.getId());
         }
+        // Stat-tile row on the Employee List page (Total / Designations / New this
+        // month) - all derived from the `employees` list already fetched above, no
+        // extra queries. Employee has no working "inactive" concept anywhere in the
+        // codebase (unlike Student), so the 3rd tile deliberately shows a count of
+        // distinct designations in use instead of an inactive count that would be
+        // permanently stuck at 0.
+        int totalEmployeesCount = employees.size();
+        long distinctDesignationsCount = employees.stream()
+                .map(Employee::getDesignation)
+                .filter(d -> d != null && !d.isBlank())
+                .map(String::trim)
+                .distinct()
+                .count();
+        java.util.Calendar nowCal = java.util.Calendar.getInstance();
+        int curMonth = nowCal.get(java.util.Calendar.MONTH);
+        int curYear = nowCal.get(java.util.Calendar.YEAR);
+        long newThisMonthCount = employees.stream()
+                .filter(e -> e.getCreationDate() != null)
+                .filter(e -> {
+                    java.util.Calendar c = java.util.Calendar.getInstance();
+                    c.setTime(e.getCreationDate());
+                    return c.get(java.util.Calendar.MONTH) == curMonth && c.get(java.util.Calendar.YEAR) == curYear;
+                })
+                .count();
+
         model.addAttribute("employees", employees);
         model.addAttribute("hasEmployee", !employees.isEmpty());
+        model.addAttribute("totalEmployeesCount", totalEmployeesCount);
+        model.addAttribute("distinctDesignationsCount", distinctDesignationsCount);
+        model.addAttribute("newThisMonthCount", newThisMonthCount);
         model.addAttribute("page", "datatable");
         log.debug("Total employees - "+employees.size());
         return "employee/employee";
@@ -330,12 +358,26 @@ public class EmployeeController extends BaseController {
         }
     }
 
+    // Soft-delete: sets Employee.status to Inactive (nothing is hard-deleted -
+    // matches StudentController#deleteStudent's convention). Was previously a
+    // @PostMapping with no {uuid} path variable and an empty body, while the
+    // template linked to a GET URL with a uuid segment - the two could never
+    // have matched, so this endpoint was unreachable and did nothing even when
+    // reached. Now a real @PostMapping("/employee-delete/{uuid}"), matching
+    // the URL the confirmation-modal form now submits to. POST (not GET) so
+    // this state-changing action is covered by Spring Security's CSRF check,
+    // same fix applied to StudentController#deleteStudent alongside this one.
     @CheckAccess(screen = "EMPLOYEE", type = AccessType.DELETE)
-    @PostMapping("/employee-delete")
-    public String deleteEmployee(@Valid @ModelAttribute("employee")Employee employee, BindingResult result, Model model, RedirectAttributes redirectAttributes,
-                                 @RequestParam("customerPic") MultipartFile customerPic){
+    @PostMapping("/employee-delete/{uuid}")
+    public String deleteEmployee(@PathVariable("uuid") UUID uuid, RedirectAttributes redirectAttributes){
         log.info("Inside deleteEmployee");
-        return "redirect:/employee/employee";
+        String msg = employeeService.deleteEmployee(uuid);
+        if(msg.contains("success")){
+            redirectAttributes.addFlashAttribute("success", msg.split("#####")[1]);
+        } else {
+            redirectAttributes.addFlashAttribute("error", msg.split("#####")[1]);
+        }
+        return "redirect:/employee/employee-list";
     }
 
 }

@@ -10,15 +10,30 @@
 
   <div class="container-fluid px-3">
     <div class="row mt-2 ">
-      <div class="col-md-12 ">
-        <div class="page-header page-header-row">
-          <h1 class="page-header-title">Fine List</h1>
-          <div class="page-header-actions">
-            <a sms:access="ADMIN_FINE:CREATE" class="btn btn-success btn-sm" th:href="@{/admin/fine/add}"><i class="bi bi-plus-lg"></i> Add Fine</a>
+      <div class="col-md-12">
+
+      <div th:replace="~{components/ui :: list-page-header('Fine List', null, ~{::fineActions})}"></div>
+      <!-- fineActions is only ever meant to render once, inside the
+           list-page-header call above via ~{::fineActions}. Wrapped in a
+           plain display:none div (not th:remove) - see employee.html for
+           why th:remove on the fragment node itself breaks this. -->
+      <div style="display:none">
+        <div th:fragment="fineActions">
+          <a class="btn-cta" sms:access="ADMIN_FINE:CREATE" th:href="@{/admin/fine/add}"><i class="bi bi-plus-lg"></i> Add Fine</a>
+        </div>
+      </div>
+
+      <div class="list-table-card">
+        <div class="config-list-toolbar list-page-toolbar">
+          <div class="config-search-wrap">
+            <i class="bi bi-search"></i>
+            <input type="text" class="form-control form-control-sm" id="fineSearchInput"
+                   placeholder="Search fines…">
           </div>
+          <div id="fineExportSlot" class="list-export-slot"></div>
         </div>
 
-        <table class="table table-bordered table-striped table-hover table-sm" th:if="${isFine}" id="feeDateTable">
+        <table class="table table-sm list-table" id="fine-list" th:if="${isFine}">
           <thead>
           <tr>
             <th>#</th>
@@ -30,8 +45,7 @@
             <th>Actions</th>
           </tr>
           </thead>
-          <tbody class="table-group-divider">
-
+          <tbody>
           <tr th:each="fine,iterStat : ${fines}">
             <td th:text="${iterStat.index + 1}"></td>
             <td th:text="${fine.finehead.fineHeadName}"></td>
@@ -41,83 +55,183 @@
               <span th:if="${fine.frequency == 2}">Quarterly</span>
               <span th:if="${fine.frequency == 3}">Half Yearly</span>
               <span th:if="${fine.frequency == 4}">Annually</span>
-
             </td>
             <td th:text="${fine.maxCalculated}"></td>
             <td th:text="${fine.description}"></td>
-            <td style="white-space: nowrap" class="text-center">
-              <a sms:access="ADMIN_FINE:EDIT" class="btn btn-primary" th:href="@{/admin/fine/edit/{id}(id=${fine.id})}" data-bs-toggle="tooltip" data-bs-title="Default tooltip">
-                <i class="bi bi-pencil-square"></i> </a>
-
-              <button sms:access="ADMIN_FINE:DELETE" class="btn btn-danger delete-btn" th:attr="data-item-id=${fine.id}"><i class="bi bi-trash3-fill"></i> </button>
-              <!--<button class="btn btn-danger" onclick="deleteFine([[${fine.id}]])"><i class="bi bi-trash3-fill"></i> </button>-->
+            <td class="text-nowrap text-center">
+              <div class="row-actions">
+                <a sms:access="ADMIN_FINE:EDIT" class="config-icon-btn" title="Edit"
+                   th:href="@{/admin/fine/edit/{id}(id=${fine.id})}">
+                  <i class="bi bi-pencil"></i></a>
+                <button type="button" sms:access="ADMIN_FINE:DELETE" class="config-icon-btn danger delete-btn" title="Delete"
+                        th:data-id="${fine.id}" th:data-name="${fine.finehead.fineHeadName}"
+                        th:data-amount="${fine.fineAmount}"
+                        th:data-frequency="${fine.frequency == 1} ? 'Monthly' : (${fine.frequency == 2} ? 'Quarterly' : (${fine.frequency == 3} ? 'Half Yearly' : (${fine.frequency == 4} ? 'Annually' : '-')))"
+                        th:data-max="${fine.maxCalculated}"
+                        th:data-description="${fine.description}"
+                        data-bs-toggle="modal" data-bs-target="#deleteConfirmationModal">
+                  <i class="bi bi-trash3"></i></button>
+              </div>
             </td>
           </tr>
           </tbody>
         </table>
-        <div th:if="${!isFine}">
+
+        <div th:if="${!isFine}" class="p-3">
           <div th:replace="~{components/ui :: empty-state('No Fine found.', 'bi-inbox')}"></div>
+        </div>
+
+        <!-- Custom footer: rows-per-page + "Showing X-Y of Z" + page-number
+             pagination — built by the shared initListDataTable() helper
+             (static/js/list-table-init.js), same as Employee/Academic-Year. -->
+        <div class="list-table-footer" th:if="${isFine}">
+          <div class="list-footer-left">
+            <label class="list-length-label">Rows per page
+              <select id="finePageLength" class="list-length-select">
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </label>
+            <span id="finePageInfo" class="list-page-info">Showing 0 of 0 fines</span>
+          </div>
+          <div class="list-pagination" id="finePagination"></div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header bg-danger-subtle">
+          <h5 class="modal-title text-danger-emphasis" id="deleteConfirmationModalLabel">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>Remove Fine
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-3">You're about to remove the following fine:</p>
+
+          <div class="border rounded p-3 mb-3 bg-light">
+            <div class="row gy-2">
+              <div class="col-12">
+                <small class="text-muted d-block">Fine</small>
+                <span class="fw-semibold" id="deleteFineName">-</span>
+              </div>
+              <div class="col-6">
+                <small class="text-muted d-block">Amount</small>
+                <span class="fw-semibold" id="deleteFineAmount">-</span>
+              </div>
+              <div class="col-6">
+                <small class="text-muted d-block">Frequency</small>
+                <span class="fw-semibold" id="deleteFineFrequency">-</span>
+              </div>
+              <div class="col-6">
+                <small class="text-muted d-block">Max Fine</small>
+                <span class="fw-semibold" id="deleteFineMax">-</span>
+              </div>
+              <div class="col-12">
+                <small class="text-muted d-block">Description</small>
+                <span class="fw-semibold" id="deleteFineDescription">-</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="alert alert-warning d-flex align-items-start mb-0" role="alert">
+            <i class="bi bi-info-circle-fill me-2 mt-1"></i>
+            <div>This cannot be undone.</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancel </button>
+          <button type="button" class="btn btn-danger" id="confirmDeleteButton"><i class="bi bi-trash3-fill"></i> Remove Fine </button>
         </div>
       </div>
     </div>
   </div>
 
-  <script th:inline="javascript" type="text/javascript">
+  <!-- Real POST form the confirm button submits - a state-changing action
+       needs to go through POST so Spring Security's CSRF check actually
+       covers it (GET requests are exempt from CSRF). Thymeleaf auto-injects
+       the _csrf hidden field for any th:action form, same as every other
+       POST form in this app. -->
+  <form id="deleteFineForm" method="post" th:action="@{/admin/fine/delete/0}" style="display:none"></form>
+
+  <script type="text/javascript" th:inline="javascript">
     const contextPath = /*[[@{/}]]*/ '/';
+
+    // Flash-attribute success/error banner after redirects (save/edit/delete
+    // all set these server-side already; this page just never displayed them
+    // before now).
+    const fineSuccessMessage = [[${success}]];
+    const fineErrorMessage   = [[${error}]];
+
     $(document).ready(function () {
-      $('.delete-btn').click(function (e) {
-        e.preventDefault(); // Prevent default action of the button
-        var itemId = $(this).data('item-id'); // Get the item ID from data attribute
-        console.log("itemId  "+itemId);
-        if (confirm('Are you sure you want to delete this record?')) {
-          // Send DELETE request using AJAX
-          $.ajax({
-            type: 'POST',
-            url: `${contextPath}admin/fine/delete/` + itemId,
-            success: function (response) {
-              // Optionally handle success response
-              console.log('Item deleted successfully '+response);
-              if(response.status === "success"){
-                toastr["info"]("Fine deleted successfully.","Delete");
-                toastr.options = {
-                  "closeButton": true,
-                  "debug": false,
-                  "newestOnTop": false,
-                  "progressBar": false,
-                  "positionClass": "toast-top-right",
-                  "preventDuplicates": false,
-                  "onclick": null,
-                  "showDuration": "500",
-                  "hideDuration": "1000",
-                  "timeOut": "5000",
-                  "extendedTimeOut": "1000",
-                  "showEasing": "swing",
-                  "hideEasing": "linear",
-                  "showMethod": "fadeIn",
-                  "hideMethod": "fadeOut"
-                }
-              } else{
-                var errorMsg = "Failed to delete the record." + response.message;
-                toastr["error"](errorMsg, "Error");
-              }
-              //location.reload(); // Reload the page after successful deletion
-              $('#feeDateTable').load(location.href + " #feeDateTable > *");
-            },
-            error: function (xhr, status, error) {
-              // Handle error
-              console.error('Error deleting item:', error);
-              //alert('Failed to delete the record.');
-              toastr["error"]("Failed to delete the record.", "Error");
-            }
-          });
+      if (fineSuccessMessage) showMsg("success", fineSuccessMessage, "Success");
+      if (fineErrorMessage)   showMsg("error", fineErrorMessage, "Error");
+
+      if ($('#fine-list').length) {
+        initListDataTable({
+          tableSelector: '#fine-list',
+          searchInputSelector: '#fineSearchInput',
+          exportSlotSelector: '#fineExportSlot',
+          lengthSelectSelector: '#finePageLength',
+          pageInfoSelector: '#finePageInfo',
+          paginationSelector: '#finePagination',
+          itemLabel: 'fines',
+          exportTitle: 'Fine Data export',
+          exportColumns: [0, 1, 2, 3, 4, 5],
+          printHeaderText: 'Fines',
+          dtOptions: {
+            columnDefs: [{ orderable: false, targets: [0, 6] }]
+          }
+        });
+      }
+
+      // Delete confirmation modal wiring — same pattern as Employee/Academic-Year List.
+      let deleteFineId = null;
+      $(document).on('click', '.delete-btn', function () {
+        const btn = $(this);
+        deleteFineId = btn.data('id');
+        $('#deleteFineName').text(btn.data('name') || '-');
+        $('#deleteFineAmount').text(btn.data('amount') || '-');
+        $('#deleteFineFrequency').text(btn.data('frequency') || '-');
+        $('#deleteFineMax').text(btn.data('max') || '-');
+        $('#deleteFineDescription').text(btn.data('description') || '-');
+      });
+
+      $('#confirmDeleteButton').on('click', function () {
+        if (deleteFineId) {
+          const $form = $('#deleteFineForm');
+          $form.attr('action', contextPath + 'admin/fine/delete/' + deleteFineId);
+          $form.trigger('submit');
         }
       });
     });
-  </script>
 
-  <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html
-       now loads them in <head>, so they are available before this page's
-       inline scripts run. They used to be duplicated on every page. -->
+    toastr.options = {
+      "closeButton": true,
+      "debug": false,
+      "newestOnTop": false,
+      "progressBar": false,
+      "positionClass": "toast-top-right",
+      "preventDuplicates": false,
+      "onclick": null,
+      "showDuration": "600",
+      "hideDuration": "1000",
+      "timeOut": "5000",
+      "extendedTimeOut": "1000",
+      "showEasing": "swing",
+      "hideEasing": "linear",
+      "showMethod": "fadeIn",
+      "hideMethod": "fadeOut"
+    }
+  </script>
 </section>
 </body>
 </html>

@@ -82,6 +82,14 @@
       flatpickr("#customer_name", {
         dateFormat: "d/m/Y",  // d=padded day, m=padded numeric month (01-12), Y=4-digit year
       });
+
+    // Surfaces a same-page validation/duplicate error (set as a plain model
+    // attribute when this form re-renders after a failed POST) - was set
+    // server-side but never actually displayed anywhere on this page.
+    const feeDateErrorMessage = [[${error}]];
+    $(document).ready(function () {
+      if (feeDateErrorMessage) showMsg("error", feeDateErrorMessage, "Error");
+    });
       toastr.options = {
         "closeButton": true,
         "debug": false,

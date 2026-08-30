@@ -7,183 +7,465 @@
 <body>
 <section>
 
-    <div class="container-fluid px-3">
-        <div class="mt-2 gy-5 mb-5">
-            <div th:replace="~{components/ui :: page-header('Employee Registration Form')}"></div>
+  <!-- Same guided-wizard pattern as student/add-student.html (stepper +
+       wiz-card + per-step panels + review step), page-scoped here the same
+       way it is there - no shared CSS file, on purpose, matching that
+       page's own approach rather than inventing a new shared abstraction
+       for a single reuse. Employee has 3 real content groups (Personal /
+       Contact / Professional) versus Student's 5, so this is a 4-step
+       wizard (adding a Review step) instead of forcing 5 steps to match
+       visually - same fields as before, just regrouped; nothing added,
+       removed, or renamed. -->
+  <style>
+    .wiz-wrap { max-width: 980px; margin: 4px auto 40px; }
 
-            <form th:action="@{/employee/employee-save}" th:object="${employee}" method="post" class="row g-3" enctype="multipart/form-data">
-                <div class="col-12">
-                    <h4>Personal Information</h4>
-                </div>
-                <!--<input type="hidden" name="school_id" id="school_id" th:field="*{school.id}"/>-->
-                <div class="col-md-6">
-                    <label for="employeeName" class="form-label">Employee Name</label>
-                    <input type="text" id="employeeName" class="form-control" th:field="*{employeeName}">
-                    <p class="text-danger" th:if="${#fields.hasErrors('employeeName')}" th:errors="*{employeeName}">emp name Error</p>
-                </div>
-                <div class="col-md-3">
-                    <label for="dob" class="form-label">Date of Birth</label>
-                    <input type="text" id="dob" class="form-control" th:field="*{dob}">
-                    <p class="text-danger" th:if="${#fields.hasErrors('dob')}" th:errors="*{dob}">fname Error</p>
-                </div>
-                <div class="col-md-3">
-                </div>
+    /* -- Stepper -- */
+    .wiz-stepper { display: flex; align-items: flex-start; margin: 18px 0 26px; }
+    .wiz-step { display: flex; flex-direction: column; align-items: center; flex: 1; position: relative; cursor: default; }
+    .wiz-step.clickable { cursor: pointer; }
+    .wiz-step .circ {
+      width: 34px; height: 34px; border-radius: 50%; background: var(--card-bg);
+      border: 2px solid var(--border-color); display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 13.5px; color: var(--text-muted); z-index: 2;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    .wiz-step.done .circ { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .wiz-step.active .circ { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 0 4px var(--accent-light); }
+    .wiz-step .lbl { font-size: 11.5px; font-weight: 700; color: var(--text-muted); margin-top: 7px; text-align: center; }
+    .wiz-step.active .lbl, .wiz-step.done .lbl { color: var(--text-primary); }
+    .wiz-step:not(:last-child)::after {
+      content: ''; position: absolute; top: 17px; left: calc(50% + 21px); right: calc(-50% + 21px);
+      height: 2px; background: var(--border-color); z-index: 1; transition: background var(--transition);
+    }
+    .wiz-step.done:not(:last-child)::after { background: var(--accent); }
 
-                <div class="col-md-6">
-                    <label for="fatherName" class="form-label">Father Name</label>
-                    <input type="text" id="fatherName" class="form-control" th:field="*{fatherName}">
-                    <p class="text-danger" th:if="${#fields.hasErrors('fatherName')}" th:errors="*{fatherName}">f name Error</p>
-                </div>
-                <div class="col-md-6">
-                </div>
+    /* -- Card / panels -- */
+    .wiz-card {
+      background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm); padding: 26px 28px 22px;
+    }
+    .wiz-step-panel { display: none; }
+    .wiz-step-panel.active { display: block; }
+    .wiz-step-title { font-size: 16.5px; font-weight: 800; color: var(--text-primary); margin: 0 0 3px; }
+    .wiz-step-desc { color: var(--text-muted); font-size: 12.8px; margin-bottom: 20px; }
+    .wiz-subhead {
+      font-size: 11.5px; font-weight: 800; color: var(--accent); text-transform: uppercase;
+      letter-spacing: .04em; margin: 22px 0 12px; padding-top: 14px; border-top: 1px dashed var(--border-color);
+    }
+    .wiz-subhead:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
 
-                <div class="col-md-6">
-                    <label for="motherName" class="form-label">Mother Name</label>
-                    <input type="text" id="motherName" class="form-control" th:field="*{motherName}">
-                    <p class="text-danger" th:if="${#fields.hasErrors('motherName')}" th:errors="*{motherName}">m name Error</p>
-                </div>
-                <div class="col-md-6">
-                </div>
+    /* -- Field polish (page-scoped; does not affect other templates) -- */
+    .wiz-card .form-label { font-size: 12.5px; font-weight: 700; color: var(--text-muted); margin-bottom: 5px; }
+    .wiz-card .form-control, .wiz-card .form-select {
+      border-radius: 10px; border: 1px solid var(--border-color); font-size: 13.8px;
+    }
+    .wiz-card .form-control:focus, .wiz-card .form-select:focus {
+      border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light);
+    }
+    .wiz-card .form-floating > label { font-size: 13px; color: var(--text-muted); }
 
-                <div class="col-md-4">
-                    <label for="customerPic" class="form-label">Employee Image</label>
+    /* -- Footer nav -- */
+    .wiz-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 26px; gap: 10px; }
+    .wiz-step-hint { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+    .wiz-btn {
+      border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-primary);
+      padding: 9px 18px; border-radius: 10px; font-size: 13.8px; font-weight: 700;
+      display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    .wiz-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .wiz-btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .wiz-btn-primary:hover { background: var(--accent); opacity: .92; color: #fff; }
+    .wiz-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* -- Review step -- */
+    .wiz-review-sec-title {
+      font-size: 11.5px; font-weight: 800; color: var(--accent); text-transform: uppercase;
+      letter-spacing: .04em; margin: 18px 0 4px;
+    }
+    .wiz-review-sec-title:first-child { margin-top: 0; }
+    .wiz-review-item { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; border-bottom: 1px solid var(--border-color); font-size: 13.3px; }
+    .wiz-review-item .k { color: var(--text-muted); flex-shrink: 0; }
+    .wiz-review-item .v { font-weight: 600; color: var(--text-primary); text-align: right; word-break: break-word; }
+    .wiz-review-item .v.empty { color: var(--text-muted); font-weight: 400; font-style: italic; }
+
+    /* -- Photo upload + preview -- */
+    .wiz-photo-row { display: flex; align-items: flex-start; gap: 14px; }
+    .wiz-photo-preview {
+      width: 64px; height: 64px; flex-shrink: 0; border-radius: 50%;
+      background: var(--accent-light); color: var(--accent); border: 1px solid var(--border-color);
+      display: flex; align-items: center; justify-content: center; font-size: 26px; overflow: hidden;
+    }
+    .wiz-photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .wiz-photo-input-col { flex: 1; min-width: 0; }
+
+    @media (max-width: 620px) {
+      .wiz-card { padding: 20px 16px; }
+      .wiz-step .lbl { display: none; }
+    }
+  </style>
+
+  <div class="container-fluid px-3">
+    <div class="mt-2 gy-5 mb-5 wiz-wrap">
+      <div th:replace="~{components/ui :: page-header('Employee Registration Form')}"></div>
+
+      <div class="wiz-stepper" id="wizStepper">
+        <div class="wiz-step active" data-step-index="0"><div class="circ">1</div><div class="lbl">Personal</div></div>
+        <div class="wiz-step" data-step-index="1"><div class="circ">2</div><div class="lbl">Contact</div></div>
+        <div class="wiz-step" data-step-index="2"><div class="circ">3</div><div class="lbl">Professional</div></div>
+        <div class="wiz-step" data-step-index="3"><div class="circ">4</div><div class="lbl">Review</div></div>
+      </div>
+
+      <form th:action="@{/employee/employee-save}" th:object="${employee}" method="post" enctype="multipart/form-data" id="myForm">
+
+        <div class="wiz-card">
+
+          <!-- ============ STEP 1 — PERSONAL INFORMATION ============ -->
+          <div class="wiz-step-panel active" id="wizStep0" data-step-index="0">
+            <h3 class="wiz-step-title">Personal Information</h3>
+            <div class="wiz-step-desc">Step 1 of 4 — the employee's own identity and basic details.</div>
+
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="employeeName" class="form-label">Employee Name<span class="text-danger">*</span></label>
+                <input type="text" id="employeeName" class="form-control" th:field="*{employeeName}">
+                <p class="text-danger" th:if="${#fields.hasErrors('employeeName')}" th:errors="*{employeeName}">emp name Error</p>
+              </div>
+              <div class="col-md-3">
+                <label for="dob" class="form-label">Date of Birth</label>
+                <input type="text" id="dob" class="form-control" th:field="*{dob}">
+                <p class="text-danger" th:if="${#fields.hasErrors('dob')}" th:errors="*{dob}">dob Error</p>
+              </div>
+              <div class="col-md-3">
+                <label for="nationality" class="form-label">Nationality</label>
+                <input type="text" id="nationality" class="form-control" th:field="*{nationality}" readonly="readonly">
+              </div>
+
+              <div class="col-md-6">
+                <label for="fatherName" class="form-label">Father Name</label>
+                <input type="text" id="fatherName" class="form-control" th:field="*{fatherName}">
+                <p class="text-danger" th:if="${#fields.hasErrors('fatherName')}" th:errors="*{fatherName}">f name Error</p>
+              </div>
+              <div class="col-md-6">
+                <label for="motherName" class="form-label">Mother Name</label>
+                <input type="text" id="motherName" class="form-control" th:field="*{motherName}">
+                <p class="text-danger" th:if="${#fields.hasErrors('motherName')}" th:errors="*{motherName}">m name Error</p>
+              </div>
+
+              <div class="col-md-7">
+                <label for="description" class="form-label">Description</label>
+                <div class="form-floating">
+                  <textarea id="description" placeholder="Add description here" class="form-control" name="description" style="height: 100px;" rows="4" cols="50" th:field="*{description}"></textarea>
+                  <label for="description">Add Description Here</label>
+                </div>
+                <p class="text-danger" th:if="${#fields.hasErrors('description')}" th:errors="*{description}">description Error</p>
+              </div>
+              <div class="col-md-5">
+                <label for="customerPic" class="form-label">Employee Image</label>
+                <div class="wiz-photo-row">
+                  <div class="wiz-photo-preview" id="photoPreviewBox">
+                    <i class="bi bi-person" id="photoPreviewPlaceholder"></i>
+                    <img id="photoPreviewImg" class="d-none" alt="Selected employee photo preview">
+                  </div>
+                  <div class="wiz-photo-input-col">
                     <input type="file" class="form-control" id="customerPic" name="customerPic">
-                    <p class="text-danger" th:if="${#fields.hasErrors('pic')}" th:errors="*{pic}">pic Error</p>
+                  </div>
                 </div>
-                <div class="col-md-3">
-                    <label for="nationality" class="form-label">Nationality</label>
-                    <input type="text" id="nationality" class="form-control" th:field="*{nationality}" readonly="readonly">
-                </div>
-                <div class="col-md-5">
-                </div>
+                <p class="text-danger" th:if="${#fields.hasErrors('pic')}" th:errors="*{pic}">pic Error</p>
+              </div>
+            </div>
+          </div>
 
-                <div class="col-md-7">
-                    <label for="description" class="form-label">Description</label>
-                    <div class="form-floating">
-                        <textarea id="description" placeholder="Add description here" class="form-control" name="description" style="height: 100px;" rows="4" cols="50" th:field="*{description}"></textarea>
-                        <label for="description">Add Description Here</label>
-                    </div>
-                    <p class="text-danger" th:if="${#fields.hasErrors('description')}" th:errors="*{description}">description Error</p>
-                </div>
-                <div class="col-md-5">
-                </div>
+          <!-- ============ STEP 2 — CONTACT INFORMATION ============ -->
+          <div class="wiz-step-panel" id="wizStep1" data-step-index="1">
+            <h3 class="wiz-step-title">Contact Information</h3>
+            <div class="wiz-step-desc">Step 2 of 4 — address and how to reach the employee.</div>
 
-                <div class="col-12">
-                    <h4>Contact Information</h4>
+            <div class="row g-3">
+              <div class="col-md-7">
+                <label for="address" class="form-label">Address<span class="text-danger">*</span></label>
+                <div class="form-floating">
+                  <textarea id="address" placeholder="Add address here" class="form-control" name="address" style="height: 100px;" rows="4" cols="50" th:field="*{address}"></textarea>
+                  <label for="address">Add Address</label>
                 </div>
-                <div class="col-md-7">
-                    <label for="address" class="form-label">Address</label>
-                    <div class="form-floating">
-                        <textarea id="address" placeholder="Add address here" class="form-control" name="address" style="height: 100px;" rows="4" cols="50" th:field="*{address}"></textarea>
-                        <label for="address">Add Address</label>
-                    </div>
-                    <p class="text-danger" th:if="${#fields.hasErrors('address')}" th:errors="*{address}">Address Error</p>
-                </div>
-                <div class="col-md-5"></div>
-                <div class="col-md-4">
-                    <label for="landmark" class="form-label">Landmark</label>
-                    <input type="text" id="landmark" class="form-control" th:field="*{landmark}">
-                </div>
-                <div class="col-md-8"></div>
+                <p class="text-danger" th:if="${#fields.hasErrors('address')}" th:errors="*{address}">Address Error</p>
+              </div>
+              <div class="col-md-5">
+                <label for="landmark" class="form-label">Landmark</label>
+                <input type="text" id="landmark" class="form-control" th:field="*{landmark}">
+              </div>
 
-                <div class="col-md-3">
-                    <label for="mobile1" class="form-label">Mobile 1</label>
-                    <input type="text" id="mobile1" class="form-control intfields" th:field="*{mobile1}">
-                    <p class="text-danger" th:if="${#fields.hasErrors('mobile1')}" th:errors="*{mobile1}">Mobile 1 Error</p>
-                </div>
-                <div class="col-md-3">
-                    <label for="mobile2" class="form-label">Mobile 2</label>
-                    <input type="text" id="mobile2" class="form-control intfields" th:field="*{mobile2}">
-                    <p class="text-danger" th:if="${#fields.hasErrors('mobile2')}" th:errors="*{mobile2}">Mobile 2 Error</p>
-                </div>
-                <div class="col-md-6"></div>
+              <div class="col-md-3">
+                <label for="mobile1" class="form-label">Mobile 1</label>
+                <input type="text" id="mobile1" class="form-control intfields" th:field="*{mobile1}" maxlength="10">
+                <p class="text-danger" th:if="${#fields.hasErrors('mobile1')}" th:errors="*{mobile1}">Mobile 1 Error</p>
+              </div>
+              <div class="col-md-3">
+                <label for="mobile2" class="form-label">Mobile 2</label>
+                <input type="text" id="mobile2" class="form-control intfields" th:field="*{mobile2}" maxlength="10">
+                <p class="text-danger" th:if="${#fields.hasErrors('mobile2')}" th:errors="*{mobile2}">Mobile 2 Error</p>
+              </div>
+              <div class="col-md-4">
+                <label for="email" class="form-label">Email</label>
+                <input type="text" id="email" class="form-control" th:field="*{userEntity.email}">
+                <p class="text-danger" th:if="${#fields.hasErrors('userEntity.email')}" th:errors="*{userEntity.email}">Email Error</p>
+              </div>
+            </div>
+          </div>
 
-                <div class="col-md-4">
-                    <label for="email" class="form-label">Email</label>
-                    <input type="text" id="email" class="form-control" th:field="*{userEntity.email}">
-                    <p class="text-danger" th:if="${#fields.hasErrors('userEntity.email')}" th:errors="*{userEntity.email}">Email Error</p>
-                </div>
-                <div class="col-md-8"></div>
+          <!-- ============ STEP 3 — PROFESSIONAL INFORMATION ============ -->
+          <div class="wiz-step-panel" id="wizStep2" data-step-index="2">
+            <h3 class="wiz-step-title">Professional Information</h3>
+            <div class="wiz-step-desc">Step 3 of 4 — role and school.</div>
 
-                <div class="col-12">
-                    <h4>Professional Information</h4>
-                </div>
-                <div class="col-md-4">
-                    <label for="designation" class="form-label">Designation</label>
-                    <input type="text" id="designation" class="form-control" th:field="*{designation}">
-                    <p class="text-danger" th:if="${#fields.hasErrors('designation')}" th:errors="*{designation}">Designation Error</p>
-                </div>
-                <div class="col-md-4">
-                    <label for="department" class="form-label">Department</label>
-                    <input type="text" id="department" class="form-control" th:field="*{department}">
-                    <p class="text-danger" th:if="${#fields.hasErrors('department')}" th:errors="*{department}">Department Error</p>
-                </div>
-                <div class="col-md-4"></div>
-                <div class="col-md-6">
-                    <div th:if="${superUserLogin}">
-                        <label for="designation" class="form-label">School(Branch)</label>
-                        <select name="school" id="school" class="form-select" th:field="*{school.id}">
-                            <option value="">Select School</option>
-                            <option th:each="school : ${schools}" th:value="${school.id}" th:text="${school.schoolName}"
-                                    th:selected="${school} == ${employee.school}">School</option>
-                        </select>
-                    </div>
-                    <div th:if="${adminLogin}">
-                        <input type="hidden" id="school" name="school" class="form-control" th:field="*{school.id}" th:value="${school.id}">
-                    </div>
-                </div>
-                <div class="col-md-6"></div>
-                <hr/>
-                <div class="col-md-4">
-                    <a class="btn btn-outline-secondary btn-sm" th:href="@{/employee/employee-list}"><i class="bi bi-arrow-left"></i> Back to List</a>
-                </div>
-                <div class="col-md-6 mb-5">
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-save2-fill"></i> Save</button>
-                </div>
-            </form>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label for="designation" class="form-label">Designation</label>
+                <input type="text" id="designation" class="form-control" th:field="*{designation}">
+                <p class="text-danger" th:if="${#fields.hasErrors('designation')}" th:errors="*{designation}">Designation Error</p>
+              </div>
+              <div class="col-md-4">
+                <label for="department" class="form-label">Department</label>
+                <input type="text" id="department" class="form-control" th:field="*{department}">
+                <p class="text-danger" th:if="${#fields.hasErrors('department')}" th:errors="*{department}">Department Error</p>
+              </div>
+              <div class="col-md-6" th:if="${superUserLogin}">
+                <label for="school" class="form-label">School (Branch)<span class="text-danger">*</span></label>
+                <select name="school" id="school" class="form-select" th:field="*{school.id}">
+                  <option value="">Select School</option>
+                  <option th:each="school : ${schools}" th:value="${school.id}" th:text="${school.schoolName}"
+                          th:selected="${school} == ${employee.school}">School</option>
+                </select>
+                <p class="text-danger" th:if="${#fields.hasErrors('school')}" th:errors="*{school}">School Error</p>
+              </div>
+              <div th:if="${adminLogin}">
+                <input type="hidden" id="school" name="school" class="form-control" th:field="*{school.id}" th:value="${school.id}">
+              </div>
+            </div>
+          </div>
+
+          <!-- ============ STEP 4 — REVIEW & SUBMIT ============ -->
+          <div class="wiz-step-panel" id="wizStep3" data-step-index="3">
+            <h3 class="wiz-step-title">Review &amp; Submit</h3>
+            <div class="wiz-step-desc">Step 4 of 4 — please check the details below before registering the employee.</div>
+            <div id="wizReviewBody"></div>
+          </div>
+
+          <!-- ============ FOOTER NAV ============ -->
+          <div class="wiz-foot">
+            <button type="button" class="wiz-btn" id="wizBackBtn" onclick="wizPrev()" style="visibility:hidden;">
+              <i class="bi bi-arrow-left"></i> Back
+            </button>
+            <div class="wiz-step-hint"><a th:href="@{/employee/employee-list}" class="text-decoration-none"><i class="bi bi-arrow-left"></i> Back to List</a></div>
+            <button type="button" class="wiz-btn wiz-btn-primary" id="wizNextBtn" onclick="wizNext()">
+              Next <i class="bi bi-arrow-right"></i>
+            </button>
+            <button type="submit" class="wiz-btn wiz-btn-primary d-none" id="wizSubmitBtn">
+              <i class="bi bi-save2-fill"></i> Save
+            </button>
+          </div>
+
         </div>
+      </form>
     </div>
+  </div>
 
-    <link type="text/css" rel="stylesheet" th:href="@{/css/flatpickr.min.css}"/>
-    <script th:src="@{/js/flatpickr.js}"></script>
-    <script type="text/javascript" th:inline="javascript">
-        $('.intfields').on('input', function() {
-            this.value = this.value.replace(/[^0-9]/g, '');
-        });
-        flatpickr("#dob", {
-            dateFormat: "d/M/Y",  // Equivalent to dd/MMM/yyyy
-        });
+  <link type="text/css" rel="stylesheet" th:href="@{/css/flatpickr.min.css}"/>
+  <script th:src="@{/js/flatpickr.js}"></script>
 
-        toastr.options = {
-            "closeButton": true,
-            "debug": false,
-            "newestOnTop": false,
-            "progressBar": true,
-            "positionClass": "toast-top-right",
-            "preventDuplicates": false,
-            "onclick": null,
-            "showDuration": "600",
-            "hideDuration": "1000",
-            "timeOut": "5000",
-            "extendedTimeOut": "1000",
-            "showEasing": "swing",
-            "hideEasing": "linear",
-            "showMethod": "fadeIn",
-            "hideMethod": "fadeOut"
-        };
+  <script type="text/javascript" th:inline="javascript">
+    $('.intfields').on('input', function() {
+        this.value = this.value.replace(/[^0-9]/g, '');
+    });
+    flatpickr("#dob", {
+        dateFormat: "d/M/Y",  // Equivalent to dd/MMM/yyyy
+    });
 
-        let msg = /*[[${message}]]*/ 'undefined';
-        if (msg !== 'undefined' && msg.length > 0) {
-            toastr.success(msg);
-        }
+    toastr.options = {
+        "closeButton": true,
+        "debug": false,
+        "newestOnTop": false,
+        "progressBar": true,
+        "positionClass": "toast-top-right",
+        "preventDuplicates": false,
+        "onclick": null,
+        "showDuration": "600",
+        "hideDuration": "1000",
+        "timeOut": "5000",
+        "extendedTimeOut": "1000",
+        "showEasing": "swing",
+        "hideEasing": "linear",
+        "showMethod": "fadeIn",
+        "hideMethod": "fadeOut"
+    };
 
-        
+    let msg = /*[[${message}]]*/ 'undefined';
+    if (msg && msg !== 'undefined' && msg.length > 0) {
+        toastr.success(msg);
+    }
 
-        
+    // ===================== Employee photo: preview only =====================
+    // No size cap here (the old single-page form never had one for Employee -
+    // that check exists only on Student, tied to a Student-only system_config
+    // key) - this is purely a live preview, matching Student's visual
+    // language without inventing a new validation rule.
+    $(document).on('change', '#customerPic', function () {
+      const file = this.files && this.files[0];
+      const $img = $('#photoPreviewImg');
+      const $placeholder = $('#photoPreviewPlaceholder');
+      if (!file) {
+        $img.addClass('d-none').attr('src', '');
+        $placeholder.removeClass('d-none');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        $img.attr('src', e.target.result).removeClass('d-none');
+        $placeholder.addClass('d-none');
+      };
+      reader.readAsDataURL(file);
+    });
 
-        
-        
-    </script>
+    // ===================== Wizard: step navigation =====================
+    const WIZ_STEP_COUNT = 4;
+    let wizCurrent = 0;
+
+    // Only the 3 fields the Employee model actually marks as required
+    // server-side (@NotBlank employeeName, @NotBlank address, @NotNull
+    // school - see Employee.java) block moving to the next step. Nothing
+    // else here is a new requirement the old single-page form didn't have.
+    const wizStepValidators = [
+      function () { // Step 1 — Personal
+        const employeeName = $("#employeeName").val().trim();
+        if (!employeeName) return "Employee Name is required.";
+        return null;
+      },
+      function () { // Step 2 — Contact
+        const address = $("#address").val().trim();
+        if (!address) return "Address is required.";
+        return null;
+      },
+      function () { // Step 3 — Professional
+        const school = $("#school").val();
+        if (!school) return "School is required.";
+        return null;
+      },
+      function () { return null; } // Step 4 — Review, nothing to validate
+    ];
+
+    function wizStepEl(i) { return document.getElementById('wizStep' + i); }
+
+    function wizRenderStepper() {
+      $('#wizStepper .wiz-step').each(function () {
+        const idx = parseInt($(this).attr('data-step-index'), 10);
+        $(this).removeClass('active done clickable');
+        if (idx < wizCurrent) { $(this).addClass('done clickable'); }
+        else if (idx === wizCurrent) { $(this).addClass('active'); }
+      });
+    }
+
+    function wizShow(index) {
+      wizCurrent = index;
+      for (let i = 0; i < WIZ_STEP_COUNT; i++) {
+        const el = wizStepEl(i);
+        if (el) { el.classList.toggle('active', i === index); }
+      }
+      wizRenderStepper();
+      $('#wizBackBtn').css('visibility', index === 0 ? 'hidden' : 'visible');
+      if (index === WIZ_STEP_COUNT - 1) {
+        $('#wizNextBtn').addClass('d-none');
+        $('#wizSubmitBtn').removeClass('d-none');
+        wizBuildReview();
+      } else {
+        $('#wizNextBtn').removeClass('d-none');
+        $('#wizSubmitBtn').addClass('d-none');
+      }
+      window.scrollTo({ top: $('.wiz-card').offset().top - 90, behavior: 'smooth' });
+    }
+
+    function wizNext() {
+      const validator = wizStepValidators[wizCurrent];
+      const msg = validator ? validator() : null;
+      if (msg) {
+        toastr.error(msg, "Error");
+        return;
+      }
+      if (wizCurrent < WIZ_STEP_COUNT - 1) { wizShow(wizCurrent + 1); }
+    }
+
+    function wizPrev() {
+      if (wizCurrent > 0) { wizShow(wizCurrent - 1); }
+    }
+
+    // Clicking an already-completed step jumps back to it directly.
+    $(document).on('click', '#wizStepper .wiz-step.clickable', function () {
+      const idx = parseInt($(this).attr('data-step-index'), 10);
+      if (idx < wizCurrent) { wizShow(idx); }
+    });
+
+    // ===================== Review step summary =====================
+    function wizVal(selector) {
+      const $el = $(selector);
+      if ($el.length === 0) return '';
+      if ($el.is('select')) {
+        return $el.find('option:selected').text().trim();
+      }
+      if ($el.is(':file')) {
+        return $el.val() ? $el.val().split(/[\\/]/).pop() : '';
+      }
+      return ($el.val() || '').toString().trim();
+    }
+
+    function wizReviewRow(label, selector) {
+      const val = wizVal(selector);
+      const display = val ? val : 'Not provided';
+      const cls = val ? 'v' : 'v empty';
+      return '<div class="wiz-review-item"><span class="k">' + label + '</span><span class="' + cls + '">' + $('<div>').text(display).html() + '</span></div>';
+    }
+
+    function wizBuildReview() {
+      let html = '';
+      html += '<div class="wiz-review-sec-title">Personal Information</div>';
+      html += wizReviewRow('Employee Name', '#employeeName');
+      html += wizReviewRow('Date of Birth', '#dob');
+      html += wizReviewRow('Nationality', '#nationality');
+      html += wizReviewRow('Father Name', '#fatherName');
+      html += wizReviewRow('Mother Name', '#motherName');
+      html += wizReviewRow('Employee Image', '#customerPic');
+
+      html += '<div class="wiz-review-sec-title">Contact Information</div>';
+      html += wizReviewRow('Address', '#address');
+      html += wizReviewRow('Mobile 1', '#mobile1');
+      html += wizReviewRow('Email', '#email');
+
+      html += '<div class="wiz-review-sec-title">Professional Information</div>';
+      html += wizReviewRow('Designation', '#designation');
+      html += wizReviewRow('Department', '#department');
+      // #school is a hidden input (fixed) for a school admin, not a
+      // meaningful thing to review since they can't change it - only show
+      // it when it's the actual <select> (super admin picking a branch).
+      if ($('#school').is('select')) {
+        html += wizReviewRow('School', '#school');
+      }
+
+      $('#wizReviewBody').html(html);
+    }
+
+    $(document).ready(function () {
+      // If the server round-tripped a validation error (e.g. the Pattern
+      // checks on employeeName/fatherName/motherName/mobile1/mobile2 that
+      // only exist server-side), jump straight to whichever step actually
+      // contains the errored field instead of silently leaving the user on
+      // step 1 with no visible feedback - the wizard hides other steps via
+      // display:none, so a hidden step's error would otherwise be invisible.
+      let erroredStep = -1;
+      for (let i = 0; i < WIZ_STEP_COUNT; i++) {
+        const el = wizStepEl(i);
+        if (el && el.querySelector('.text-danger')) { erroredStep = i; break; }
+      }
+      wizShow(erroredStep > -1 ? erroredStep : 0);
+    });
+  </script>
 
   <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html
        now loads them in <head>, so they are available before this page's

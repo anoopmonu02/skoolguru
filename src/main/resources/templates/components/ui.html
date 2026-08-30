@@ -51,6 +51,39 @@
     <div class="page-header-actions" th:replace="${actions}"></div>
 </div>
 
+<!-- ── List page header (title + optional subtitle + right-aligned actions) ──
+     The "Student List"/"Employee List" pattern: a title, an optional
+     subtitle line, and a right-aligned action slot (typically a "+ Add X"
+     CTA styled as .btn-cta). Pairs with the shared .stat-tile-row markup
+     (already global, see components.css) plus static/css/list-table.css and
+     static/js/list-table-init.js for the rest of a list page — see
+     student/student.html or employee/employee.html for a full example.
+     Kept deliberately narrow: it standardises the title bar (the part that
+     is genuinely identical shape across every list page), not the stat
+     tiles, table columns or row actions below it, which differ too much
+     page to page to force into one generic component without making each
+     page harder to customise.
+
+     Usage:
+        <div th:replace="~{components/ui :: list-page-header('Employee List', null, ~{::employeeActions})}"></div>
+        ...
+        <div th:fragment="employeeActions">
+          <a class="btn-cta" sms:access="EMPLOYEE_ADD:CREATE" th:href="@{/employee/employee-add}">
+            <i class="bi bi-plus-lg"></i> Add Employee
+          </a>
+        </div>
+
+     Pass null (or omit by passing an empty string) for `subtitle` on pages
+     with no subtitle line, e.g. Employee List.
+-->
+<div th:fragment="list-page-header(title, subtitle, actions)" class="page-header page-header-row list-page-header">
+    <div>
+        <h1 class="page-header-title" th:text="${title}">Page title</h1>
+        <p class="page-header-subtitle" th:if="${subtitle != null and !#strings.isEmpty(subtitle)}" th:text="${subtitle}">Subtitle</p>
+    </div>
+    <div class="page-header-actions" th:if="${actions != null}" th:replace="${actions}"></div>
+</div>
+
 <!-- ── Empty state ─────────────────────────────────────────────────────────
      Replaces:  <p class="text-center">No Bank found.</p>
      Usage:     ~{components/ui :: empty-state('No banks yet','bi-bank')}

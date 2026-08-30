@@ -2,39 +2,62 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="~{base::Layout(~{::section})}">
 <head>
   <meta charset="UTF-8">
-  <title>UAIC - School</title>
+  <title>Edit Fee-Grade Mapping</title>
 </head>
 <body>
-<section>
+<section class="container-fluid px-3">
+  <style>
+    .form-card-wrap { max-width: 760px; margin: 4px auto 40px; }
+    .form-card {
+      background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm); padding: 26px 28px 22px;
+    }
+    .form-card .form-label { font-size: 12.5px; font-weight: 700; color: var(--text-muted); margin-bottom: 5px; }
+    .form-card .form-control, .form-card .form-select {
+      border-radius: 10px; border: 1px solid var(--border-color); font-size: 13.8px;
+    }
+    .form-card .form-control:focus, .form-card .form-select:focus {
+      border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light);
+    }
+    .form-card .form-control[readonly] { background: var(--body-bg, #f4f6f8); color: var(--text-muted); }
+    .form-card .text-danger { font-size: 12px; margin-top: 4px; }
+    .form-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 22px; gap: 10px; padding-top: 18px; border-top: 1px dashed var(--border-color); }
+    .form-btn {
+      border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-primary);
+      padding: 9px 18px; border-radius: 10px; font-size: 13.8px; font-weight: 700;
+      display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    .form-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .form-btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .form-btn-primary:hover { background: var(--accent); opacity: .92; color: #fff; }
+  </style>
 
-  <div class="container-fluid px-3">
-    <div class="row mt-2 ">
-      <div class="col-md-12 ">
-        <div th:replace="~{components/ui :: page-header('Edit Fee-Grade Mapping')}"></div>
+  <div class="form-card-wrap">
+    <div th:replace="~{components/ui :: page-header('Edit Fee-Grade Mapping')}"></div>
 
+    <div class="form-card">
+      <form th:action="@{/admin/edit-fee-class}" th:object="${feeclassmap}" method="post">
+        <!-- These hidden fields are still required so @Valid's @NotNull
+             checks on id/school/academicYear/grade/feehead pass at bind
+             time - but the controller no longer trusts their submitted
+             values for anything: it re-fetches the real row by id and
+             copies only Medium/Amount/Description onto it. See
+             updateFeeClassMap in GlobalController for why. -->
+        <input type="hidden" name="id" id="id" th:field="*{id}"/>
+        <input type="hidden" name="school_id" id="school_id" th:field="*{school.id}"/>
+        <input type="hidden" name="academicYear" id="academicYear" th:field="*{academicYear.id}" />
+        <input type="hidden" name="grade" id="grade" th:field="*{grade}" />
+        <input type="hidden" name="feehead" id="feehead" th:field="*{feehead}" />
 
-        <form th:action="@{/admin/edit-fee-class}" th:object="${feeclassmap}" method="post" >
-        <div class="row g-2">
-          <div class="col-md-2">
-            <input type="hidden" name="id" id="id" th:field="*{id}"/>
-          </div>
-          <div class="col-md-2">
-            <input type="hidden" name="school_id" id="school_id" th:field="*{school.id}"/>
-          </div>
-          <div class="col-md-3">
-            &nbsp;<input type="hidden" name="academicYear" id="academicYear" th:field="*{academicYear.id}" />
-          </div>
-          <div class="col-md-3">
-            &nbsp;<input type="hidden" name="grade" id="grade" th:field="*{grade}" />
-             <input type="hidden" name="feehead" id="feehead" th:field="*{feehead}" />
-          </div>
-          <div class="col-md-4">
+        <div class="row g-3">
+          <div class="col-md-6">
             <label for="grade1" class="form-label">Grade</label>
-            <input type="text"  class="form-control" id="grade1" name="grade1" th:field="*{grade.gradeName}" readonly="readonly"/>
-
+            <input type="text" class="form-control" id="grade1" name="grade1" th:field="*{grade.gradeName}" readonly="readonly"/>
             <p class="text-danger" th:if="${#fields.hasErrors('grade')}" th:errors="*{grade}">Grade Error</p>
           </div>
-          <div class="col-md-4">
+
+          <div class="col-md-6">
             <label for="medium" class="form-label">Medium</label>
             <select id="medium" th:field="*{medium}" class="form-select" name="medium">
               <option value="">Select Medium</option>
@@ -43,53 +66,43 @@
             </select>
             <p class="text-danger" th:if="${#fields.hasErrors('medium')}" th:errors="*{medium}">medium Error</p>
           </div>
-          <div class="col-md-3">
-            &nbsp;
-          </div>
-          <div class="col-md-4">
-            <label for="feehead1" class="form-label">Feehead</label>
-            <input type="text"  class="form-control" id="feehead1" name="feehead1" th:field="*{feehead.feeHeadName}" readonly="readonly"/>
 
+          <div class="col-md-6">
+            <label for="feehead1" class="form-label">Feehead</label>
+            <input type="text" class="form-control" id="feehead1" name="feehead1" th:field="*{feehead.feeHeadName}" readonly="readonly"/>
             <p class="text-danger" th:if="${#fields.hasErrors('feehead')}" th:errors="*{feehead}">Feehead Error</p>
           </div>
-          <div class="col-md-7">
-            &nbsp;
-          </div>
-          <div class="col-md-3">
-            <label for="amount" class="form-label">Amount</label>
-            <input type="number"  class="form-control" id="amount" name="amount" th:field="*{amount}" />
 
+          <div class="col-md-6">
+            <label for="amount" class="form-label">Amount</label>
+            <input type="number" class="form-control" id="amount" name="amount" th:field="*{amount}" />
             <p class="text-danger" th:if="${#fields.hasErrors('amount')}" th:errors="*{amount}">Amount Error</p>
           </div>
-          <div class="col-md-8">
-            &nbsp;
-          </div>
-          <div class="col-md-7">
+
+          <div class="col-md-12">
             <label for="description" class="form-label">Description</label>
-            <div class="form-floating">
-              <textarea id="description" placeholder="Add description here" class="form-control" name="description" style="height: 100px;" rows="4" cols="50" th:field="*{description}"></textarea>
-              <label for="description">Add Description Here</label>
-            </div>
+            <textarea id="description" placeholder="Add description here" class="form-control" name="description" style="height: 90px;" rows="4" th:field="*{description}"></textarea>
             <p class="text-danger" th:if="${#fields.hasErrors('description')}" th:errors="*{description}">description Error</p>
           </div>
-          <div class="col-md-2">
-            &nbsp;
-          </div>
-            <hr/>
-            <div class="col-md-4">
-              <a class="btn btn-outline-secondary btn-sm" th:href="@{/admin/fee-class}"><i class="bi bi-arrow-left"></i> Back to List</a>
-            </div>
-            <div class="col-md-4 mb-5">
-              <button id="savebtn" type="submit" class="btn btn-primary"><i class="bi bi-save2-fill"></i> Update</button>
-            </div>
-          </div>
-        </form>
-      </div>
+        </div>
+
+        <div class="form-foot">
+          <a class="form-btn" th:href="@{/admin/fee-class}"><i class="bi bi-arrow-left"></i> Back to List</a>
+          <button id="savebtn" type="submit" class="form-btn form-btn-primary"><i class="bi bi-save2-fill"></i> Update</button>
+        </div>
+      </form>
     </div>
   </div>
 
-
   <script type="text/javascript" th:inline="javascript">
+    // Surfaces a same-page validation/duplicate error (set as a plain model
+    // attribute when this form re-renders after a failed POST) - was set
+    // server-side but never actually displayed anywhere on this page.
+    const feeClassErrorMessage = [[${error}]];
+    $(document).ready(function () {
+      if (feeClassErrorMessage) showMsg("error", feeClassErrorMessage, "Error");
+    });
+
     toastr.options = {
       "closeButton": true,
       "debug": false,
@@ -107,14 +120,6 @@
       "showMethod": "fadeIn",
       "hideMethod": "fadeOut"
     }
-    
-
-
-    
-
-
-
-
   </script>
   <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html
        now loads them in <head>, so they are available before this page's
