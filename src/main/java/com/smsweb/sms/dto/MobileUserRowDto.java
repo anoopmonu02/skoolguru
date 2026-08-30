@@ -1,7 +1,9 @@
 package com.smsweb.sms.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
@@ -23,7 +25,23 @@ public class MobileUserRowDto {
     private boolean mustChangePassword;
 
     // One line per linked child, e.g. "Sabeeha (8-A, United Avadh Montessori School)"
+    // Kept for any other consumer that might already depend on this plain-text
+    // form - the Mobile Users screen itself renders from studentLinks below instead.
     private List<String> students = new ArrayList<>();
+
+    // Same linked children as `students` above, but pre-split into name + class
+    // info so the UI can render a proper avatar-initials chip (name only - never
+    // parsing an initial out of a formatted display string on the client).
+    private List<StudentLink> studentLinks = new ArrayList<>();
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class StudentLink {
+        private String name;
+        private String classInfo; // e.g. "1-A, Sikhsha Sansthan", "Inactive", or "" if unknown
+    }
 
     // Session info, from MobileRefreshTokenService.SessionSummary
     private boolean everLoggedIn;

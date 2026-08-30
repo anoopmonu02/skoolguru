@@ -8,106 +8,220 @@
 <body>
 <section>
 
+  <style>
+    .active-session-dot {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      margin-left: 8px;
+      vertical-align: middle;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
+      animation: activeSessionPulse 1.8s ease-out infinite;
+    }
+    @keyframes activeSessionPulse {
+      0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); }
+      70%  { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+  </style>
+
   <div class="container-fluid px-3">
     <div class="row mt-2 ">
       <div class="col-md-12">
-        <div class="page-header page-header-row">
-          <h1 class="page-header-title">Academic-Year List</h1>
-          <div class="page-header-actions">
-            <a sms:access="ADMIN_ACYEAR:CREATE" class="btn btn-success btn-sm" th:href="@{/admin/academicyear/add}"><i class="bi bi-plus-lg"></i> Add Academic-year</a>
+
+      <div th:replace="~{components/ui :: list-page-header('Academic-Year List', null, ~{::academicYearActions})}"></div>
+      <!-- academicYearActions is only ever meant to render once, inside the
+           list-page-header call above via ~{::academicYearActions}. Wrapped
+           in a plain display:none div (not th:remove) - see employee.html
+           for why th:remove on the fragment node itself breaks this. -->
+      <div style="display:none">
+        <div th:fragment="academicYearActions">
+          <a class="btn-cta" sms:access="ADMIN_ACYEAR:CREATE" th:href="@{/admin/academicyear/add}"><i class="bi bi-plus-lg"></i> Add Academic-Year</a>
+        </div>
+      </div>
+
+      <div class="list-table-card">
+        <div class="config-list-toolbar list-page-toolbar">
+          <div class="config-search-wrap">
+            <i class="bi bi-search"></i>
+            <input type="text" class="form-control form-control-sm" id="academicYearSearchInput"
+                   placeholder="Search academic years…">
           </div>
+          <div id="acyExportSlot" class="list-export-slot"></div>
         </div>
 
-        <table id="academic-year-list" class="table table-bordered table-striped table-hover table-sm" th:if="${hasAcademicyears}">
+        <table class="table table-sm list-table" id="academic-year-list" th:if="${hasAcademicyears}">
           <thead>
           <tr>
             <th>#</th>
-            <th>Start date</th>
+            <th>Start Date</th>
             <th>End Date</th>
             <th>Format</th>
-            <!--<th>Regis. #</th>-->
             <th>Description</th>
             <th>Actions</th>
           </tr>
           </thead>
-          <tbody class="table-group-divider">
-
+          <tbody>
           <tr th:each="academic,iterStat : ${academicYears}">
             <td th:text="${iterStat.index + 1}"></td>
             <td th:text="${#temporals.format(academic.startDate, 'dd/MMM/yyyy')}"></td>
             <td th:text="${#temporals.format(academic.endDate, 'dd/MMM/yyyy')}"></td>
-            <td th:text="${academic.sessionFormat}"></td>
+            <td>
+              <span th:text="${academic.sessionFormat}"></span>
+              <span th:if="${activeAcademicYearIds != null and activeAcademicYearIds.contains(academic.id)}"
+                    class="active-session-dot" title="Active session for this school"></span>
+            </td>
             <td th:text="${academic.description}"></td>
-            <td style="white-space: nowrap" class="text-center">
-              <a sms:access="ADMIN_ACYEAR:EDIT" class="btn btn-primary" th:href="@{/admin/academicyear/edit/{id}(id=${academic.id})}" data-bs-toggle="tooltip" data-bs-title="Default tooltip">
-                <i class="bi bi-pencil-square"></i> </a>
-              <a sms:access="ADMIN_ACYEAR:DELETE" class="btn btn-danger" th:href="@{/admin/academicyear/delete/{id}(id=${academic.id})}" onclick="return confirm('Are you sure? its not recoverable.')" data-bs-toggle="tooltip" data-bs-placement="top"
-                 data-bs-custom-class="custom-tooltip"
-                 data-bs-title="Delete the school record">
-                <i class="bi bi-trash3-fill"></i> </a>
+            <td class="text-nowrap text-center">
+              <div class="row-actions">
+                <a sms:access="ADMIN_ACYEAR:EDIT" class="config-icon-btn" title="Edit"
+                   th:href="@{/admin/academicyear/edit/{id}(id=${academic.id})}">
+                  <i class="bi bi-pencil"></i></a>
+                <button type="button" sms:access="ADMIN_ACYEAR:DELETE" class="config-icon-btn danger delete-btn" title="Delete"
+                        th:data-id="${academic.id}" th:data-format="${academic.sessionFormat}"
+                        th:data-start="${#temporals.format(academic.startDate, 'dd/MMM/yyyy')}"
+                        th:data-end="${#temporals.format(academic.endDate, 'dd/MMM/yyyy')}"
+                        th:data-description="${academic.description}"
+                        data-bs-toggle="modal" data-bs-target="#deleteConfirmationModal">
+                  <i class="bi bi-trash3"></i></button>
+              </div>
             </td>
           </tr>
           </tbody>
         </table>
-        <div th:if="${!hasAcademicyears}">
+
+        <div th:if="${!hasAcademicyears}" class="p-3">
           <div th:replace="~{components/ui :: empty-state('No Academic-year found.', 'bi-inbox')}"></div>
+        </div>
+
+        <!-- Custom footer: rows-per-page + "Showing X-Y of Z" + page-number
+             pagination — built by the shared initListDataTable() helper
+             (static/js/list-table-init.js), same as Employee/Student List. -->
+        <div class="list-table-footer" th:if="${hasAcademicyears}">
+          <div class="list-footer-left">
+            <label class="list-length-label">Rows per page
+              <select id="acyPageLength" class="list-length-select">
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </label>
+            <span id="acyPageInfo" class="list-page-info">Showing 0 of 0 academic years</span>
+          </div>
+          <div class="list-pagination" id="acyPagination"></div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header bg-danger-subtle">
+          <h5 class="modal-title text-danger-emphasis" id="deleteConfirmationModalLabel">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>Remove Academic Year
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-3">You're about to remove the following academic year:</p>
+
+          <div class="border rounded p-3 mb-3 bg-light">
+            <div class="row gy-2">
+              <div class="col-12">
+                <small class="text-muted d-block">Format</small>
+                <span class="fw-semibold" id="deleteAcyFormat">-</span>
+              </div>
+              <div class="col-6">
+                <small class="text-muted d-block">Start Date</small>
+                <span class="fw-semibold" id="deleteAcyStart">-</span>
+              </div>
+              <div class="col-6">
+                <small class="text-muted d-block">End Date</small>
+                <span class="fw-semibold" id="deleteAcyEnd">-</span>
+              </div>
+              <div class="col-12">
+                <small class="text-muted d-block">Description</small>
+                <span class="fw-semibold" id="deleteAcyDescription">-</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="alert alert-warning d-flex align-items-start mb-0" role="alert">
+            <i class="bi bi-info-circle-fill me-2 mt-1"></i>
+            <div>This cannot be undone — data linked only to this academic year will be affected.</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancel </button>
+          <button type="button" class="btn btn-danger" id="confirmDeleteButton"><i class="bi bi-trash3-fill"></i> Remove Academic Year </button>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Real POST form the confirm button submits - a state-changing action
+       needs to go through POST so Spring Security's CSRF check actually
+       covers it (GET requests are exempt from CSRF, which is exactly what
+       made the old <a th:href="...delete/{id}"> link here unsafe). Thymeleaf
+       auto-injects the _csrf hidden field for any th:action form, same as
+       every other POST form in this app. -->
+  <form id="deleteAcademicYearForm" method="post" th:action="@{/admin/academicyear/delete/0}" style="display:none"></form>
+
   <script type="text/javascript" th:inline="javascript">
+    const contextPath = /*[[@{/}]]*/ '/';
+
+    // Flash-attribute success/error banner after redirects (save/edit/delete
+    // all set these server-side already; this page just never displayed them
+    // before now).
+    const academicYearSuccessMessage = [[${success}]];
+    const academicYearErrorMessage   = [[${error}]];
 
     $(document).ready(function () {
-      $('#academic-year-list').DataTable({
-        layout: {
-          bottomEnd: {
-            paging: {
-              firstLast: false
-            }
-          },
-          top1Start: {
-            buttons: [
-              {
-                extend: 'excelHtml5',
-                text: '<i class="bi bi-file-excel-fill text-success"></i>',
-                titleAttr: 'Excel',
-                title: 'Academic Year Data export',
-                exportOptions: {
-                  columns: [0, 1, 2, 3, 4]
-                }
-              },
-              {
-                extend: 'csvHtml5',
-                text: '<i class="bi bi-filetype-csv text-info"></i>',
-                titleAttr: 'CSV',
-                title: 'Academic Year Data export'
-              },
-              {
-                extend: 'pdfHtml5',
-                text: '<i class="bi bi-file-pdf-fill text-danger"></i>',
-                titleAttr: 'PDF',
-                title: 'Academic Year Data export',
-                exportOptions: {
-                  columns: [0, 1, 2, 3, 4]
-                }
-              },
-              'colvis'
-            ]
+      if (academicYearSuccessMessage) showMsg("success", academicYearSuccessMessage, "Success");
+      if (academicYearErrorMessage)   showMsg("error", academicYearErrorMessage, "Error");
+
+      if ($('#academic-year-list').length) {
+        initListDataTable({
+          tableSelector: '#academic-year-list',
+          searchInputSelector: '#academicYearSearchInput',
+          exportSlotSelector: '#acyExportSlot',
+          lengthSelectSelector: '#acyPageLength',
+          pageInfoSelector: '#acyPageInfo',
+          paginationSelector: '#acyPagination',
+          itemLabel: 'academic years',
+          exportTitle: 'Academic Year Data export',
+          exportColumns: [0, 1, 2, 3, 4],
+          printHeaderText: 'Academic Years',
+          dtOptions: {
+            columnDefs: [{ orderable: false, targets: [0, 5] }]
           }
-        },
-        lengthMenu: [
-          [5, 10, 25, 50, 100, -1],
-          [5, 10, 25, 50, 100, 'All']
-        ],
-        pageLength: 10,
-        columnDefs: [
-          { "orderable": false, "targets": [0,5] } // Disable sorting on the first and fourth columns
-        ]
+        });
+      }
+
+      // Delete confirmation modal wiring — same pattern as Employee List.
+      let deleteAcyId = null;
+      $(document).on('click', '.delete-btn', function () {
+        const btn = $(this);
+        deleteAcyId = btn.data('id');
+        $('#deleteAcyFormat').text(btn.data('format') || '-');
+        $('#deleteAcyStart').text(btn.data('start') || '-');
+        $('#deleteAcyEnd').text(btn.data('end') || '-');
+        $('#deleteAcyDescription').text(btn.data('description') || '-');
       });
-      $(".buttons-excel, .buttons-csv, .buttons-pdf").each(function() {
-        // Remove the btn-secondary class from each button
-        $(this).removeClass("btn-secondary");
+
+      $('#confirmDeleteButton').on('click', function () {
+        if (deleteAcyId) {
+          const $form = $('#deleteAcademicYearForm');
+          $form.attr('action', contextPath + 'admin/academicyear/delete/' + deleteAcyId);
+          $form.trigger('submit');
+        }
       });
     });
 
@@ -128,13 +242,7 @@
       "showMethod": "fadeIn",
       "hideMethod": "fadeOut"
     }
-    
-
-
   </script>
-  <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html
-       now loads them in <head>, so they are available before this page's
-       inline scripts run. They used to be duplicated on every page. -->
 </section>
 </body>
 </html>

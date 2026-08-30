@@ -6,16 +6,30 @@
 <body>
 <section>
 <style>
-  .session-badge { font-size:.72rem; font-weight:700; border-radius:4px; padding:3px 8px; }
-  .students-col { max-width:280px; }
-  .mu-stat-card { border:0 } .mu-stat-card .card-body { padding:.9rem 1rem }
+  /* Page-scoped only - the avatar chip (.stu-cell/.stu-avatar/.stu-name-text),
+     stat tiles (.stat-tile-row/.stat-tile/...) and table/footer chrome
+     (.list-table-card/.list-table/.list-table-footer/...) all come from the
+     shared components.css / list-table.css already loaded by base.html. */
+  .students-col { max-width: 320px; }
+  .mu-student-block + .mu-student-block {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border-color);
+  }
+  .mu-student-meta { font-size: .72rem; color: var(--text-muted); margin-top: 1px; }
+  .mu-student-meta.text-danger { color: #dc2626 !important; }
+  .session-badge {
+    font-size: .7rem; font-weight: 700; border-radius: 20px; padding: 4px 10px;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .config-icon-btn:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
 </style>
 
 <div class="container-fluid px-3 px-lg-4">
 
-  <div class="d-flex justify-content-between align-items-center mt-3 mb-2 flex-wrap gap-2">
+  <div class="page-header page-header-row mb-3">
     <div>
-      <h4 class="mb-0 fw-bold"><i class="bi bi-phone text-info me-2"></i>Mobile Users</h4>
+      <h1 class="page-header-title">Mobile Users</h1>
       <p class="text-muted small mb-0">
         Parent app accounts (one per unique mobile number, across all branches). See who's
         actually using the app, reset a forgotten password, or force-log-out a family's devices.
@@ -23,7 +37,6 @@
       </p>
     </div>
   </div>
-  <hr class="mt-1 mb-3"/>
 
   <!-- Loading overlay -->
   <div id="loading-overlay" style="display:none; position:fixed; inset:0; background:var(--overlay-bg);
@@ -38,64 +51,88 @@
   </div>
 
   <!-- Stats -->
-  <div class="row g-3 mb-3" id="statsRow">
-    <div class="col-md-3">
-      <div class="card mu-stat-card bg-body-tertiary">
-        <div class="card-body text-center">
-          <div class="fs-4 fw-bold" id="statTotal">0</div>
-          <div class="text-muted small">Family accounts</div>
-        </div>
+  <div class="stat-tile-row" id="statsRow">
+    <div class="stat-tile">
+      <div class="stat-tile-icon" style="background:var(--accent-light);color:var(--accent)"><i class="bi bi-people-fill"></i></div>
+      <div>
+        <div class="stat-tile-val" id="statTotal">0</div>
+        <div class="stat-tile-lbl">Family accounts</div>
       </div>
     </div>
-    <div class="col-md-3">
-      <div class="card mu-stat-card bg-body-tertiary">
-        <div class="card-body text-center">
-          <div class="fs-4 fw-bold text-primary" id="statEverLoggedIn">0</div>
-          <div class="text-muted small">Ever logged in</div>
-        </div>
+    <div class="stat-tile">
+      <div class="stat-tile-icon" style="background:rgba(13,110,253,.10);color:#0d6efd"><i class="bi bi-phone-fill"></i></div>
+      <div>
+        <div class="stat-tile-val" id="statEverLoggedIn">0</div>
+        <div class="stat-tile-lbl">Ever logged in</div>
       </div>
     </div>
-    <div class="col-md-3">
-      <div class="card mu-stat-card bg-body-tertiary">
-        <div class="card-body text-center">
-          <div class="fs-4 fw-bold text-success" id="statActive30">0</div>
-          <div class="text-muted small">Active last 30 days</div>
-        </div>
+    <div class="stat-tile">
+      <div class="stat-tile-icon" style="background:rgba(22,163,74,.10);color:#16a34a"><i class="bi bi-graph-up-arrow"></i></div>
+      <div>
+        <div class="stat-tile-val" id="statActive30">0</div>
+        <div class="stat-tile-lbl">Active last 30 days</div>
       </div>
     </div>
-    <div class="col-md-3">
-      <div class="card mu-stat-card bg-body-tertiary">
-        <div class="card-body text-center">
-          <div class="fs-4 fw-bold text-info" id="statValidNow">0</div>
-          <div class="text-muted small">Valid session now</div>
-        </div>
+    <div class="stat-tile">
+      <div class="stat-tile-icon" style="background:rgba(8,145,178,.10);color:#0891b2"><i class="bi bi-broadcast-pin"></i></div>
+      <div>
+        <div class="stat-tile-val" id="statValidNow">0</div>
+        <div class="stat-tile-lbl">Valid session now</div>
       </div>
     </div>
   </div>
 
-  <div class="row mb-3">
-    <div class="col-md-6">
-      <input type="text" class="form-control" id="searchInput"
-             placeholder="Search by mobile number, student or father name" oninput="onSearchInput()">
+  <div class="list-table-card">
+    <div class="config-list-toolbar">
+      <div class="config-search-wrap">
+        <i class="bi bi-search"></i>
+        <input type="text" class="form-control form-control-sm" id="searchInput"
+               placeholder="Search by mobile number, student or father name" oninput="onSearchInput()">
+      </div>
     </div>
-  </div>
 
-  <div style="overflow-x:auto; width:100%;">
-    <table id="mobileUsersTable" class="table table-striped table-bordered align-middle">
-      <thead>
-        <tr>
-          <th>Mobile</th>
-          <th class="students-col">Linked Students</th>
-          <th>Must Change Pwd</th>
-          <th>Last Active</th>
-          <th>Session</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="rowsBody">
-        <tr><td colspan="6" class="text-center text-muted">Loading…</td></tr>
-      </tbody>
-    </table>
+    <div style="overflow-x:auto;">
+      <table id="mobileUsersTable" class="table table-sm list-table">
+        <thead>
+          <tr>
+            <th>Mobile</th>
+            <th class="students-col">Linked Students</th>
+            <th>Must Change Pwd</th>
+            <th>Last Active</th>
+            <th>Session</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="rowsBody">
+          <tr><td colspan="6" class="text-center text-muted py-4">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Custom footer: rows-per-page + "Showing X-Y of Z" + page-number
+         pagination, same visual language as every other list page - but
+         built locally (not via the shared initListDataTable() helper),
+         since that helper always wires up its own export buttons and its
+         own search-box-to-table.search() binding, neither of which this
+         page wants: search here is already handled server-side (the
+         debounced call to /admin/mobile-users/list?search=), and no export
+         is needed on a screen that's about resetting passwords / force
+         logouts, not reporting. -->
+    <div class="list-table-footer" id="muFooter" style="display:none;">
+      <div class="list-footer-left">
+        <label class="list-length-label">Rows per page
+          <select id="muPageLength" class="list-length-select">
+            <option value="10">10</option>
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="-1">All</option>
+          </select>
+        </label>
+        <span id="muPageInfo" class="list-page-info">Showing 0 of 0 mobile users</span>
+      </div>
+      <div class="list-pagination" id="muPagination"></div>
+    </div>
   </div>
 
   <!-- Reset Password Modal -->
@@ -164,8 +201,7 @@
     let allRows = [];
     let currentFamilyAccountId = null;
     let searchDebounceTimer = null;
-
-    
+    let muTable = null;
 
     function escHtml(str) {
       if (str == null) return '';
@@ -189,9 +225,46 @@
     }
 
     function sessionBadge(row) {
-      if (row.hasValidSession) return '<span class="session-badge text-bg-success">Valid</span>';
-      if (row.everLoggedIn) return '<span class="session-badge text-bg-warning">Expired</span>';
-      return '<span class="session-badge text-bg-secondary">Never logged in</span>';
+      if (row.hasValidSession) return '<span class="session-badge text-bg-success"><i class="bi bi-check-circle-fill"></i>Valid</span>';
+      if (row.everLoggedIn) return '<span class="session-badge text-bg-warning"><i class="bi bi-clock-history"></i>Expired</span>';
+      return '<span class="session-badge text-bg-secondary"><i class="bi bi-dash-circle"></i>Never logged in</span>';
+    }
+
+    // Avatar-initials chip for each linked student - same palette/shape as
+    // the Student List (.stu-cell/.stu-avatar/.stu-name-text, components.css),
+    // just colour-picked by a hash of the name (this table has no per-student
+    // id to key off of, only a family account id shared by every child in a row).
+    const avatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+    function initialsOf(name) {
+      return (name || '').trim().split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+    }
+    function colorForName(name) {
+      var hash = 0;
+      var s = name || '';
+      for (var i = 0; i < s.length; i++) { hash = (hash * 31 + s.charCodeAt(i)) >>> 0; }
+      return avatarColors[hash % avatarColors.length];
+    }
+
+    function studentsCellHtml(row) {
+      // studentLinks (structured name + classInfo) is what the backend now
+      // sends; the fallback to the old plain-text `students` lines only
+      // matters if this JS is ever served against a stale/cached response
+      // shape - it skips the avatar chip rather than trying to regex-parse
+      // "Name (details)" back apart on the client.
+      var links = (row.studentLinks && row.studentLinks.length)
+        ? row.studentLinks
+        : (row.students || []).map(function (s) { return { name: s, classInfo: '' }; });
+      if (!links.length) return '<span class="text-muted">No students linked</span>';
+      return links.map(function (link) {
+        var name = link.name || '';
+        var color = colorForName(name);
+        var metaClass = link.classInfo === 'Inactive' ? 'mu-student-meta text-danger' : 'mu-student-meta';
+        var meta = link.classInfo ? '<div class="' + metaClass + '">' + escHtml(link.classInfo) + '</div>' : '';
+        return '<div class="stu-cell mu-student-block">' +
+          '<div class="stu-avatar" style="background:' + color + '22;color:' + color + '">' + escHtml(initialsOf(name)) + '</div>' +
+          '<div><div class="stu-name-text">' + escHtml(name) + '</div>' + meta + '</div>' +
+          '</div>';
+      }).join('');
     }
 
     function renderRows(rows) {
@@ -200,48 +273,119 @@
       }
       if (!rows || rows.length === 0) {
         document.getElementById('rowsBody').innerHTML =
-          '<tr><td colspan="6" class="text-center text-muted">No mobile users found.</td></tr>';
+          '<tr><td colspan="6" class="text-center text-muted py-4">No mobile users found.</td></tr>';
+        $('#muFooter').hide();
         return;
       }
       let html = '';
       rows.forEach(row => {
-        const studentsHtml = (row.students || []).map(s => escHtml(s)).join('<br>');
         const mustChange = row.mustChangePassword
-          ? '<span class="text-danger">Yes</span>' : '<span class="text-muted">No</span>';
+          ? '<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle-fill me-1"></i>Yes</span>'
+          : '<span class="text-muted">No</span>';
         html += `<tr>
-          <td>${escHtml(row.mobile)}</td>
-          <td class="students-col">${studentsHtml || '<span class="text-muted">No students linked</span>'}</td>
+          <td><i class="bi bi-telephone-fill text-muted me-1"></i>${escHtml(row.mobile)}</td>
+          <td class="students-col">${studentsCellHtml(row)}</td>
           <td>${mustChange}</td>
           <td>${formatLastActive(row.lastActiveDisplay)}</td>
           <td>${sessionBadge(row)}</td>
-          <td class="text-nowrap">
-            <button class="btn btn-sm btn-outline-primary me-1" title="Reset password"
-                    onclick="openResetPasswordModal(${row.familyAccountId}, '${escHtml(row.mobile)}')">
-              <i class="bi bi-key-fill"></i>
-            </button>
-            <button class="btn btn-sm btn-outline-danger" title="Force logout"
-                    ${row.hasValidSession ? '' : 'disabled'}
-                    onclick="openForceLogoutModal(${row.familyAccountId}, '${escHtml(row.mobile)}')">
-              <i class="bi bi-box-arrow-right"></i>
-            </button>
+          <td class="text-nowrap text-center">
+            <div class="row-actions">
+              <button type="button" class="config-icon-btn reset-pwd-btn" title="Reset password"
+                      data-id="${row.familyAccountId}" data-mobile="${escHtml(row.mobile)}">
+                <i class="bi bi-key-fill"></i>
+              </button>
+              <button type="button" class="config-icon-btn danger force-logout-btn" title="Force logout"
+                      data-id="${row.familyAccountId}" data-mobile="${escHtml(row.mobile)}"
+                      ${row.hasValidSession ? '' : 'disabled'}>
+                <i class="bi bi-box-arrow-right"></i>
+              </button>
+            </div>
           </td>
         </tr>`;
       });
       document.getElementById('rowsBody').innerHTML = html;
 
       // Search is already handled server-side (debounced call to /list?search=),
-      // so the table's own filter box is switched off — this just adds paging on
-      // top of whatever rows the server returned (was rendering all 3000+ rows
-      // on one page with no limit before).
+      // so the table's own filter box is switched off; ordering was never
+      // wired to real column data either, both stay off exactly as before.
+      // `layout` nulls out every default DataTables UI slot (search box,
+      // its own length menu, its own info/paging) since the custom footer
+      // above replaces all of it - see initMuFooter().
       const pageSizeValues = [10, 25, 50, 100, -1];
       const pageSizeLabels = [10, 25, 50, 100, 'All'];
-      $('#mobileUsersTable').DataTable({
+      const table = $('#mobileUsersTable').DataTable({
         searching: false,
         ordering: false,
-        info: true,
+        info: false,
         lengthMenu: [pageSizeValues, pageSizeLabels],
-        pageLength: 25
+        pageLength: parseInt(document.getElementById('muPageLength').value, 10) || 25,
+        layout: {
+          topStart: null,
+          topEnd: null,
+          top1Start: null,
+          bottomStart: null,
+          bottomEnd: null
+        }
       });
+      initMuFooter(table);
+    }
+
+    /* ── Custom footer (rows-per-page + "Showing X-Y of Z" + page buttons) ──
+       Deliberately a small page-local version of what
+       static/js/list-table-init.js does for every other list page, minus
+       the export-button and search-box wiring this page doesn't need. */
+    function initMuFooter(table) {
+      muTable = table;
+      $('#muFooter').show();
+      $('#muPageLength').off('change.muFooter').on('change.muFooter', function () {
+        table.page.len(parseInt(this.value, 10)).draw();
+      });
+      table.off('draw.muFooter').on('draw.muFooter', renderMuPagination);
+      renderMuPagination();
+    }
+
+    function renderMuPagination() {
+      if (!muTable) return;
+      const info = muTable.page.info();
+      const shown = info.recordsDisplay === 0 ? 0 : info.start + 1;
+      $('#muPageInfo').text('Showing ' + shown + '–' + info.end + ' of ' + info.recordsDisplay.toLocaleString() + ' mobile users');
+
+      const $pg = $('#muPagination').empty();
+      const cur = info.page, total = info.pages;
+
+      const addBtn = function (label, page, btnOpts) {
+        btnOpts = btnOpts || {};
+        const $b = $('<button type="button" class="list-page-btn"></button>').html(label);
+        if (btnOpts.active) { $b.addClass('active'); }
+        if (btnOpts.disabled) {
+          $b.addClass('disabled').attr('disabled', 'disabled');
+        } else {
+          $b.on('click', function () { muTable.page(page).draw('page'); });
+        }
+        $pg.append($b);
+      };
+
+      addBtn('<i class="bi bi-chevron-left"></i>', cur - 1, { disabled: cur <= 0 });
+
+      let pages = [];
+      if (total <= 7) {
+        for (let i = 0; i < total; i++) { pages.push(i); }
+      } else {
+        pages.push(0);
+        if (cur > 2) { pages.push('…'); }
+        for (let j = Math.max(1, cur - 1); j <= Math.min(total - 2, cur + 1); j++) { pages.push(j); }
+        if (cur < total - 3) { pages.push('…'); }
+        if (total > 1) { pages.push(total - 1); }
+      }
+      pages.forEach(function (p) {
+        if (p === '…') {
+          $pg.append('<span class="list-page-ellipsis">…</span>');
+          return;
+        }
+        addBtn(String(p + 1), p, { active: p === cur });
+      });
+
+      addBtn('<i class="bi bi-chevron-right"></i>', cur + 1, { disabled: cur >= total - 1 });
     }
 
     function renderStats(stats) {
@@ -278,6 +422,25 @@
         loadMobileUsers(document.getElementById('searchInput').value);
       }, 300);
     }
+
+    // Delegated action-button handlers (bound once on document, not
+    // re-bound per render) - table rows are rebuilt wholesale on every
+    // load/search, so a plain per-row .on('click') would leak listeners
+    // and, more importantly, would need re-wiring after every re-render.
+    // Reading familyAccountId/mobile from data-* attributes instead of an
+    // inline onclick="...('${row.mobile}')" also avoids ever splicing a
+    // value straight into a JS string literal in the generated markup -
+    // low risk for a phone number, but it's the same pattern already used
+    // for delete/reset actions on every other list page in this app.
+    $(document).on('click', '.reset-pwd-btn', function () {
+      const btn = $(this);
+      openResetPasswordModal(parseInt(btn.data('id'), 10), String(btn.data('mobile')));
+    });
+    $(document).on('click', '.force-logout-btn', function () {
+      const btn = $(this);
+      if (btn.is(':disabled')) return;
+      openForceLogoutModal(parseInt(btn.data('id'), 10), String(btn.data('mobile')));
+    });
 
     /* ── Reset password ─────────────────────────────────────────────────── */
 

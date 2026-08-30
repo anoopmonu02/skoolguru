@@ -39,12 +39,16 @@
 
     </div>
 
+    <script type="text/javascript" th:inline="javascript">
+        // Surfaces a same-page error (set as a plain model attribute when
+        // this form re-renders after a failed save) - was set server-side
+        // but never actually displayed anywhere on this page before now.
+        const monthMappingErrorMessage = [[${error}]];
+        $(document).ready(function () {
+            if (monthMappingErrorMessage) showMsg("error", monthMappingErrorMessage, "Error");
+        });
+    </script>
 
-
-
-
-  <!-- Library <script> tags removed: this page has no JavaScript of its own,
-       and base.html already loads jQuery, Bootstrap, toastr and select2. -->
 </section>
 
 

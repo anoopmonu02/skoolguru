@@ -7,122 +7,128 @@
 <body>
 
 <section class="container-fluid px-3">
-    <div class="mt-2 gy-5 mb-5">
-        <div th:replace="~{components/ui :: page-header('Academic-Year Form')}"></div>
+  <!-- Same page-scoped "polished single card" pattern used on Employee's
+       wizard form (see employee/add-employee.html), minus the stepper -
+       this form has only 4-5 fields, so a multi-step wizard would be
+       overkill. Page-scoped on purpose, not a shared CSS file, matching
+       that same reasoning: one reuse doesn't justify a new abstraction. -->
+  <style>
+    .form-card-wrap { max-width: 760px; margin: 4px auto 40px; }
+    .form-card {
+      background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm); padding: 26px 28px 22px;
+    }
+    .form-card .form-label { font-size: 12.5px; font-weight: 700; color: var(--text-muted); margin-bottom: 5px; }
+    .form-card .form-control, .form-card .form-select {
+      border-radius: 10px; border: 1px solid var(--border-color); font-size: 13.8px;
+    }
+    .form-card .form-control:focus, .form-card .form-select:focus {
+      border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light);
+    }
+    .form-card .form-floating > label { font-size: 13px; color: var(--text-muted); }
+    .form-card .text-danger { font-size: 12px; margin-top: 4px; }
+    .form-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 22px; gap: 10px; padding-top: 18px; border-top: 1px dashed var(--border-color); }
+    .form-btn {
+      border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-primary);
+      padding: 9px 18px; border-radius: 10px; font-size: 13.8px; font-weight: 700;
+      display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    .form-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .form-btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .form-btn-primary:hover { background: var(--accent); opacity: .92; color: #fff; }
+  </style>
 
+  <div class="form-card-wrap">
+    <div th:replace="~{components/ui :: page-header('Academic-Year Form')}"></div>
 
-        <form th:action="@{/admin/academicyear}" th:object="${academicyear}" method="post" >
-            <div class="row g-2">
+    <div class="form-card">
+      <form th:action="@{/admin/academicyear}" th:object="${academicyear}" method="post">
+        <div class="row g-3">
 
-                <div class="col-md-5">
-                    <div th:if="${superUserLogin}">
-                        <label class="form-label">School(Branch)</label>
-                        <select name="school.id" id="school" class="form-select" th:field="*{school.id}">
-                            <option value="">Select School</option>
-                            <option th:each="school : ${schools}" th:value="${school.id}" th:text="${school.schoolName}"></option>
-                        </select>
-                    </div>
-                    <div th:unless="${superUserLogin}">
-                        <input type="hidden" name="school.id" th:value="${school.id}">
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    &nbsp;
-                </div>
+          <div class="col-md-6" th:if="${superUserLogin}">
+            <label class="form-label">School (Branch)</label>
+            <select name="school.id" id="school" class="form-select" th:field="*{school.id}">
+              <option value="">Select School</option>
+              <option th:each="school : ${schools}" th:value="${school.id}" th:text="${school.schoolName}"></option>
+            </select>
+          </div>
+          <div th:unless="${superUserLogin}">
+            <input type="hidden" name="school.id" th:value="${school.id}">
+          </div>
 
-                <div class="col-md-5">
-                    <label for="customer_name" class="form-label">Start Date</label>
-                    <input type="text" class="form-control" id="customer_name" name="customer_name" th:field="*{startDate}" />
-                    <p class="text-danger" th:if="${#fields.hasErrors('startDate')}" th:errors="*{startDate}">date Error</p>
-                </div>
-                <div class="col-md-6">
-                    &nbsp;
-                </div>
+          <div class="col-md-6">
+            <label for="customer_name" class="form-label">Start Date</label>
+            <input type="text" class="form-control" id="customer_name" name="customer_name" th:field="*{startDate}" autocomplete="off"/>
+            <p class="text-danger" th:if="${#fields.hasErrors('startDate')}" th:errors="*{startDate}">date Error</p>
+          </div>
 
-                <div class="col-md-5">
-                    <label for="endDate" class="form-label">End Date</label>
-                    <input type="text" class="form-control" id="endDate" name="endDate" th:field="*{endDate}" />
-                    <p class="text-danger" th:if="${#fields.hasErrors('endDate')}" th:errors="*{endDate}">enddate Error</p>
-                </div>
-                <div class="col-md-6">
-                    &nbsp;
-                </div>
+          <div class="col-md-6">
+            <label for="endDate" class="form-label">End Date</label>
+            <input type="text" class="form-control" id="endDate" name="endDate" th:field="*{endDate}" autocomplete="off"/>
+            <p class="text-danger" th:if="${#fields.hasErrors('endDate')}" th:errors="*{endDate}">enddate Error</p>
+          </div>
 
-                <div class="col-md-2">
-                    <label for="sessionFormat" class="form-label">Format</label>
-                    <input type="text" class="form-control" id="sessionFormat" th:field="*{sessionFormat}"/>
-                    <p class="text-danger" th:if="${#fields.hasErrors('sessionFormat')}" th:errors="*{sessionFormat}">sessionFormat Error</p>
-                </div>
-                <div class="col-md-8">
-                    &nbsp;
-                </div>
+          <div class="col-md-6">
+            <label for="sessionFormat" class="form-label">Format</label>
+            <input type="text" class="form-control" id="sessionFormat" th:field="*{sessionFormat}" placeholder="e.g. 2026-2027"/>
+            <p class="text-danger" th:if="${#fields.hasErrors('sessionFormat')}" th:errors="*{sessionFormat}">sessionFormat Error</p>
+          </div>
 
+          <div class="col-md-12">
+            <label for="description" class="form-label">Description</label>
+            <textarea id="description" placeholder="Add description here" class="form-control" name="description" style="height: 90px;" rows="4" th:field="*{description}"></textarea>
+            <p class="text-danger" th:if="${#fields.hasErrors('description')}" th:errors="*{description}">description Error</p>
+          </div>
+        </div>
 
-                <div class="col-md-7">
-                    <label for="description" class="form-label">Description</label>
-                    <div class="form-floating">
-                        <textarea id="description" placeholder="Add description here" class="form-control" name="description" style="height: 100px;" rows="4" cols="50" th:field="*{description}"></textarea>
-                        <label for="description">Add Description Here</label>
-                    </div>
-                    <p class="text-danger" th:if="${#fields.hasErrors('description')}" th:errors="*{description}">description Error</p>
-                </div>
-                <div class="col-md-2">
-                    &nbsp;
-                </div>
-
-
-                <hr/>
-                <div class="col-md-4">
-                    <a class="btn btn-outline-secondary btn-sm" th:href="@{/admin/academicyear}"><i class="bi bi-arrow-left"></i> Back to List</a>
-                </div>
-                <div class="col-md-6 mb-5">
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-save2-fill"></i> Save</button>
-                </div>
-            </div>
-        </form>
-
-
-
-
-
+        <div class="form-foot">
+          <a class="form-btn" th:href="@{/admin/academicyear}"><i class="bi bi-arrow-left"></i> Back to List</a>
+          <button type="submit" class="form-btn form-btn-primary"><i class="bi bi-save2-fill"></i> Save</button>
+        </div>
+      </form>
     </div>
+  </div>
 
-    <!---->
-    <!--<script src="/js/jquery-3.6.0.min.js" />
-    <script src="/js/toastr.min.js" />-->
-    <link type="text/css" rel="stylesheet" th:href="@{/css/flatpickr.min.css}"/>
-    <script th:src="@{/js/flatpickr.js}"></script>
-    <script type="text/javascript" th:inline="javascript">
+  <link type="text/css" rel="stylesheet" th:href="@{/css/flatpickr.min.css}"/>
+  <script th:src="@{/js/flatpickr.js}"></script>
+  <script type="text/javascript" th:inline="javascript">
 
-        flatpickr("#endDate", {
-            dateFormat: "d/M/Y",  // Equivalent to dd/MMM/yyyy
-        });
-        flatpickr("#customer_name", {
-            dateFormat: "d/M/Y",  // Equivalent to dd/MMM/yyyy
-        });
+      flatpickr("#endDate", {
+          dateFormat: "d/M/Y",  // Equivalent to dd/MMM/yyyy
+      });
+      flatpickr("#customer_name", {
+          dateFormat: "d/M/Y",  // Equivalent to dd/MMM/yyyy
+      });
 
-        toastr.options = {
-            "closeButton": true,
-            "debug": false,
-            "newestOnTop": false,
-            "progressBar": false,
-            "positionClass": "toast-top-right",
-            "preventDuplicates": false,
-            "onclick": null,
-            "showDuration": "600",
-            "hideDuration": "1000",
-            "timeOut": "5000",
-            "extendedTimeOut": "1000",
-            "showEasing": "swing",
-            "hideEasing": "linear",
-            "showMethod": "fadeIn",
-            "hideMethod": "fadeOut"
-        }
-        
+      // Surfaces a same-page validation/duplicate error (set as a plain
+      // model attribute, not a flash attribute, since this is a re-render
+      // of this same form after a failed POST - previously set server-side
+      // but never actually displayed anywhere on the page.
+      const academicYearErrorMessage = [[${error}]];
+      $(document).ready(function () {
+          if (academicYearErrorMessage) showMsg("error", academicYearErrorMessage, "Error");
+      });
 
+      toastr.options = {
+          "closeButton": true,
+          "debug": false,
+          "newestOnTop": false,
+          "progressBar": false,
+          "positionClass": "toast-top-right",
+          "preventDuplicates": false,
+          "onclick": null,
+          "showDuration": "600",
+          "hideDuration": "1000",
+          "timeOut": "5000",
+          "extendedTimeOut": "1000",
+          "showEasing": "swing",
+          "hideEasing": "linear",
+          "showMethod": "fadeIn",
+          "hideMethod": "fadeOut"
+      }
 
-    </script>
-
+  </script>
 
   <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html
        now loads them in <head>, so they are available before this page's
@@ -132,5 +138,3 @@
 
 </body>
 </html>
-
-

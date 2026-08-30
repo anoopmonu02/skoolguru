@@ -122,6 +122,27 @@ public class GlobalController extends BaseController {
         }
         model.addAttribute("academicYears", academicYears);
         model.addAttribute("hasAcademicyears", !academicYears.isEmpty());
+
+        // Which single Academic Year row is "the active session" for each school
+        // shown in this list - i.e. the exact row setAcademicYearInModel()
+        // (BaseController) resolves via AcademicyearService.getCurrentAcademicYear
+        // (highest-id row with status "active" for that school). Reusing that same
+        // service method per distinct school here (instead of re-deriving the rule)
+        // means the list's live-session dot can never drift from what actually
+        // drives the top-bar year badge and every other "current year" lookup in
+        // the app. For a normal (non-superadmin) view this list only has one
+        // school, so it's a single extra indexed query; superadmin's cross-school
+        // list does one per distinct school, which is at most a handful of rows.
+        Set<Long> activeAcademicYearIds = academicYears.stream()
+                .map(ay -> ay.getSchool() != null ? ay.getSchool().getId() : null)
+                .filter(Objects::nonNull)
+                .distinct()
+                .map(academicyearService::getCurrentAcademicYear)
+                .filter(Objects::nonNull)
+                .map(AcademicYear::getId)
+                .collect(Collectors.toSet());
+        model.addAttribute("activeAcademicYearIds", activeAcademicYearIds);
+
         model.addAttribute("page", "datatable");
         return "admin/academicyear";
     }
@@ -153,12 +174,24 @@ public class GlobalController extends BaseController {
         }
 
         try {
-            // Ensure school is set
-            if (academicYear.getSchool() == null || academicYear.getSchool().getId() == null) {
-                throw new IllegalArgumentException("School selection is mandatory.");
+            // Only a super-admin may pick which school this Academic Year
+            // belongs to. For everyone else, never trust the submitted
+            // school.id - the "hidden" school field on this form is just as
+            // editable via browser devtools as any visible one - always use
+            // the caller's own session-derived school instead.
+            School school;
+            if (isSuperAdminLoggedIn()) {
+                if (academicYear.getSchool() == null || academicYear.getSchool().getId() == null) {
+                    throw new IllegalArgumentException("School selection is mandatory.");
+                }
+                school = schoolService.getSchoolById(academicYear.getSchool().getId())
+                        .orElseThrow(() -> new IllegalArgumentException("Invalid School ID."));
+            } else {
+                school = (School) model.getAttribute("school");
+                if (school == null) {
+                    throw new IllegalArgumentException("School selection is mandatory.");
+                }
             }
-            School school = schoolService.getSchoolById(academicYear.getSchool().getId())
-                    .orElseThrow(() -> new IllegalArgumentException("Invalid School ID."));
 
             academicYear.setSchool(school);
             // Save AcademicYear
@@ -182,10 +215,21 @@ public class GlobalController extends BaseController {
 
     @CheckAccess(screen = "ADMIN_ACYEAR", type = AccessType.EDIT)
     @GetMapping("/academicyear/edit/{id}")
-    public String editAcademicYearPage(@PathVariable("id")Long id, Model model){
+    public String editAcademicYearPage(@PathVariable("id")Long id, Model model, RedirectAttributes ra){
         log.info("Inside editAcademicYearPage");
         AcademicYear academicYear = academicyearService.getAcademicyearById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid academic-year Id:" + id));
+        // Cross-tenant IDOR guard: a non-super-admin must only ever see
+        // their own school's academic years, however the id in the URL was
+        // reached (typed, bookmarked, or guessed).
+        if (!isSuperAdminLoggedIn()) {
+            School sessionSchool = (School) model.getAttribute("school");
+            if (sessionSchool == null || academicYear.getSchool() == null
+                    || !academicYear.getSchool().getId().equals(sessionSchool.getId())) {
+                ra.addFlashAttribute("error", "You do not have access to that Academic Year.");
+                return "redirect:/admin/academicyear";
+            }
+        }
         model.addAttribute("academicyear", academicYear);
         if(isSuperAdminLoggedIn()){
             model.addAttribute("superUserLogin", true);
@@ -208,12 +252,35 @@ public class GlobalController extends BaseController {
             return "admin/edit-academicyear";
         }
         try{
-            if (academicYear.getSchool() == null || academicYear.getSchool().getId() == null) {
-                throw new IllegalArgumentException("School selection is mandatory.");
+            // edit-academicyear.html has no hidden "id" field, so the bound
+            // academicYear object never carried an id - academicyearService
+            // .save() then inserted a brand-new row on every "Update" click
+            // instead of updating the one at this URL. Setting it explicitly
+            // from the (now ownership-verified) path variable below fixes
+            // that alongside the access-control check.
+            School school;
+            if (isSuperAdminLoggedIn()) {
+                if (academicYear.getSchool() == null || academicYear.getSchool().getId() == null) {
+                    throw new IllegalArgumentException("School selection is mandatory.");
+                }
+                school = schoolService.getSchoolById(academicYear.getSchool().getId())
+                        .orElseThrow(() -> new IllegalArgumentException("Invalid School ID."));
+            } else {
+                // Never trust the submitted school.id, and confirm the
+                // record at this id already belongs to the caller before
+                // touching it - the {id} path segment is just as
+                // attacker-controlled as any form field.
+                AcademicYear existing = academicyearService.getAcademicyearById(id)
+                        .orElseThrow(() -> new IllegalArgumentException("Invalid academic-year Id:" + id));
+                school = (School) model.getAttribute("school");
+                if (school == null || existing.getSchool() == null
+                        || !existing.getSchool().getId().equals(school.getId())) {
+                    ra.addFlashAttribute("error", "You do not have access to that Academic Year.");
+                    return "redirect:/admin/academicyear";
+                }
             }
-            School school = schoolService.getSchoolById(academicYear.getSchool().getId())
-                    .orElseThrow(() -> new IllegalArgumentException("Invalid School ID."));
 
+            academicYear.setId(id);
             academicYear.setSchool(school);
             academicYear.setUpdatedBy(userService.getLoggedInUser());
             academicyearService.save(academicYear);
@@ -233,11 +300,29 @@ public class GlobalController extends BaseController {
         return "redirect:/admin/academicyear";
     }
 
+    // Was a @GetMapping - a state-changing action reachable by plain GET
+    // bypasses Spring Security's CSRF check entirely (CSRF only guards
+    // POST/PUT/PATCH/DELETE). Switched to POST; the List page's confirmation
+    // modal now submits a real form instead of navigating via GET, same fix
+    // already applied to Employee/Student delete.
     @CheckAccess(screen = "ADMIN_ACYEAR", type = AccessType.DELETE)
-    @GetMapping("/academicyear/delete/{id}")
-    public String deleteAcademicYear(@PathVariable("id") Long id, RedirectAttributes ra) {
+    @PostMapping("/academicyear/delete/{id}")
+    public String deleteAcademicYear(@PathVariable("id") Long id, Model model, RedirectAttributes ra) {
         log.info("Inside deleteAcademicYear");
         try {
+            if (!isSuperAdminLoggedIn()) {
+                AcademicYear existing = academicyearService.getAcademicyearById(id).orElse(null);
+                if (existing == null) {
+                    ra.addFlashAttribute("error", "Academic year not found.");
+                    return "redirect:/admin/academicyear";
+                }
+                School sessionSchool = (School) model.getAttribute("school");
+                if (sessionSchool == null || existing.getSchool() == null
+                        || !existing.getSchool().getId().equals(sessionSchool.getId())) {
+                    ra.addFlashAttribute("error", "You do not have access to that Academic Year.");
+                    return "redirect:/admin/academicyear";
+                }
+            }
             String result = academicyearService.delete(id);
             if ("success".equals(result)) {
                 ra.addFlashAttribute("success", "Academic year deleted successfully.");
@@ -260,6 +345,14 @@ public class GlobalController extends BaseController {
         School school = (School)model.getAttribute("school");
         AcademicYear academicYear = (AcademicYear)model.getAttribute("academicYear");
         List<MonthMapping> monthmappings = monthmappingService.getAllMonthMapping(academicYear.getId(), school.getId());
+        // Required for base.html to load the DataTables/Buttons/export JS
+        // bundle (see the page=='datatable' vs th:unless split there) - this
+        // page's list now uses initListDataTable() same as Employee/Student,
+        // which is undefined without this flag. Missing this was the actual
+        // cause of "export buttons missing" and the pagination footer being
+        // stuck at "Showing 0 of 0" (initListDataTable() threw a
+        // ReferenceError before it could touch either).
+        model.addAttribute("page", "datatable");
         model.addAttribute("monthmappings", monthmappings);
         model.addAttribute("hasMonthMappings", !monthmappings.isEmpty());
         return "admin/monthmapping";
@@ -329,6 +422,10 @@ public class GlobalController extends BaseController {
         List<FeeDate> feeDateList = feedateService.getAllFeeDates(academicYear.getId(), school.getId());
         model.addAttribute("feedates", feeDateList);
         model.addAttribute("isFeeDates", !feeDateList.isEmpty());
+        // Needed for the inline "quick add" panel's th:object="${feedate}"
+        // binding on this same list page (same pattern as universal/section()).
+        model.addAttribute("feedate", new FeeDate());
+        model.addAttribute("months", monthMasterService.getAllMonths());
         return "admin/feedate";
     }
 
@@ -347,7 +444,12 @@ public class GlobalController extends BaseController {
         log.info("Inside save");
         if(result.hasErrors()){
             model.addAttribute("months", monthMasterService.getAllMonths());
-            model.addAttribute("error", result.getFieldError());
+            // Was the raw FieldError object, not a message string - harmless
+            // while nothing rendered it, but unsafe to inline into JS (Thymeleaf
+            // has to serialize an arbitrary object). Every other branch below
+            // already puts a plain String here; matched that so the toastr this
+            // page's script now adds can display it safely.
+            model.addAttribute("error", result.getFieldError() != null ? result.getFieldError().getDefaultMessage() : "Please check the highlighted fields.");
             return "admin/add-feedate";
         }
         try{
@@ -377,27 +479,28 @@ public class GlobalController extends BaseController {
         return "redirect:/admin/feedate";
     }
 
-    //@DeleteMapping("/feedate/delete/{id}")
+    // Was @ResponseBody returning JSON for an AJAX call - converted to a plain
+    // redirect + flash message so the List page's per-row action can be a real
+    // POST <form> (matching universal/section's delete pattern) instead of an
+    // AJAX call. That's what closes the CSRF-exempt-GET-style gap the same way
+    // Employee/Student/Academic-Year's deletes were fixed - though this one was
+    // already POST, so it was already CSRF-safe; this change is about UI
+    // consistency, not a new security fix.
     @CheckAccess(screen = "ADMIN_FEEDATE", type = AccessType.DELETE)
     @PostMapping("/feedate/delete/{id}")
-    @ResponseBody
-    public Map<String, String> deleteFeeDate(@PathVariable("id")Long id){
+    public String deleteFeeDate(@PathVariable("id")Long id, RedirectAttributes redirectAttributes){
         log.info("Inside deleteFeeDate");
-        Map<String, String> response = new HashMap<>();
         try{
             String returnMsg = feedateService.delete(id);
             if ("success".equals(returnMsg)) {
-                response.put("status", "success");
-                response.put("message", "Fee date deleted.");
+                redirectAttributes.addFlashAttribute("success", "Fee date deleted successfully.");
             } else {
-                response.put("status", "error");
-                response.put("message", "Failed to delete fee date.");
+                redirectAttributes.addFlashAttribute("error", "Failed to delete fee date.");
             }
         }catch(Exception e){
-            response.put("status", "error");
-            response.put("message", "Error in deletion: " + e.getLocalizedMessage());
+            redirectAttributes.addFlashAttribute("error", "Error in deletion: " + e.getLocalizedMessage());
         }
-        return response;
+        return "redirect:/admin/feedate";
     }
 
     /*********************************************  Fine Code Block starts here  *****************************************/
@@ -411,6 +514,7 @@ public class GlobalController extends BaseController {
         List<Fine> fineList = fineService.getAllFines(school.getId(), academicYear.getId());
         model.addAttribute("fines", fineList);
         model.addAttribute("isFine", !fineList.isEmpty());
+        model.addAttribute("page", "datatable");
         return "admin/fine";
     }
 
@@ -429,12 +533,27 @@ public class GlobalController extends BaseController {
         log.info("Inside saveFineData");
         if(result.hasErrors()){
             model.addAttribute("fineheads", fineheadService.getAllFineHeads());
-            model.addAttribute("error", result.getFieldError());
+            model.addAttribute("error", result.getFieldError() != null ? result.getFieldError().getDefaultMessage() : "Please check the highlighted fields.");
             return "admin/add-fine";
         }
         try{
             School school = (School)model.getAttribute("school");
             AcademicYear academicYear = (AcademicYear)model.getAttribute("academicYear");
+            // A tampered hidden "id" on the edit-fine form could point at
+            // another school's Fine - without this check, setSchool(school)
+            // below would silently reassign (hijack) that other school's
+            // record into the caller's own school and overwrite its fields.
+            // Confirm the record being updated already belongs to the
+            // caller before touching it.
+            if (fine.getId() != null && !isSuperAdminLoggedIn()) {
+                Fine existingFine = fineService.getFineById(fine.getId())
+                        .orElseThrow(() -> new IllegalArgumentException("Invalid fine Id:" + fine.getId()));
+                if (school == null || existingFine.getSchool() == null
+                        || !existingFine.getSchool().getId().equals(school.getId())) {
+                    redirectAttributes.addFlashAttribute("error", "You do not have access to that Fine.");
+                    return "redirect:/admin/fine";
+                }
+            }
             fine.setAcademicYear(academicYear);
             fine.setSchool(school);
             String returnMsg = "Fine saved successfully for: "+fine.getFinehead().getFineHeadName();
@@ -463,10 +582,17 @@ public class GlobalController extends BaseController {
 
     @CheckAccess(screen = "ADMIN_FINE", type = AccessType.EDIT)
     @GetMapping("/fine/edit/{id}")
-    public String editFineForm(@PathVariable("id")Long id, Model model){
+    public String editFineForm(@PathVariable("id")Long id, Model model, RedirectAttributes ra){
         log.info("Inside editFineForm");
         Fine fine = fineService.getFineById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid fine Id:" + id));
+        if (!isSuperAdminLoggedIn()) {
+            School school = (School) model.getAttribute("school");
+            if (school == null || fine.getSchool() == null || !fine.getSchool().getId().equals(school.getId())) {
+                ra.addFlashAttribute("error", "You do not have access to that Fine.");
+                return "redirect:/admin/fine";
+            }
+        }
         model.addAttribute("fine",fine);
         model.addAttribute("fineheads", fineheadService.getAllFineHeads());
         return "admin/edit-fine";
@@ -474,24 +600,32 @@ public class GlobalController extends BaseController {
 
     @CheckAccess(screen = "ADMIN_FINE", type = AccessType.DELETE)
     @PostMapping("/fine/delete/{id}")
-    @ResponseBody
-    public Map<String, String> deleteFineDate(@PathVariable("id")Long id){
+    public String deleteFineDate(@PathVariable("id")Long id, Model model, RedirectAttributes redirectAttributes){
         log.info("Inside deleteFineDate");
-        Map<String, String> response = new HashMap<>();
         try{
+            if (!isSuperAdminLoggedIn()) {
+                Fine existing = fineService.getFineById(id).orElse(null);
+                if (existing == null) {
+                    redirectAttributes.addFlashAttribute("error", "Fine not found.");
+                    return "redirect:/admin/fine";
+                }
+                School school = (School) model.getAttribute("school");
+                if (school == null || existing.getSchool() == null
+                        || !existing.getSchool().getId().equals(school.getId())) {
+                    redirectAttributes.addFlashAttribute("error", "You do not have access to that Fine.");
+                    return "redirect:/admin/fine";
+                }
+            }
             String returnMsg = fineService.deleteFine(id);
             if ("success".equals(returnMsg)) {
-                response.put("status", "success");
-                response.put("message", "Fine deleted.");
+                redirectAttributes.addFlashAttribute("success", "Fine deleted successfully.");
             } else {
-                response.put("status", "error");
-                response.put("message", "Failed to delete fine.");
+                redirectAttributes.addFlashAttribute("error", "Failed to delete fine.");
             }
         }catch(Exception e){
-            response.put("status", "error");
-            response.put("message", "Error in deletion: " + e.getLocalizedMessage());
+            redirectAttributes.addFlashAttribute("error", "Error in deletion: " + e.getLocalizedMessage());
         }
-        return response;
+        return "redirect:/admin/fine";
     }
 
     /****************************  Fee Mapping Code Starts Here  ******************************/
@@ -584,6 +718,18 @@ public class GlobalController extends BaseController {
             Grade grade = feeClassMaps.get(0).getGrade();
             Medium medium = feeClassMaps.get(0).getMedium();
             for (FeeClassMap fee : feeClassMaps) {
+                // A tampered hidden "id" on one of this matrix's rows could point
+                // at another school's existing FeeClassMap - without this check,
+                // setSchool()/setGrade()/setMedium() below would silently hijack
+                // that row into the caller's own school and overwrite its amount.
+                if (fee.getId() != null) {
+                    FeeClassMap existingRow = feeclassmapService.getFeeClassMapById(fee.getId()).orElse(null);
+                    if (existingRow == null || existingRow.getSchool() == null
+                            || !existingRow.getSchool().getId().equals(school.getId())) {
+                        redirectAttributes.addFlashAttribute("error", "You do not have access to one of the selected fee heads.");
+                        return "redirect:/admin/fee-class";
+                    }
+                }
                 fee.setAcademicYear(academicYear);
                 fee.setSchool(school);
                 fee.setGrade(grade);
@@ -607,10 +753,18 @@ public class GlobalController extends BaseController {
 
     @CheckAccess(screen = "ADMIN_FEE_CLASS", type = AccessType.EDIT)
     @GetMapping("/fee-class/edit/{id}")
-    public String editFeeClassForm(@PathVariable("id")Long id, Model model){
+    public String editFeeClassForm(@PathVariable("id")Long id, Model model, RedirectAttributes ra){
         log.info("Inside editFeeClassForm");
         FeeClassMap feeClassMap = feeclassmapService.getFeeClassMapById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid fee-class Id:" + id));
+        if (!isSuperAdminLoggedIn()) {
+            School school = (School) model.getAttribute("school");
+            if (school == null || feeClassMap.getSchool() == null
+                    || !feeClassMap.getSchool().getId().equals(school.getId())) {
+                ra.addFlashAttribute("error", "You do not have access to that Fee-Grade mapping.");
+                return "redirect:/admin/fee-class";
+            }
+        }
         model.addAttribute("feeclassmap",feeClassMap);
         model.addAttribute("gradename",feeClassMap.getGrade().getGradeName());
         model.addAttribute("mediums", mediumService.getAllMediums());
@@ -626,9 +780,30 @@ public class GlobalController extends BaseController {
             return "admin/edit-feeclassmap";
         }
         try{
-            feeClassMap.setUpdatedBy(userService.getLoggedInUser());
-            feeclassmapService.save(feeClassMap);
-            ra.addFlashAttribute("info", "Fee-Class mapping updated for Grade: "+feeClassMap.getGrade().getGradeName());
+            // This form carries hidden id/school_id/academicYear/grade/feehead
+            // fields - every one of them just as editable via devtools as any
+            // visible input. Never trust them directly: re-fetch the real row
+            // by id, confirm it belongs to the caller's school, then apply
+            // only the fields the edit form actually lets a user change
+            // (Medium/Amount/Description - Grade/Feehead are shown read-only
+            // in the UI, so they should never be reassignable through this
+            // endpoint either).
+            FeeClassMap existing = feeclassmapService.getFeeClassMapById(feeClassMap.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid fee-class Id:" + feeClassMap.getId()));
+            if (!isSuperAdminLoggedIn()) {
+                School school = (School) model.getAttribute("school");
+                if (school == null || existing.getSchool() == null
+                        || !existing.getSchool().getId().equals(school.getId())) {
+                    ra.addFlashAttribute("error", "You do not have access to that Fee-Grade mapping.");
+                    return "redirect:/admin/fee-class";
+                }
+            }
+            existing.setMedium(feeClassMap.getMedium());
+            existing.setAmount(feeClassMap.getAmount());
+            existing.setDescription(feeClassMap.getDescription());
+            existing.setUpdatedBy(userService.getLoggedInUser());
+            feeclassmapService.save(existing);
+            ra.addFlashAttribute("info", "Fee-Class mapping updated for Grade: "+existing.getGrade().getGradeName());
         }catch(Exception e){
             e.printStackTrace();
             model.addAttribute("error","Error: "+e.getLocalizedMessage());
@@ -640,27 +815,34 @@ public class GlobalController extends BaseController {
 
     @CheckAccess(screen = "ADMIN_FEE_CLASS", type = AccessType.DELETE)
     @PostMapping("/fee-class/delete/{id}")
-    @ResponseBody
-    public Map<String, String> deleteFeeClassMap(@PathVariable("id")Long id){
+    public String deleteFeeClassMap(@PathVariable("id")Long id, Model model, RedirectAttributes redirectAttributes){
         log.info("Inside deleteFeeClassMap");
-        Map<String, String> response = new HashMap<>();
         try{
+            if (!isSuperAdminLoggedIn()) {
+                FeeClassMap existing = feeclassmapService.getFeeClassMapById(id).orElse(null);
+                if (existing == null) {
+                    redirectAttributes.addFlashAttribute("error", "Fee-Class mapping not found.");
+                    return "redirect:/admin/fee-class";
+                }
+                School school = (School) model.getAttribute("school");
+                if (school == null || existing.getSchool() == null
+                        || !existing.getSchool().getId().equals(school.getId())) {
+                    redirectAttributes.addFlashAttribute("error", "You do not have access to that Fee-Class mapping.");
+                    return "redirect:/admin/fee-class";
+                }
+            }
             String returnMsg = feeclassmapService.delete(id);
             if ("success".equals(returnMsg)) {
-                response.put("status", "success");
-                response.put("message", "Fee-Class mapping deleted.");
+                redirectAttributes.addFlashAttribute("success", "Fee-Class mapping deleted successfully.");
             } else {
-                response.put("status", "error");
-                response.put("message", "Failed to delete Fee-Class mapping.");
+                redirectAttributes.addFlashAttribute("error", "Failed to delete Fee-Class mapping.");
             }
         }catch(ObjectNotDeleteException oe){
-            response.put("status", "error");
-            response.put("message", "Error in deletion: " + oe.getLocalizedMessage());
+            redirectAttributes.addFlashAttribute("error", "Error in deletion: " + oe.getLocalizedMessage());
         } catch (Exception e){
-            response.put("status", "error");
-            response.put("message", "Error in deletion: " + e.getLocalizedMessage());
+            redirectAttributes.addFlashAttribute("error", "Error in deletion: " + e.getLocalizedMessage());
         }
-        return response;
+        return "redirect:/admin/fee-class";
     }
 
     /*****************************  Fee-Month Mapping Code starts here  ********************************/
@@ -754,6 +936,15 @@ public class GlobalController extends BaseController {
             AcademicYear academicYear = (AcademicYear)model.getAttribute("academicYear");
             Feehead feehead = feeMonthMaps.get(0).getFeehead();
             for (FeeMonthMap fee : feeMonthMaps) {
+                // Same tampered-hidden-id hijack risk as saveFeeClassMappings above.
+                if (fee.getId() != null) {
+                    FeeMonthMap existingRow = feemonthmapService.getFeeMonthMapById(fee.getId()).orElse(null);
+                    if (existingRow == null || existingRow.getSchool() == null
+                            || !existingRow.getSchool().getId().equals(school.getId())) {
+                        redirectAttributes.addFlashAttribute("error", "You do not have access to one of the selected months.");
+                        return "redirect:/admin/fee-month";
+                    }
+                }
                 fee.setAcademicYear(academicYear);
                 fee.setSchool(school);
                 fee.setFeehead(feehead);
@@ -776,10 +967,18 @@ public class GlobalController extends BaseController {
 
     @CheckAccess(screen = "ADMIN_FEE_MONTH", type = AccessType.EDIT)
     @GetMapping("/fee-month/edit/{id}")
-    public String editFeeMonthForm(@PathVariable("id")Long id, Model model){
+    public String editFeeMonthForm(@PathVariable("id")Long id, Model model, RedirectAttributes ra){
         log.info("Inside editFeeMonthForm");
         FeeMonthMap feeMonthMap = feemonthmapService.getFeeMonthMapById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid fee-month Id:" + id));
+        if (!isSuperAdminLoggedIn()) {
+            School school = (School) model.getAttribute("school");
+            if (school == null || feeMonthMap.getSchool() == null
+                    || !feeMonthMap.getSchool().getId().equals(school.getId())) {
+                ra.addFlashAttribute("error", "You do not have access to that Fee-Month mapping.");
+                return "redirect:/admin/fee-month";
+            }
+        }
         model.addAttribute("feemonthmap",feeMonthMap);
         model.addAttribute("monthname",feeMonthMap.getMonthMaster().getMonthName());
         return "admin/edit-feemonthmap";
@@ -793,9 +992,25 @@ public class GlobalController extends BaseController {
             return "admin/edit-feemonthmap";
         }
         try{
-            feeMonthMap.setUpdatedBy(userService.getLoggedInUser());
-            feemonthmapService.saveFeeMonth(feeMonthMap);
-            ra.addFlashAttribute("info", "Fee-Month mapping updated for Fee: "+feeMonthMap.getFeehead().getFeeHeadName());
+            // Same hidden-field tampering risk as Fee-Class mapping: re-fetch
+            // the real row by id, confirm ownership, then apply only the
+            // fields the edit form actually lets a user change (Applicable/
+            // Description - Feehead/Month are shown read-only in the UI).
+            FeeMonthMap existing = feemonthmapService.getFeeMonthMapById(feeMonthMap.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid fee-month Id:" + feeMonthMap.getId()));
+            if (!isSuperAdminLoggedIn()) {
+                School school = (School) model.getAttribute("school");
+                if (school == null || existing.getSchool() == null
+                        || !existing.getSchool().getId().equals(school.getId())) {
+                    ra.addFlashAttribute("error", "You do not have access to that Fee-Month mapping.");
+                    return "redirect:/admin/fee-month";
+                }
+            }
+            existing.setIsApplicable(feeMonthMap.getIsApplicable());
+            existing.setDescription(feeMonthMap.getDescription());
+            existing.setUpdatedBy(userService.getLoggedInUser());
+            feemonthmapService.saveFeeMonth(existing);
+            ra.addFlashAttribute("info", "Fee-Month mapping updated for Fee: "+existing.getFeehead().getFeeHeadName());
         }catch(Exception e){
             e.printStackTrace();
             model.addAttribute("error","Error: "+e.getLocalizedMessage());
@@ -806,27 +1021,34 @@ public class GlobalController extends BaseController {
 
     @CheckAccess(screen = "ADMIN_FEE_MONTH", type = AccessType.DELETE)
     @PostMapping("/fee-month/delete/{id}")
-    @ResponseBody
-    public Map<String, String> deleteFeeMonthMap(@PathVariable("id")Long id){
+    public String deleteFeeMonthMap(@PathVariable("id")Long id, Model model, RedirectAttributes redirectAttributes){
         log.info("Inside deleteFeeMonthMap");
-        Map<String, String> response = new HashMap<>();
         try{
+            if (!isSuperAdminLoggedIn()) {
+                FeeMonthMap existing = feemonthmapService.getFeeMonthMapById(id).orElse(null);
+                if (existing == null) {
+                    redirectAttributes.addFlashAttribute("error", "Fee-Month mapping not found.");
+                    return "redirect:/admin/fee-month";
+                }
+                School school = (School) model.getAttribute("school");
+                if (school == null || existing.getSchool() == null
+                        || !existing.getSchool().getId().equals(school.getId())) {
+                    redirectAttributes.addFlashAttribute("error", "You do not have access to that Fee-Month mapping.");
+                    return "redirect:/admin/fee-month";
+                }
+            }
             String returnMsg = feemonthmapService.delete(id);
             if ("success".equals(returnMsg)) {
-                response.put("status", "success");
-                response.put("message", "Fee-Month mapping deleted.");
+                redirectAttributes.addFlashAttribute("success", "Fee-Month mapping deleted successfully.");
             } else {
-                response.put("status", "error");
-                response.put("message", "Failed to delete Fee-Month mapping.");
+                redirectAttributes.addFlashAttribute("error", "Failed to delete Fee-Month mapping.");
             }
         }catch(ObjectNotDeleteException oe){
-            response.put("status", "error");
-            response.put("message", "Error in deletion: " + oe.getLocalizedMessage());
+            redirectAttributes.addFlashAttribute("error", "Error in deletion: " + oe.getLocalizedMessage());
         } catch (Exception e){
-            response.put("status", "error");
-            response.put("message", "Error in deletion: " + e.getLocalizedMessage());
+            redirectAttributes.addFlashAttribute("error", "Error in deletion: " + e.getLocalizedMessage());
         }
-        return response;
+        return "redirect:/admin/fee-month";
     }
 
 
@@ -914,6 +1136,18 @@ public class GlobalController extends BaseController {
             Grade grade = discountClassMaps.get(0).getGrade();
             Medium medium = discountClassMaps.get(0).getMedium();
             for (DiscountClassMap fee : discountClassMaps) {
+                // A tampered hidden "id" on one of this matrix's rows could point
+                // at another school's existing Discount-Class mapping - without
+                // this check, setSchool()/setGrade()/setMedium() below would
+                // silently hijack that row into the caller's own school.
+                if (fee.getId() != null) {
+                    DiscountClassMap existingRow = discountclassmapService.getDiscountClassMapById(fee.getId()).orElse(null);
+                    if (existingRow == null || existingRow.getSchool() == null
+                            || !existingRow.getSchool().getId().equals(school.getId())) {
+                        redirectAttributes.addFlashAttribute("error", "You do not have access to one of the selected discount heads.");
+                        return "redirect:/admin/discount-class";
+                    }
+                }
                 fee.setAcademicYear(academicYear);
                 fee.setSchool(school);
                 fee.setGrade(grade);
@@ -937,10 +1171,18 @@ public class GlobalController extends BaseController {
 
     @CheckAccess(screen = "ADMIN_DISCOUNT_CLASS", type = AccessType.EDIT)
     @GetMapping("/discount-class/edit/{id}")
-    public String editDiscountClassForm(@PathVariable("id")Long id, Model model){
+    public String editDiscountClassForm(@PathVariable("id")Long id, Model model, RedirectAttributes ra){
         log.info("Inside editDiscountClassForm");
         DiscountClassMap discountClassMap = discountclassmapService.getDiscountClassMapById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid discount-class Id:" + id));
+        if (!isSuperAdminLoggedIn()) {
+            School school = (School) model.getAttribute("school");
+            if (school == null || discountClassMap.getSchool() == null
+                    || !discountClassMap.getSchool().getId().equals(school.getId())) {
+                ra.addFlashAttribute("error", "You do not have access to that Discount-Grade mapping.");
+                return "redirect:/admin/discount-class";
+            }
+        }
         model.addAttribute("discountclassmap",discountClassMap);
         model.addAttribute("gradename",discountClassMap.getGrade().getGradeName());
         model.addAttribute("mediums", mediumService.getAllMediums());
@@ -956,9 +1198,27 @@ public class GlobalController extends BaseController {
             return "admin/edit-discountclassmap";
         }
         try{
-            discountClassMap.setUpdatedBy(userService.getLoggedInUser());
-            discountclassmapService.save(discountClassMap);
-            ra.addFlashAttribute("info", "Discount-Class mapping updated for Grade: "+discountClassMap.getGrade().getGradeName());
+            // This form carries hidden id/school_id/academicYear/grade/discounthead
+            // fields, all editable via devtools. Re-fetch the real row by id,
+            // confirm it belongs to the caller's school, then apply only the
+            // fields the edit form actually lets a user change (Medium/Amount/
+            // Description - Grade/Discounthead are shown read-only in the UI).
+            DiscountClassMap existing = discountclassmapService.getDiscountClassMapById(discountClassMap.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid discount-class Id:" + discountClassMap.getId()));
+            if (!isSuperAdminLoggedIn()) {
+                School school = (School) model.getAttribute("school");
+                if (school == null || existing.getSchool() == null
+                        || !existing.getSchool().getId().equals(school.getId())) {
+                    ra.addFlashAttribute("error", "You do not have access to that Discount-Grade mapping.");
+                    return "redirect:/admin/discount-class";
+                }
+            }
+            existing.setMedium(discountClassMap.getMedium());
+            existing.setAmount(discountClassMap.getAmount());
+            existing.setDescription(discountClassMap.getDescription());
+            existing.setUpdatedBy(userService.getLoggedInUser());
+            discountclassmapService.save(existing);
+            ra.addFlashAttribute("info", "Discount-Class mapping updated for Grade: "+existing.getGrade().getGradeName());
         }catch(Exception e){
             e.printStackTrace();
             model.addAttribute("error","Error: "+e.getLocalizedMessage());
@@ -970,27 +1230,34 @@ public class GlobalController extends BaseController {
 
     @CheckAccess(screen = "ADMIN_DISCOUNT_CLASS", type = AccessType.DELETE)
     @PostMapping("/discount-class/delete/{id}")
-    @ResponseBody
-    public Map<String, String> deleteDiscountClassMap(@PathVariable("id")Long id){
+    public String deleteDiscountClassMap(@PathVariable("id")Long id, Model model, RedirectAttributes redirectAttributes){
         log.info("Inside deleteDiscountClassMap");
-        Map<String, String> response = new HashMap<>();
         try{
+            if (!isSuperAdminLoggedIn()) {
+                DiscountClassMap existing = discountclassmapService.getDiscountClassMapById(id).orElse(null);
+                if (existing == null) {
+                    redirectAttributes.addFlashAttribute("error", "Discount-Class mapping not found.");
+                    return "redirect:/admin/discount-class";
+                }
+                School school = (School) model.getAttribute("school");
+                if (school == null || existing.getSchool() == null
+                        || !existing.getSchool().getId().equals(school.getId())) {
+                    redirectAttributes.addFlashAttribute("error", "You do not have access to that Discount-Class mapping.");
+                    return "redirect:/admin/discount-class";
+                }
+            }
             String returnMsg = discountclassmapService.delete(id);
             if ("success".equals(returnMsg)) {
-                response.put("status", "success");
-                response.put("message", "Discount-Class mapping deleted.");
+                redirectAttributes.addFlashAttribute("success", "Discount-Class mapping deleted successfully.");
             } else {
-                response.put("status", "error");
-                response.put("message", "Failed to delete Discount-Class mapping.");
+                redirectAttributes.addFlashAttribute("error", "Failed to delete Discount-Class mapping.");
             }
         }catch(ObjectNotDeleteException oe){
-            response.put("status", "error");
-            response.put("message", "Error in deletion: " + oe.getLocalizedMessage());
+            redirectAttributes.addFlashAttribute("error", "Error in deletion: " + oe.getLocalizedMessage());
         } catch (Exception e){
-            response.put("status", "error");
-            response.put("message", "Error in deletion: " + e.getLocalizedMessage());
+            redirectAttributes.addFlashAttribute("error", "Error in deletion: " + e.getLocalizedMessage());
         }
-        return response;
+        return "redirect:/admin/discount-class";
     }
 
     /*****************************  Discount-Month Mapping Code starts here  ********************************/
@@ -1084,6 +1351,16 @@ public class GlobalController extends BaseController {
             AcademicYear academicYear = (AcademicYear)model.getAttribute("academicYear");
             Discounthead feehead = discountMonthMaps.get(0).getDiscounthead();
             for (DiscountMonthMap fee : discountMonthMaps) {
+                // Same tampered-hidden-id hijack risk as the Fee-Class/Fee-Month/
+                // Discount-Class Add-matrix flows above.
+                if (fee.getId() != null) {
+                    DiscountMonthMap existingRow = discountmonthmapService.getDiscountMonthMapById(fee.getId()).orElse(null);
+                    if (existingRow == null || existingRow.getSchool() == null
+                            || !existingRow.getSchool().getId().equals(school.getId())) {
+                        redirectAttributes.addFlashAttribute("error", "You do not have access to one of the selected months.");
+                        return "redirect:/admin/discount-month";
+                    }
+                }
                 fee.setAcademicYear(academicYear);
                 fee.setSchool(school);
                 fee.setDiscounthead(feehead);
@@ -1106,10 +1383,18 @@ public class GlobalController extends BaseController {
 
     @CheckAccess(screen = "ADMIN_DISCOUNT_MONTH", type = AccessType.EDIT)
     @GetMapping("/discount-month/edit/{id}")
-    public String editDiscountMonthForm(@PathVariable("id")Long id, Model model){
+    public String editDiscountMonthForm(@PathVariable("id")Long id, Model model, RedirectAttributes ra){
         log.info("Inside editDiscountMonthForm");
         DiscountMonthMap discountMonthMap = discountmonthmapService.getDiscountMonthMapById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid discount-month Id:" + id));
+        if (!isSuperAdminLoggedIn()) {
+            School school = (School) model.getAttribute("school");
+            if (school == null || discountMonthMap.getSchool() == null
+                    || !discountMonthMap.getSchool().getId().equals(school.getId())) {
+                ra.addFlashAttribute("error", "You do not have access to that Discount-Month mapping.");
+                return "redirect:/admin/discount-month";
+            }
+        }
         model.addAttribute("discountmonthmap",discountMonthMap);
         model.addAttribute("monthname",discountMonthMap.getMonthMaster().getMonthName());
         return "admin/edit-discountmonthmap";
@@ -1123,9 +1408,25 @@ public class GlobalController extends BaseController {
             return "admin/edit-discountmonthmap";
         }
         try{
-            discountMonthMap.setUpdatedBy(userService.getLoggedInUser());
-            discountmonthmapService.saveDiscountMonth(discountMonthMap);
-            ra.addFlashAttribute("info", "Discount-Month mapping updated for Fee: "+discountMonthMap.getDiscounthead().getDiscountName());
+            // Same hidden-field tampering risk as Discount-Class mapping: re-fetch
+            // the real row by id, confirm ownership, then apply only the fields
+            // the edit form actually lets a user change (Applicable/Description -
+            // Discounthead/Month are shown read-only in the UI).
+            DiscountMonthMap existing = discountmonthmapService.getDiscountMonthMapById(discountMonthMap.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid discount-month Id:" + discountMonthMap.getId()));
+            if (!isSuperAdminLoggedIn()) {
+                School school = (School) model.getAttribute("school");
+                if (school == null || existing.getSchool() == null
+                        || !existing.getSchool().getId().equals(school.getId())) {
+                    ra.addFlashAttribute("error", "You do not have access to that Discount-Month mapping.");
+                    return "redirect:/admin/discount-month";
+                }
+            }
+            existing.setIsApplicable(discountMonthMap.getIsApplicable());
+            existing.setDescription(discountMonthMap.getDescription());
+            existing.setUpdatedBy(userService.getLoggedInUser());
+            discountmonthmapService.saveDiscountMonth(existing);
+            ra.addFlashAttribute("info", "Discount-Month mapping updated for Fee: "+existing.getDiscounthead().getDiscountName());
         }catch(Exception e){
             e.printStackTrace();
             model.addAttribute("error","Error: "+e.getLocalizedMessage());
@@ -1136,27 +1437,34 @@ public class GlobalController extends BaseController {
 
     @CheckAccess(screen = "ADMIN_DISCOUNT_MONTH", type = AccessType.DELETE)
     @PostMapping("/discount-month/delete/{id}")
-    @ResponseBody
-    public Map<String, String> deleteDiscountMonthMap(@PathVariable("id")Long id){
+    public String deleteDiscountMonthMap(@PathVariable("id")Long id, Model model, RedirectAttributes redirectAttributes){
         log.info("Inside deleteDiscountMonthMap");
-        Map<String, String> response = new HashMap<>();
         try{
+            if (!isSuperAdminLoggedIn()) {
+                DiscountMonthMap existing = discountmonthmapService.getDiscountMonthMapById(id).orElse(null);
+                if (existing == null) {
+                    redirectAttributes.addFlashAttribute("error", "Discount-Month mapping not found.");
+                    return "redirect:/admin/discount-month";
+                }
+                School school = (School) model.getAttribute("school");
+                if (school == null || existing.getSchool() == null
+                        || !existing.getSchool().getId().equals(school.getId())) {
+                    redirectAttributes.addFlashAttribute("error", "You do not have access to that Discount-Month mapping.");
+                    return "redirect:/admin/discount-month";
+                }
+            }
             String returnMsg = discountmonthmapService.delete(id);
             if ("success".equals(returnMsg)) {
-                response.put("status", "success");
-                response.put("message", "Discount-Month mapping deleted.");
+                redirectAttributes.addFlashAttribute("success", "Discount-Month mapping deleted successfully.");
             } else {
-                response.put("status", "error");
-                response.put("message", "Failed to delete Discount-Month mapping.");
+                redirectAttributes.addFlashAttribute("error", "Failed to delete Discount-Month mapping.");
             }
         }catch(ObjectNotDeleteException oe){
-            response.put("status", "error");
-            response.put("message", "Error in deletion: " + oe.getLocalizedMessage());
+            redirectAttributes.addFlashAttribute("error", "Error in deletion: " + oe.getLocalizedMessage());
         } catch (Exception e){
-            response.put("status", "error");
-            response.put("message", "Error in deletion: " + e.getLocalizedMessage());
+            redirectAttributes.addFlashAttribute("error", "Error in deletion: " + e.getLocalizedMessage());
         }
-        return response;
+        return "redirect:/admin/discount-month";
     }
 
 
@@ -1171,6 +1479,7 @@ public class GlobalController extends BaseController {
         List<FullPayment> fullPaymentList = fullpaymentService.getAllFullPayments(school.getId(), academicYear.getId());
         model.addAttribute("fullpayments", fullPaymentList);
         model.addAttribute("hasFullPayment", !fullPaymentList.isEmpty());
+        model.addAttribute("page", "datatable");
         return "admin/fullpayment";
     }
 
@@ -1196,6 +1505,20 @@ public class GlobalController extends BaseController {
         try{
             School school = (School)model.getAttribute("school");
             AcademicYear academicYear = (AcademicYear)model.getAttribute("academicYear");
+            // A tampered hidden "id" on the edit form could point at another
+            // school's Full-Payment record - without this check, setSchool()
+            // below would silently reassign (hijack) that record into the
+            // caller's own school and overwrite its fields. Same pattern as
+            // saveFineData.
+            if (fullPayment.getId() != null && !isSuperAdminLoggedIn()) {
+                FullPayment existingFullPayment = fullpaymentService.getFullPaymentById(fullPayment.getId())
+                        .orElseThrow(() -> new IllegalArgumentException("Invalid full-payment Id:" + fullPayment.getId()));
+                if (school == null || existingFullPayment.getSchool() == null
+                        || !existingFullPayment.getSchool().getId().equals(school.getId())) {
+                    ra.addFlashAttribute("error", "You do not have access to that Full-Payment record.");
+                    return "redirect:/admin/full-payment-discount";
+                }
+            }
             fullPayment.setAcademicYear(academicYear);
             fullPayment.setSchool(school);
             String returnMsg = "Full-payment saved successfully for: "+fullPayment.getGrade().getGradeName();
@@ -1224,10 +1547,18 @@ public class GlobalController extends BaseController {
     }
     @CheckAccess(screen = "ADMIN_FULL_PAYMENT", type = AccessType.EDIT)
     @GetMapping("/full-payment-discount/edit/{id}")
-    public String editFullPayment(@PathVariable("id")Long id, Model model){
+    public String editFullPayment(@PathVariable("id")Long id, Model model, RedirectAttributes ra){
         log.info("Inside editFullPayment");
         FullPayment fullPayment = fullpaymentService.getFullPaymentById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid full-payment Id:" + id));
+        if (!isSuperAdminLoggedIn()) {
+            School school = (School) model.getAttribute("school");
+            if (school == null || fullPayment.getSchool() == null
+                    || !fullPayment.getSchool().getId().equals(school.getId())) {
+                ra.addFlashAttribute("error", "You do not have access to that Full-Payment record.");
+                return "redirect:/admin/full-payment-discount";
+            }
+        }
         model.addAttribute("fullpayment",fullPayment);
         model.addAttribute("mediums", mediumService.getAllMediums());
         return "admin/edit-fullpayment";
@@ -1235,27 +1566,34 @@ public class GlobalController extends BaseController {
 
     @CheckAccess(screen = "ADMIN_FULL_PAYMENT", type = AccessType.DELETE)
     @PostMapping("/full-payment-discount/delete/{id}")
-    @ResponseBody
-    public Map<String, String> deleteFullPaymentMap(@PathVariable("id")Long id){
+    public String deleteFullPaymentMap(@PathVariable("id")Long id, Model model, RedirectAttributes redirectAttributes){
         log.info("Inside deleteFullPaymentMap");
-        Map<String, String> response = new HashMap<>();
         try{
+            if (!isSuperAdminLoggedIn()) {
+                FullPayment existing = fullpaymentService.getFullPaymentById(id).orElse(null);
+                if (existing == null) {
+                    redirectAttributes.addFlashAttribute("error", "Full-Payment record not found.");
+                    return "redirect:/admin/full-payment-discount";
+                }
+                School school = (School) model.getAttribute("school");
+                if (school == null || existing.getSchool() == null
+                        || !existing.getSchool().getId().equals(school.getId())) {
+                    redirectAttributes.addFlashAttribute("error", "You do not have access to that Full-Payment record.");
+                    return "redirect:/admin/full-payment-discount";
+                }
+            }
             String returnMsg = fullpaymentService.deleteFullPayment(id);
             if ("success".equals(returnMsg)) {
-                response.put("status", "success");
-                response.put("message", "Full-Payment record deleted.");
+                redirectAttributes.addFlashAttribute("success", "Full-Payment record deleted successfully.");
             } else {
-                response.put("status", "error");
-                response.put("message", "Failed to delete Full-Payment.");
+                redirectAttributes.addFlashAttribute("error", "Failed to delete Full-Payment record.");
             }
         }catch(ObjectNotDeleteException oe){
-            response.put("status", "error");
-            response.put("message", "Error in deletion: " + oe.getLocalizedMessage());
+            redirectAttributes.addFlashAttribute("error", "Error in deletion: " + oe.getLocalizedMessage());
         } catch (Exception e){
-            response.put("status", "error");
-            response.put("message", "Error in deletion: " + e.getLocalizedMessage());
+            redirectAttributes.addFlashAttribute("error", "Error in deletion: " + e.getLocalizedMessage());
         }
-        return response;
+        return "redirect:/admin/full-payment-discount";
     }
 
     /*************************** User-Role *************************/
@@ -1482,6 +1820,8 @@ public class GlobalController extends BaseController {
         List<Holiday> holidayList = holidayService.getAllHoliday(academicYear.getId(), school.getId());
         model.addAttribute("holidays", holidayList);
         model.addAttribute("isHoliDays", !holidayList.isEmpty());
+        // Needed for the inline "quick add" panel's th:object="${holiday}" binding.
+        model.addAttribute("holiday", new Holiday());
         return "admin/holiday";
     }
 
@@ -1498,7 +1838,9 @@ public class GlobalController extends BaseController {
     public String save(@Valid @ModelAttribute("holiday")Holiday holiday, BindingResult result, Model model, RedirectAttributes redirectAttributes){
         log.info("Inside save");
         if(result.hasErrors()){
-            model.addAttribute("error", result.getFieldError());
+            // Was the raw FieldError object - see the identical comment on
+            // Fee Date's save() for why this is now a plain message string.
+            model.addAttribute("error", result.getFieldError() != null ? result.getFieldError().getDefaultMessage() : "Please check the highlighted fields.");
             return "admin/add-holiday";
         }
         try{
@@ -1524,26 +1866,23 @@ public class GlobalController extends BaseController {
         }
         return "redirect:/admin/holidays";
     }
+    // Converted from @ResponseBody JSON to a plain redirect + flash message -
+    // see the identical comment on Fee Date's deleteFeeDate() above.
     @CheckAccess(screen = "ADMIN_HOLIDAY", type = AccessType.DELETE)
     @PostMapping("/holiday/delete/{id}")
-    @ResponseBody
-    public Map<String, String> deleteHoliday(@PathVariable("id")Long id){
+    public String deleteHoliday(@PathVariable("id")Long id, RedirectAttributes redirectAttributes){
         log.info("Inside deleteHoliday");
-        Map<String, String> response = new HashMap<>();
         try{
             String returnMsg = holidayService.delete(id);
             if ("success".equals(returnMsg)) {
-                response.put("status", "success");
-                response.put("message", "Holiday deleted.");
+                redirectAttributes.addFlashAttribute("success", "Holiday deleted successfully.");
             } else {
-                response.put("status", "error");
-                response.put("message", "Failed to delete holiday.");
+                redirectAttributes.addFlashAttribute("error", "Failed to delete holiday.");
             }
         }catch(Exception e){
-            response.put("status", "error");
-            response.put("message", "Error in deletion: " + e.getLocalizedMessage());
+            redirectAttributes.addFlashAttribute("error", "Error in deletion: " + e.getLocalizedMessage());
         }
-        return response;
+        return "redirect:/admin/holidays";
     }
 
     /******************************* Examination Code Starts Here *******************************/
@@ -1554,6 +1893,8 @@ public class GlobalController extends BaseController {
         List<Examination> examinationList = examinationService.getAllExamination();
         model.addAttribute("examinations", examinationList);
         model.addAttribute("isExamination", !examinationList.isEmpty());
+        // Needed for the inline "quick add" panel's th:object="${examination}" binding.
+        model.addAttribute("examination", new Examination());
         return "admin/examination";
     }
 
@@ -1565,26 +1906,23 @@ public class GlobalController extends BaseController {
         return "admin/add-examination";
     }
 
+    // Converted from @ResponseBody JSON to a plain redirect + flash message -
+    // see the identical comment on Fee Date's deleteFeeDate() above.
     @CheckAccess(screen = "ADMIN_EXAM", type = AccessType.DELETE)
     @PostMapping("/examination/delete/{id}")
-    @ResponseBody
-    public Map<String, String> deleteExamination(@PathVariable("id")String uuid){
+    public String deleteExamination(@PathVariable("id")String uuid, RedirectAttributes redirectAttributes){
         log.info("Inside deleteExamination");
-        Map<String, String> response = new HashMap<>();
         try{
             String returnMsg = examinationService.deleteExamination(uuid);
             if ("success".equals(returnMsg)) {
-                response.put("status", "success");
-                response.put("message", "Examination deleted.");
+                redirectAttributes.addFlashAttribute("success", "Examination deleted successfully.");
             } else {
-                response.put("status", "error");
-                response.put("message", "Failed to delete examination.");
+                redirectAttributes.addFlashAttribute("error", "Failed to delete examination.");
             }
         }catch(Exception e){
-            response.put("status", "error");
-            response.put("message", "Error in deletion: " + e.getLocalizedMessage());
+            redirectAttributes.addFlashAttribute("error", "Error in deletion: " + e.getLocalizedMessage());
         }
-        return response;
+        return "redirect:/admin/examinations";
     }
 
     @CheckAccess(screen = "ADMIN_EXAM", type = AccessType.CREATE)
@@ -1592,7 +1930,9 @@ public class GlobalController extends BaseController {
     public String save(@Valid @ModelAttribute("examination")Examination examination, BindingResult result, Model model, RedirectAttributes redirectAttributes){
         log.info("Inside save");
         if(result.hasErrors()){
-            model.addAttribute("error", result.getFieldError());
+            // Was the raw FieldError object - see the identical comment on
+            // Fee Date's save() for why this is now a plain message string.
+            model.addAttribute("error", result.getFieldError() != null ? result.getFieldError().getDefaultMessage() : "Please check the highlighted fields.");
             return "admin/add-examination";
         }
         try{
@@ -1624,6 +1964,14 @@ public class GlobalController extends BaseController {
         List<ExamDetails> examinationList = examinationService.getAllExaminationDates(academicYear.getId(), school.getId());
         model.addAttribute("examinations", examinationList);
         model.addAttribute("isExamination", !examinationList.isEmpty());
+        // Needed for the inline "quick add" panel's th:object="${examDetails}"
+        // binding and its Examination dropdown - note this "examinations"
+        // model key is intentionally overwritten below: the list rows above use
+        // the ExamDetails list under the same name, but the inline panel's
+        // <select> needs the Examination master list instead, and the panel
+        // renders after the table in the page, so the later value wins.
+        model.addAttribute("examDetails", new ExamDetails());
+        model.addAttribute("examinationOptions", examinationService.getAllExamination());
         return "admin/examination_date";
     }
 
@@ -1642,7 +1990,9 @@ public class GlobalController extends BaseController {
         log.info("Inside save");
         model.addAttribute("examinations", examinationService.getAllExamination());
         if(result.hasErrors()){
-            model.addAttribute("error", result.getFieldError());
+            // Was the raw FieldError object - see the identical comment on
+            // Fee Date's save() for why this is now a plain message string.
+            model.addAttribute("error", result.getFieldError() != null ? result.getFieldError().getDefaultMessage() : "Please check the highlighted fields.");
             //model.addAttribute("examinations", examinationService.getAllExamination());
             return "admin/add-examination-details";
         }
@@ -1671,26 +2021,23 @@ public class GlobalController extends BaseController {
         return "redirect:/admin/examinations-date";
     }
 
+    // Converted from @ResponseBody JSON to a plain redirect + flash message -
+    // see the identical comment on Fee Date's deleteFeeDate() above.
     @CheckAccess(screen = "ADMIN_EXAM_DATE", type = AccessType.DELETE)
     @PostMapping("/examinations-detail/delete/{id}")
-    @ResponseBody
-    public Map<String, String> deleteExaminationDetail(@PathVariable("id")String uuid){
+    public String deleteExaminationDetail(@PathVariable("id")String uuid, RedirectAttributes redirectAttributes){
         log.info("Inside deleteExaminationDetail");
-        Map<String, String> response = new HashMap<>();
         try{
             String returnMsg = examinationService.deleteExamDetails(uuid);
             if ("success".equals(returnMsg)) {
-                response.put("status", "success");
-                response.put("message", "Examination detail deleted.");
+                redirectAttributes.addFlashAttribute("success", "Examination detail deleted successfully.");
             } else {
-                response.put("status", "error");
-                response.put("message", "Failed to delete examination detail.");
+                redirectAttributes.addFlashAttribute("error", "Failed to delete examination detail.");
             }
         }catch(Exception e){
-            response.put("status", "error");
-            response.put("message", "Error in deletion: " + e.getLocalizedMessage());
+            redirectAttributes.addFlashAttribute("error", "Error in deletion: " + e.getLocalizedMessage());
         }
-        return response;
+        return "redirect:/admin/examinations-date";
     }
 
 }

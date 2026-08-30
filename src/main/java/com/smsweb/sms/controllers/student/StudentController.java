@@ -538,15 +538,32 @@ public class StudentController extends BaseController {
 
         return "student/inactive-students";
     }
+    // Was a @GetMapping: a state-changing action reachable by a plain GET is
+    // not covered by Spring Security's CSRF check (CSRF only guards
+    // POST/PUT/PATCH/DELETE), so any page an authenticated admin visited
+    // could silently trigger this via e.g. an <img src="...delete-student/5">
+    // tag. Switched to POST - the confirmation modal's JS now submits a real
+    // form instead of doing window.location.href, so the browser sends the
+    // CSRF token like every other POST form in this app already does. Same
+    // fix applied to EmployeeController#deleteEmployee alongside this one.
     @CheckAccess(screen = "STUDENT_DELETE", type = AccessType.DELETE)
-    @GetMapping("/delete-student/{deleteId}")
+    @PostMapping("/delete-student/{deleteId}")
     public String deleteStudent(@PathVariable("deleteId")String id, Model model, RedirectAttributes redirectAttributes){
         log.info("Inside deleteStudent");
         log.info("Inside deleteStudent");
         String msg = studentService.deleteStudent(Long.valueOf(id));
         if(msg.contains("success")){
             redirectAttributes.addFlashAttribute("success",msg.split("#####")[1]);
-        } else if(msg.contains("Error")){
+        } else {
+            // Was `else if(msg.contains("Error"))` (capital E) - the service
+            // actually returns "error#####..." (lowercase), so this branch's
+            // condition could never match and a real save/delete exception
+            // here silently redirected with no error toast at all. Changed
+            // to a catch-all else so any non-"success" outcome now surfaces.
+            // The Model attributes below were already dead code regardless
+            // (a redirect: return ignores Model, only RedirectAttributes
+            // survives it) - left as-is since removing them is out of scope
+            // here and they're harmless.
             School school = (School)model.getAttribute("school");
             List<Student> studentList = studentService.getAllActiveStudentsOfSchool(school.getId());
             model.addAttribute("students", studentList);

@@ -333,6 +333,14 @@
     </div>
   </div>
 
+  <!-- Real POST form the confirm button submits (was window.location.href to
+       a GET URL - see the comment above StudentController#deleteStudent for
+       why that changed). th:action gets its _csrf hidden field auto-injected
+       by Thymeleaf at render time like every other POST form in this app;
+       the "0" is a harmless placeholder, JS overwrites it with the real id
+       right before every submit. -->
+  <form id="deleteStudentPostForm" method="post" th:action="@{/student/delete-student/0}" style="display:none"></form>
+
 
   <!-- Powers the custom Print button below (not part of base.html's global
        scripts — only loaded where a page actually needs it, same as
@@ -731,11 +739,16 @@
     let deleteId = null;
     const contextPath = /*[[@{/}]]*/ '/';
 
-    // Handle the deletion when "Delete" button is clicked in the modal
+    // Handle the deletion when "Delete" button is clicked in the modal.
+    // Submits a real POST (not a GET navigation) so the delete is covered by
+    // Spring Security's CSRF check - the hidden form's _csrf field was
+    // auto-injected by Thymeleaf at page render time (see the form's own
+    // comment). Only the action's id segment needs to be swapped in per click.
     $('#confirmDeleteButton').on('click', function () {
       if (deleteId) {
-        // Redirect to the delete URL
-        window.location.href = `${contextPath}student/delete-student/${deleteId}`;
+        const $form = $('#deleteStudentPostForm');
+        $form.attr('action', `${contextPath}student/delete-student/${deleteId}`);
+        $form.trigger('submit');
       }
     });
 

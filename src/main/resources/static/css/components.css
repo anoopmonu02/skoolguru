@@ -177,7 +177,15 @@ button.logout-btn.dropdown-item { width: 100%; }
     transition: max-height var(--transition), opacity var(--transition), margin var(--transition);
 }
 .inline-panel.open {
-    max-height: 100px;
+    /* Was 100px, which only fit a single row of 1-2 short inputs (Bank,
+       Medium, Grade, ...). Forms with more/wider fields (Holiday: name +
+       start + end + description; Fee-Date/Examination-Date: a dropdown +
+       date + description) wrap onto a second line via flex-wrap above, but
+       overflow:hidden then clipped that second line, making fields look
+       like they were spilling out of the box. Raised to fit up to ~3 wrapped
+       rows; shorter panels are unaffected since this is only an upper bound,
+       not a fixed height. */
+    max-height: 320px;
     opacity: 1;
     margin-bottom: 16px;
 }
@@ -232,6 +240,16 @@ button.logout-btn.dropdown-item { width: 100%; }
 .inline-panel-form .form-control:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-light);
+}
+/* Groups Save+Cancel as a single flex item so a form with more fields than
+   fit on one line (Holiday: name+start+end+description; Fee-Date/
+   Examination-Date: a dropdown+date+description) wraps them together onto
+   their own line instead of Save staying up top and Cancel dropping alone
+   underneath it. */
+.inline-panel-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
 /* Shared "solid accent" / "ghost" button pair for Save/Cancel on both the

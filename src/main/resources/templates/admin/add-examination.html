@@ -53,6 +53,14 @@
   </div>
 
   <script type="text/javascript" th:inline="javascript">
+    // Surfaces a same-page validation/duplicate error (set as a plain model
+    // attribute when this form re-renders after a failed POST) - was set
+    // server-side but never actually displayed anywhere on this page.
+    const examinationErrorMessage = [[${error}]];
+    $(document).ready(function () {
+      if (examinationErrorMessage) showMsg("error", examinationErrorMessage, "Error");
+    });
+
     toastr.options = {
       "closeButton": true,
       "debug": false,

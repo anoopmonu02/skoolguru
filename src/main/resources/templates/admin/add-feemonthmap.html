@@ -2,91 +2,123 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="~{base::Layout(~{::section})}" th:inline="javascript">
 <head>
   <meta charset="UTF-8">
-  <title>Add academic year</title>
+  <title>Add Fee-Month Mapping</title>
 </head>
 <body>
 
 <section class="container-fluid px-3">
-  <div class="mt-2 gy-5 mb-5">
+  <!-- Light-touch restyle only: the picker row and the wrapper card below
+       get the app's visual language (rounded card, polished selects/
+       buttons), and the dynamically-built fee-month table gets the same
+       look via plain CSS selectors on its existing tag/class names.
+       loadFeeData() and every string it writes (ids, names, classes) below
+       are untouched - this whole flow is a multi-field matrix submit, not
+       a simple form, so the JS itself is out of scope for this pass. -->
+  <style>
+    .form-card-wrap { max-width: 900px; margin: 4px auto 40px; }
+    .form-card {
+      background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm); padding: 26px 28px 22px;
+    }
+    .form-card .form-label { font-size: 12.5px; font-weight: 700; color: var(--text-muted); margin-bottom: 5px; }
+    .form-card .form-control, .form-card .form-select, .form-card .form-control-sm {
+      border-radius: 10px; border: 1px solid var(--border-color); font-size: 13.8px;
+    }
+    .form-card .form-control:focus, .form-card .form-select:focus {
+      border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light);
+    }
+    .form-card .picker-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px dashed var(--border-color); }
+    .form-card .picker-row > div { min-width: 180px; }
+    #result table { width: 100%; border-collapse: collapse; font-size: 13.8px; }
+    #result table thead th {
+      text-align: left; padding: 10px 14px; color: var(--text-muted); font-weight: 700;
+      font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+      background: var(--body-bg); white-space: nowrap; border-bottom: 1px solid var(--border-color);
+    }
+    #result table tbody td {
+      padding: 10px 14px; vertical-align: middle;
+      border-bottom: 1px solid var(--border-color); background: transparent;
+    }
+    #result table tbody tr:last-child td { border-bottom: none; }
+    #result table input.form-check-input { width: 18px; height: 18px; cursor: pointer; }
+    .form-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 22px; gap: 10px; padding-top: 18px; border-top: 1px dashed var(--border-color); }
+    .form-btn {
+      border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-primary);
+      padding: 9px 18px; border-radius: 10px; font-size: 13.8px; font-weight: 700;
+      display: inline-flex; align-items: center; gap: 8px; text-decoration: none; cursor: pointer;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    .form-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .form-btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .form-btn-primary:hover { background: var(--accent); opacity: .92; color: #fff; }
+    .form-btn:disabled { opacity: .5; cursor: not-allowed; }
+    #result table tbody tr:hover td { background: var(--body-bg); }
+    #result table tbody td:first-child, #result table thead th:first-child { text-align: center; width: 48px; color: var(--text-muted); }
+    .table-empty-state { padding: 34px 10px; text-align: center; color: var(--text-muted); font-size: 13.5px; }
+    .table-empty-state .spinner-border { width: 1rem; height: 1rem; margin-right: 8px; vertical-align: -2px; }
+    .select-all-label { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; cursor: pointer; }
+    .select-all-label input { width: 15px; height: 15px; cursor: pointer; }
+  </style>
+
+  <div class="form-card-wrap">
     <div th:replace="~{components/ui :: page-header('Fee-Month Mapping Form')}"></div>
 
-
-    <div class="row g-5">
-      <div class="col-auto">
-        <label for="feeclass" class="form-label">Select Fee</label>
-      </div>
-      <div class="col-auto">
-
-        <select id="feeclass" class="form-select" name="feeclass">
-          <option value="">Select Fee</option>
-          <option th:each="fee : ${fees}" th:value="${fee.id}" th:text="${fee.feeHeadName}">Fee</option>
-        </select>
-      </div>
-      <div class="col-auto">
-         <label for="aa" class="visually-hidden">Button</label>
-        &nbsp;<button id="aa" class="btn btn-primary" onclick="loadFeeData()"><i class="bi bi-search"></i> Get Months</button>
+    <div class="form-card">
+      <div class="picker-row">
+        <div>
+          <label for="feeclass" class="form-label">Select Fee</label>
+          <select id="feeclass" class="form-select" name="feeclass">
+            <option value="">Select Fee</option>
+            <option th:each="fee : ${fees}" th:value="${fee.id}" th:text="${fee.feeHeadName}">Fee</option>
+          </select>
+        </div>
+        <div>
+          <label for="aa" class="visually-hidden">Button</label>
+          <button id="aa" type="button" class="form-btn form-btn-primary" onclick="loadFeeData()"><i class="bi bi-search"></i> Get Months</button>
+        </div>
       </div>
 
-    </div>
-
-
-
-    <form th:action="@{/admin/fee-month}" th:object="${feeMonthMapWrapper}" method="post" >
-      <div class="row g-2">
-
-        <div class="col-md-7">
-          <!--<label for="school" class="form-label">School</label>-->
-          <input type="hidden" name="school_id" id="school_id" th:field="*{feeMonthMaps[0].school.id}"/>
-          <!--<input type="text" class="form-control" id="school" name="school" th:field="*{school.schoolName}"  readonly/>
-          <p class="text-danger" th:if="${#fields.hasErrors('school')}" th:errors="*{school}">school Error</p>-->
-        </div>
-        <div class="col-md-4">
-          &nbsp;<input type="hidden" name="academicYear" id="academicYear" th:field="*{feeMonthMaps[0].academicYear.id}" />
-        </div>
-        <div class="col-md-4">
-          &nbsp;<input type="hidden" name="feehead" id="feehead" th:field="*{feeMonthMaps[0].feehead}" />
-        </div>
+      <form th:action="@{/admin/fee-month}" th:object="${feeMonthMapWrapper}" method="post">
+        <input type="hidden" name="school_id" id="school_id" th:field="*{feeMonthMaps[0].school.id}"/>
+        <input type="hidden" name="academicYear" id="academicYear" th:field="*{feeMonthMaps[0].academicYear.id}" />
+        <input type="hidden" name="feehead" id="feehead" th:field="*{feeMonthMaps[0].feehead}" />
 
         <div id="result">
-
+          <div class="table-empty-state">Select a Fee above, then click &quot;Get Months&quot; to load the month mapping.</div>
         </div>
 
-
-
-
-        <hr/>
-        <div class="col-md-4">
-          <a class="btn btn-outline-secondary btn-sm" th:href="@{/admin/fee-month}"><i class="bi bi-arrow-left"></i> Back to List</a>
+        <div class="form-foot">
+          <a class="form-btn" th:href="@{/admin/fee-month}"><i class="bi bi-arrow-left"></i> Back to List</a>
+          <button id="savebtn" disabled="disabled" type="submit" class="form-btn form-btn-primary"><i class="bi bi-save2-fill"></i> Save</button>
         </div>
-        <div class="col-md-6 mb-5">
-          <button id="savebtn"  disabled="disabled" type="submit" class="btn btn-primary"><i class="bi bi-save2-fill"></i> Save</button>
-        </div>
-      </div>
-    </form>
-
-
-
-
-
+      </form>
+    </div>
   </div>
-
-  <!---->
-  <!--<script src="/js/jquery-3.6.0.min.js" />
-  <script src="/js/toastr.min.js" />-->
 
   <script type="text/javascript" th:inline="javascript">
     const contextPath = /*[[@{/}]]*/ '/';
-    
 
-
+    // Surfaces a same-page validation/duplicate error (set as a plain model
+    // attribute when this form re-renders after a failed POST) - was set
+    // server-side but never actually displayed anywhere on this page.
+    const feeMonthErrorMessage = [[${error}]];
+    $(document).ready(function () {
+      if (feeMonthErrorMessage) showMsg("error", feeMonthErrorMessage, "Error");
+    });
 
     function loadFeeData(){
-      $('#result').html('');
       let feeId = $('#feeclass').val();
+      if (!feeId) {
+        toastr["warning"]("Please select a Fee.", "Warning");
+        return;
+      }
+      $('#result').html('<div class="table-empty-state"><span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>Loading months…</div>');
+      $('#aa').prop('disabled', true);
       $.ajax({
         url: `${contextPath}admin/fee-month/getAllFeeMonthData/`+feeId, // URL of the Spring Boot endpoint
         type: 'POST',
         success: function(response) {
+          $('#aa').prop('disabled', false);
           let tableContent = '';
           console.log("response:"+response);
           $.each(response, function(key, subMap) {
@@ -94,7 +126,7 @@
             console.log("value:::"+subMap);
             if(key === 'success'){
               let index = 1;
-              tableContent = '<table class="table table-bordered table-striped table-hover table-sm" id="feeDataTable"><thead><tr><th>#</th><th>Month Name</th><th width="10%">Applicable</th><th>Description</th></tr></thead><tbody class="table-group-divider">';
+              tableContent = '<table class="fee-matrix-table" id="feeDataTable"><thead><tr><th>#</th><th>Month Name</th><th width="12%" class="text-center"><label class="select-all-label"><input type="checkbox" id="selectAllMonths" title="Toggle Applicable for all months"/>Applicable</label></th><th>Description</th></tr></thead><tbody>';
               $.each(subMap, function(subKey, value) {
                 //let feeObject = subKey.toJSON();
                 console.log("_____-----------__________"+value);
@@ -103,7 +135,7 @@
                 tableContent += '<td><input type="hidden" th:field="*{feeMonthMaps['+ (index-1) +'].monthMaster}" name="feeMonthMaps['+ (index-1) +'].monthMaster" value="'+subKey.split(':')[0] +'" />' + subKey.split(':')[1] + '</td>';
                 let isChecked = value===true ? 'checked' : '';
                 tableContent += '<td class="text-center"><input type="checkbox" class="form-check form-check-input" id="fee_' + subKey.split(':')[0] + '" name="feeMonthMaps['+ (index-1) +'].isApplicable" th:checked="'+ isChecked +'" value="true"'+ isChecked +' /></td>';
-                tableContent += '<td><input type="text" class="form-control" id="description_' + subKey.split(':')[0] + '" name="feeMonthMaps['+ (index-1) +'].description"/></td>';
+                tableContent += '<td><input type="text" class="form-control" id="description_' + subKey.split(':')[0] + '" name="feeMonthMaps['+ (index-1) +'].description" placeholder="Optional note"/></td>';
                 tableContent += '</tr>';
                 index++;
               });
@@ -111,9 +143,15 @@
               $('#result').html(tableContent);
               $('#feehead').val(feeId);
               document.getElementById("savebtn").disabled = false;
+              let allChecked = $('#result table tbody input[type="checkbox"]').length > 0
+                  && $('#result table tbody input[type="checkbox"]:checked').length === $('#result table tbody input[type="checkbox"]').length;
+              $('#selectAllMonths').prop('checked', allChecked);
+              $('#result').off('change.selectAll').on('change.selectAll', '#selectAllMonths', function(){
+                $('#result table tbody input[type="checkbox"]').prop('checked', $(this).is(':checked'));
+              });
             }
             else{
-              $('#result').html('<p class="text-center">No Fee-Month Mapping Data Found.</p>');
+              $('#result').html('<div class="table-empty-state">No Fee-Month Mapping Data Found.</div>');
               document.getElementById("savebtn").disabled = true;
             }
           });
@@ -126,6 +164,8 @@
 
         },
         error: function(error) {
+          $('#aa').prop('disabled', false);
+          $('#result').html('<div class="table-empty-state text-danger">Something went wrong while loading month data. Please try again.</div>');
           console.log(error);
         }
       });

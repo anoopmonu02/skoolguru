@@ -194,6 +194,29 @@ public class EmployeeService {
         return employeeRepository.findByUuidAndStatus(uuid, "Active");
     }
 
+    // Soft delete - mirrors StudentService#deleteStudent's convention exactly
+    // (same "success#####message" / "error#####message" return shape, parsed
+    // by the controller) so the two modules stay consistent. Nothing is
+    // hard-deleted: status flips to Inactive, which is what the Employee List
+    // page's Active-only queries (getAllActiveEmployees) already filter on -
+    // an Inactive employee simply stops appearing there for regular admins.
+    @Transactional
+    public String deleteEmployee(UUID uuid){
+        log.info("Inside deleteEmployee");
+        try{
+            Optional<Employee> employeeOptional = getEmployeeByUUID(uuid);
+            if(employeeOptional.isEmpty()){
+                return "error#####Employee not found";
+            }
+            Employee employee = employeeOptional.get();
+            employee.setStatus("Inactive");
+            employeeRepository.save(employee);
+            return "success#####Employee: " + employee.getEmployeeName() + " deleted successfully";
+        } catch(Exception e){
+            return "error#####" + e.getLocalizedMessage();
+        }
+    }
+
     public List<String> getExistingRoleNames(Long employeeId) {
         log.info("Inside getExistingRoleNames");
         Employee employee = employeeRepository.findById(employeeId).orElse(null);

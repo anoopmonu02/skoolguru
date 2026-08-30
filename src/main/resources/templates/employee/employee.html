@@ -4,235 +4,468 @@
       xmlns:sms="http://www.smsweb.com/thymeleaf" th:replace="~{base::Layout(~{::section})}">
 <head>
   <meta charset="UTF-8">
-  <title>UAIC - Student</title>
-
-
+  <title>UAIC - Employee</title>
 </head>
 <body>
 <section>
-    <div class="container-fluid px-3">
-        <div class="row mt-2 ">
-            <div class="col-md-12">
-                <div class="page-header page-header-row">
-                  <h1 class="page-header-title">Employee List</h1>
-                  <div class="page-header-actions">
-                    <a sms:access="EMPLOYEE_ADD:CREATE" class="btn btn-success btn-sm" th:href="@{/employee/employee-add}"><i class="bi bi-plus-lg"></i> Add Employee</a>
-                  </div>
-                </div>
 
-                <table class="table table-bordered table-striped table-hover table-sm" th:if="${hasEmployee}" id="employee-list">
-                    <thead>
-                        <tr>
-                            <th>Employee Name</th>
-                            <th>Employee#</th>
-                            <th>Designation</th>
-                            <th>Mobile</th>
-                            <th>Email</th>
-                            <th>Address</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="table-group-divider">
-                        <tr th:each="employee, iter : ${employees}">
-                            <td th:text="${employee.employeeName}"></td>
-                            <td th:text="${employee.employeeCode}"></td>
-                            <td th:text="${employee.designation}"></td>
-                            <td th:text="${employee.mobile1}"></td>
-                            <td th:text="${employee.getUserEntity().getEmail()}"></td>
-                            <td th:text="${employee.address}"></td>
-                            <td style="white-space: nowrap" class="text-center">
-                                <a sms:access="EMPLOYEE_EDIT:EDIT" class="btn btn-primary" th:href="@{/employee/employee-edit/{uuid}(uuid=${employee.uuid})}" data-bs-toggle="tooltip" data-bs-title="Default tooltip">
-                                    <i class="bi bi-pencil-square"></i> </a>
-                                <!-- Reset Password — ROLE_ADMIN/ROLE_SUPERADMIN only, and hidden on the
-                                     logged-in admin's own row (they use Change Password from the profile
-                                     menu instead, since that flow needs their current password). -->
-                                <button type="button" class="btn btn-warning"
-                                        sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN')"
-                                        th:if="${employee.userEntity == null or employee.userEntity.username != #authentication.name}"
-                                        th:data-uuid="${employee.uuid}" th:data-name="${employee.employeeName}"
-                                        onclick="openResetPasswordModal(this.dataset.uuid, this.dataset.name)"
-                                        data-bs-toggle="tooltip" data-bs-title="Reset this employee's login password">
-                                    <i class="bi bi-key-fill"></i> </button>
-                                <a sms:access="EMPLOYEE_DELETE:DELETE" class="btn btn-danger" th:href="@{/employee/employee-delete/{id}(id=${employee.uuid})}" data-bs-toggle="tooltip" data-bs-title="Default tooltip">
-                                    <i class="bi bi-trash3-fill"></i> </a>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-                <div th:if="${!hasEmployee}">
-                    <div th:replace="~{components/ui :: empty-state('No Employee found.', 'bi-inbox')}"></div>
-                </div>
-            </div>
+  <!-- Page-specific styling only — the table card/toolbar/export-button/
+       row/footer/pagination look now lives in static/css/list-table.css,
+       shared with Student List and any future list page (see the
+       list-page-header fragment usage below too). What's left here is
+       genuinely specific to this page. -->
+  <style>
+    #employee-list, #employee-list th, #employee-list td { font-size: .82rem; }
+    #employee-list td.text-nowrap { white-space: nowrap; }
+
+    /* Reset-password action keeps its own amber "warning" tint — there's no
+       shared .config-icon-btn.warning variant since this action is unique
+       to Employee. Rest-state color is set inline on the button; this adds
+       the matching hover state. */
+    .emp-icon-warning:hover {
+      background: #d97706 !important; border-color: #d97706 !important; color: #fff !important;
+    }
+  </style>
+
+  <div class="container-fluid px-3">
+    <div class="row mt-2 ">
+      <div class="col-md-12">
+        <div th:replace="~{components/ui :: list-page-header('Employee List', null, ~{::employeeActions})}"></div>
+        <!-- employeeActions is only ever meant to render once, inside the
+             list-page-header call above via ~{::employeeActions}. It cannot
+             carry th:remove itself: Thymeleaf extracts this node's markup
+             as-is for that fragment reference, so a th:remove on the node
+             is applied at BOTH the extraction site and this natural
+             position - it does not just hide the local copy, it deletes the
+             fragment content everywhere (confirmed: that is exactly what
+             made the button disappear entirely). Wrapping it in a plain
+             display:none div instead keeps this copy inert without
+             touching the copy Thymeleaf hands to list-page-header. -->
+        <div style="display:none">
+          <div th:fragment="employeeActions">
+            <a class="btn-cta" sms:access="EMPLOYEE_ADD:CREATE" th:href="@{/employee/employee-add}"><i class="bi bi-plus-lg"></i> Add Employee</a>
+          </div>
         </div>
-    </div>
 
-    <!-- Reset Password Modal -->
-    <div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title"><i class="bi bi-key-fill me-1"></i>Reset Password</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-            <p class="mb-2">Employee: <strong id="resetEmployeeLabel"></strong></p>
-            <label class="form-label small fw-semibold">New password</label>
-            <div class="input-group mb-2">
-              <input type="text" class="form-control" id="resetPasswordInput">
-              <button class="btn btn-outline-secondary" type="button" onclick="regeneratePassword()" title="Regenerate">
-                <i class="bi bi-arrow-clockwise"></i>
-              </button>
-              <button class="btn btn-outline-secondary" type="button" onclick="copyPassword()" title="Copy">
-                <i class="bi bi-clipboard"></i>
-              </button>
+        <!-- Total / Designations / New-this-month at a glance (see
+             EmployeeController.getEmployeeList — all three are derived from
+             the same `employees` list already fetched for the table below,
+             no extra queries). Employee has no working "inactive" concept
+             anywhere in the codebase (unlike Student), so this deliberately
+             isn't Total/Inactive/New-this-month — a distinct-designations
+             count is shown instead of a number that would always read 0.
+             .stat-tile-row/.stat-tile are already shared/global (see
+             components.css) — Student List uses the same classes. -->
+        <div class="stat-tile-row">
+          <div class="stat-tile">
+            <div class="stat-tile-icon" style="background:var(--accent-light);color:var(--accent)"><i class="bi bi-people-fill"></i></div>
+            <div>
+              <div class="stat-tile-val" th:text="${totalEmployeesCount ?: 0}">0</div>
+              <div class="stat-tile-lbl">Total employees</div>
             </div>
-            <p class="text-muted small mb-0">
-              The employee can use this password to log in immediately — share it with them directly.
-            </p>
           </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="button" class="btn btn-success" onclick="submitResetPassword()">
-              <i class="bi bi-check2-circle me-1"></i>Save New Password
-            </button>
+          <div class="stat-tile">
+            <div class="stat-tile-icon" style="background:rgba(124,58,237,.10);color:#7c3aed"><i class="bi bi-briefcase-fill"></i></div>
+            <div>
+              <div class="stat-tile-val" th:text="${distinctDesignationsCount ?: 0}">0</div>
+              <div class="stat-tile-lbl">Designations</div>
+            </div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-tile-icon" style="background:rgba(22,163,74,.10);color:#16a34a"><i class="bi bi-person-plus-fill"></i></div>
+            <div>
+              <div class="stat-tile-val" th:text="${newThisMonthCount ?: 0}">0</div>
+              <div class="stat-tile-lbl">New this month</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="list-table-card">
+          <div class="config-list-toolbar list-page-toolbar">
+            <div class="config-search-wrap">
+              <i class="bi bi-search"></i>
+              <input type="text" class="form-control form-control-sm" id="employeeSearchInput"
+                     placeholder="Search by name, employee#, mobile…">
+            </div>
+            <div id="empExportSlot" class="list-export-slot"></div>
+          </div>
+
+          <table class="table table-sm list-table" id="employee-list" th:if="${hasEmployee}">
+            <thead>
+            <tr>
+              <th>Employee Name</th>
+              <th>Employee#</th>
+              <th>Designation</th>
+              <th>Mobile</th>
+              <th>Email</th>
+              <th>Address</th>
+              <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="employee : ${employees}">
+              <td th:text="${employee.employeeName}"></td>
+              <td th:text="${employee.employeeCode}"></td>
+              <td th:text="${employee.designation}"></td>
+              <td th:text="${employee.mobile1}"></td>
+              <td th:text="${employee.getUserEntity().getEmail()}"></td>
+              <td th:text="${employee.address}"></td>
+              <td class="text-nowrap text-center">
+                <div class="row-actions">
+                  <a sms:access="EMPLOYEE_EDIT:EDIT" class="config-icon-btn" title="Edit"
+                     th:href="@{/employee/employee-edit/{uuid}(uuid=${employee.uuid})}">
+                    <i class="bi bi-pencil"></i></a>
+                  <!-- Reset Password — ROLE_ADMIN/ROLE_SUPERADMIN only, hidden on the
+                       logged-in admin's own row (they use Change Password from the
+                       profile menu instead, since that flow needs their current
+                       password). -->
+                  <button type="button" class="config-icon-btn emp-icon-warning" style="background:rgba(217,119,6,.10);color:#d97706"
+                          sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN')"
+                          th:if="${employee.userEntity == null or employee.userEntity.username != #authentication.name}"
+                          th:data-uuid="${employee.uuid}" th:data-name="${employee.employeeName}"
+                          onclick="openResetPasswordModal(this.dataset.uuid, this.dataset.name)"
+                          title="Reset this employee's login password">
+                    <i class="bi bi-key-fill"></i></button>
+                  <button type="button" sms:access="EMPLOYEE_DELETE:DELETE" class="config-icon-btn danger delete-btn" title="Delete"
+                          th:data-uuid="${employee.uuid}" th:data-name="${employee.employeeName}"
+                          th:data-designation="${employee.designation}" th:data-mobile="${employee.mobile1}"
+                          th:data-address="${employee.address}"
+                          data-bs-toggle="modal" data-bs-target="#deleteConfirmationModal">
+                    <i class="bi bi-trash3"></i></button>
+                </div>
+              </td>
+            </tr>
+            </tbody>
+          </table>
+
+          <div th:if="${!hasEmployee}" class="p-3">
+            <div th:replace="~{components/ui :: empty-state('No Employee found.', 'bi-inbox')}"></div>
+          </div>
+
+          <!-- Custom footer: rows-per-page + "Showing X-Y of Z" + page-number
+               pagination — built by the shared initListDataTable() helper
+               (static/js/list-table-init.js), same as Student List. -->
+          <div class="list-table-footer" th:if="${hasEmployee}">
+            <div class="list-footer-left">
+              <label class="list-length-label">Rows per page
+                <select id="empPageLength" class="list-length-select">
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                  <option value="25" selected>25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+              </label>
+              <span id="empPageInfo" class="list-page-info">Showing 0 of 0 employees</span>
+            </div>
+            <div class="list-pagination" id="empPagination"></div>
           </div>
         </div>
       </div>
     </div>
+  </div>
 
-    <script type="text/javascript" th:inline="javascript">
-        const contextPath = /*[[@{/}]]*/ '/';
-        let currentEmployeeUuid = null;
+  <!-- Delete Confirmation Modal -->
+  <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header bg-danger-subtle">
+          <h5 class="modal-title text-danger-emphasis" id="deleteConfirmationModalLabel">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>Remove Employee
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-3">You're about to remove the following employee from the active list:</p>
 
-        function openResetPasswordModal(employeeUuid, employeeName) {
-            currentEmployeeUuid = employeeUuid;
-            document.getElementById('resetEmployeeLabel').innerText = employeeName;
-            document.getElementById('resetPasswordInput').value = '';
-            new bootstrap.Modal(document.getElementById('resetPasswordModal')).show();
-            regeneratePassword();
-        }
+          <div class="border rounded p-3 mb-3 bg-light">
+            <div class="row gy-2">
+              <div class="col-12">
+                <small class="text-muted d-block">Employee Name</small>
+                <span class="fw-semibold" id="deleteEmployeeName">-</span>
+              </div>
+              <div class="col-6">
+                <small class="text-muted d-block">Designation</small>
+                <span class="fw-semibold" id="deleteDesignation">-</span>
+              </div>
+              <div class="col-6">
+                <small class="text-muted d-block">Mobile</small>
+                <span class="fw-semibold" id="deleteMobile">-</span>
+              </div>
+              <div class="col-12">
+                <small class="text-muted d-block">Address</small>
+                <span class="fw-semibold" id="deleteAddress">-</span>
+              </div>
+            </div>
+          </div>
 
-        function regeneratePassword() {
-            fetch(`${contextPath}employee/generate-password`, { headers: { 'Accept': 'application/json' } })
-                .then(res => res.json())
-                .then(data => { document.getElementById('resetPasswordInput').value = data.password || ''; })
-                .catch(err => console.error(err));
-        }
+          <div class="alert alert-warning d-flex align-items-start mb-0" role="alert">
+            <i class="bi bi-info-circle-fill me-2 mt-1"></i>
+            <div>
+              This employee will be removed from your active employee list.
+              Their record is safely preserved, not deleted.
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancel </button>
+          <button type="button" class="btn btn-danger" id="confirmDeleteButton"><i class="bi bi-trash3-fill"></i> Remove Employee </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-        function copyPassword() {
-            const input = document.getElementById('resetPasswordInput');
-            input.select();
-            navigator.clipboard?.writeText(input.value);
-            toastr.info('Password copied.', 'Copied');
-        }
+  <!-- Real POST form the confirm button submits - see comment above the
+       delete-btn markup for why this exists instead of a GET link/redirect. -->
+  <form id="deleteEmployeeForm" method="post" th:action="@{/employee/employee-delete/0}" style="display:none"></form>
 
-        function submitResetPassword() {
-            const newPassword = document.getElementById('resetPasswordInput').value;
-            if (!newPassword || newPassword.trim().length < 6) {
-                toastr.error('Password must be at least 6 characters.', 'Error');
-                return;
-            }
-            fetch(`${contextPath}employee/${currentEmployeeUuid}/reset-password`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ newPassword })
-            })
-                .then(res => res.json().then(data => ({ ok: res.ok, data })))
-                .then(({ ok, data }) => {
-                    if (!ok || data.error) {
-                        toastr.error((data && data.error) || 'Reset failed.', 'Error');
-                        return;
-                    }
-                    bootstrap.Modal.getInstance(document.getElementById('resetPasswordModal'))?.hide();
-                    toastr.success('Password reset successfully. Share it with the employee.', 'Success');
-                })
-                .catch(err => {
-                    console.error(err);
-                    toastr.error('Something went wrong while resetting the password.', 'Error');
-                });
-        }
+  <!-- Reset Password Modal -->
+  <div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-key-fill me-1"></i>Reset Password</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2">Employee: <strong id="resetEmployeeLabel"></strong></p>
+          <label class="form-label small fw-semibold">New password</label>
+          <div class="input-group mb-2">
+            <input type="text" class="form-control" id="resetPasswordInput">
+            <button class="btn btn-outline-secondary" type="button" onclick="regeneratePassword()" title="Regenerate">
+              <i class="bi bi-arrow-clockwise"></i>
+            </button>
+            <button class="btn btn-outline-secondary" type="button" onclick="copyPassword()" title="Copy">
+              <i class="bi bi-clipboard"></i>
+            </button>
+          </div>
+          <p class="text-muted small mb-0">
+            The employee can use this password to log in immediately — share it with them directly.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-success" onclick="submitResetPassword()">
+            <i class="bi bi-check2-circle me-1"></i>Save New Password
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-        $(document).ready(function () {
-            $('#employee-list').DataTable({
-                layout: {
-                    bottomEnd: {
-                        paging: {
-                            firstLast: false
-                        }
-                    },
-                    top1Start: {
-                        buttons: [
-                            {
-                                extend: 'excelHtml5',
-                                text: '<i class="bi bi-file-excel-fill text-success"></i>',
-                                titleAttr: 'Excel',
-                                title: 'Employees Data export',
-                                exportOptions: {
-                                    columns: [0, 1, 2, 3, 4, 5]
-                                }
-                            },
-                            {
-                                extend: 'csvHtml5',
-                                text: '<i class="bi bi-filetype-csv text-info"></i>',
-                                titleAttr: 'CSV',
-                                title: 'Employees Data export'
-                            },
-                            {
-                                extend: 'pdfHtml5',
-                                text: '<i class="bi bi-file-pdf-fill text-danger"></i>',
-                                titleAttr: 'PDF',
-                                title: 'Employees Data export',
-                                exportOptions: {
-                                    columns: [0, 1, 2, 3, 4, 5]
-                                }
-                            },
-                            'colvis'
-                        ]
-                    }
-                },
-                lengthMenu: [
-                    [5, 10, 25, 50, 100, -1],
-                    [5, 10, 25, 50, 100, 'All']
-                ],
-                pageLength: 25,
-                columnDefs: [
-                    { "orderable": false, "targets": [6] } // Disable sorting on the first and fourth columns
-                ]
-            });
-            $(".buttons-excel, .buttons-csv, .buttons-pdf").each(function() {
-                // Remove the btn-secondary class from each button
-                $(this).removeClass("btn-secondary");
-            });
-        });
+  <script type="text/javascript" th:inline="javascript">
+      const contextPath = /*[[@{/}]]*/ '/';
+      let currentEmployeeUuid = null;
 
-        toastr.options = {
-            "closeButton": true,
-            "debug": false,
-            "newestOnTop": true,
-            "progressBar": false,
-            "positionClass": "toast-top-right",
-            "preventDuplicates": false,
-            "onclick": null,
-            "showDuration": "600",
-            "hideDuration": "1000",
-            "timeOut": "5000",
-            "extendedTimeOut": "1000",
-            "showEasing": "swing",
-            "hideEasing": "linear",
-            "showMethod": "fadeIn",
-            "hideMethod": "fadeOut"
-        }
-        
+      // Flash-attribute success/error banner after redirects (e.g. after
+      // Add/Edit Employee saves and redirects back here) - same pattern as
+      // Student List (student.html). RedirectAttributes flash values are
+      // always plain strings from this controller (see
+      // EmployeeController#saveEmployee / #editEmployeeForm), so the bare
+      // inlined expressions below render as the literal null when absent,
+      // not the string undefined, and are safe to truthy-check directly.
+      const employeeSuccessMessage = [[${success}]];
+      const employeeErrorMessage   = [[${error}]];
+      $(document).ready(function () {
+          if (employeeSuccessMessage) showMsg("success", employeeSuccessMessage, "Success");
+          if (employeeErrorMessage)   showMsg("error", employeeErrorMessage, "Error");
+      });
 
-        
+      function openResetPasswordModal(employeeUuid, employeeName) {
+          currentEmployeeUuid = employeeUuid;
+          document.getElementById('resetEmployeeLabel').innerText = employeeName;
+          document.getElementById('resetPasswordInput').value = '';
+          new bootstrap.Modal(document.getElementById('resetPasswordModal')).show();
+          regeneratePassword();
+      }
 
-        
+      function regeneratePassword() {
+          fetch(`${contextPath}employee/generate-password`, { headers: { 'Accept': 'application/json' } })
+              .then(res => res.json())
+              .then(data => { document.getElementById('resetPasswordInput').value = data.password || ''; })
+              .catch(err => console.error(err));
+      }
 
-        
-    </script>
-  <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html
-       now loads them in <head>, so they are available before this page's
-       inline scripts run. They used to be duplicated on every page. -->
+      function copyPassword() {
+          const input = document.getElementById('resetPasswordInput');
+          input.select();
+          navigator.clipboard?.writeText(input.value);
+          toastr.info('Password copied.', 'Copied');
+      }
+
+      function submitResetPassword() {
+          const newPassword = document.getElementById('resetPasswordInput').value;
+          if (!newPassword || newPassword.trim().length < 6) {
+              toastr.error('Password must be at least 6 characters.', 'Error');
+              return;
+          }
+          fetch(`${contextPath}employee/${currentEmployeeUuid}/reset-password`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ newPassword })
+          })
+              .then(res => res.json().then(data => ({ ok: res.ok, data })))
+              .then(({ ok, data }) => {
+                  if (!ok || data.error) {
+                      toastr.error((data && data.error) || 'Reset failed.', 'Error');
+                      return;
+                  }
+                  bootstrap.Modal.getInstance(document.getElementById('resetPasswordModal'))?.hide();
+                  toastr.success('Password reset successfully. Share it with the employee.', 'Success');
+              })
+              .catch(err => {
+                  console.error(err);
+                  toastr.error('Something went wrong while resetting the password.', 'Error');
+              });
+      }
+
+      $(document).ready(function () {
+          if (!$('#employee-list').length) { return; } // empty-state — nothing to wire up
+
+          // Avatar-initials chip + Mobile masking — built client-side over the
+          // already server-rendered rows (Employee List isn't an AJAX
+          // DataTable, unlike Student List), using the shared .list-cell/
+          // .list-avatar classes (static/css/list-table.css) and the same
+          // mask-toggle markup/CSS Student List uses (.mask-cell etc., global
+          // in components.css). This must run BEFORE initListDataTable()
+          // below — DataTables indexes the existing DOM rows once at
+          // construction for a non-ajax table, but re-displaying/reordering
+          // them for sort/search/paging keeps using these same <tr>/<td>
+          // nodes, so content injected beforehand survives.
+          const avatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+          const initialsOf = function (name) {
+              return (name || '').trim().split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+          };
+          const escapeAttr = function (value) {
+              return String(value == null ? '' : value)
+                  .replace(/&/g, '&amp;')
+                  .replace(/"/g, '&quot;')
+                  .replace(/'/g, '&#39;')
+                  .replace(/</g, '&lt;')
+                  .replace(/>/g, '&gt;');
+          };
+          // Display-only masking — see the identical comment in
+          // student/student.html: this hides the value on screen with a
+          // click-to-reveal eye icon, it does not stop someone reading the
+          // real value elsewhere (e.g. view-source or this page's own DOM).
+          const maskMobile = function (raw) {
+              var v = String(raw || '');
+              if (v.length <= 4) { return v; }
+              return v.slice(0, 2) + 'x'.repeat(v.length - 4) + v.slice(-2);
+          };
+          const maskedCell = function (raw, maskFn) {
+              if (!raw) { return ''; }
+              var full = escapeAttr(raw);
+              var masked = escapeAttr(maskFn(raw));
+              return '<span class="mask-cell">' +
+                  '<span class="mask-text" data-full="' + full + '" data-masked="' + masked + '">' + masked + '</span>' +
+                  '<button type="button" class="mask-toggle" title="Show"><i class="bi bi-eye"></i></button>' +
+                  '</span>';
+          };
+          $('#employee-list tbody tr').each(function (idx) {
+              const $tds = $(this).find('td');
+              const $firstTd = $tds.eq(0);
+              const name = $firstTd.text().trim();
+              const color = avatarColors[idx % avatarColors.length];
+              $firstTd.html(
+                  '<div class="list-cell">' +
+                  '<div class="list-avatar" style="background:' + color + '22;color:' + color + '">' + initialsOf(name) + '</div>' +
+                  '<span class="list-name-text">' + escapeAttr(name) + '</span>' +
+                  '</div>'
+              );
+
+              const $mobileTd = $tds.eq(3);
+              const mobile = $mobileTd.text().trim();
+              $mobileTd.html(maskedCell(mobile, maskMobile));
+          });
+
+          // All the generic chrome (disabling DataTables' own top/bottom UI,
+          // the Excel/CSV/PDF/Print export buttons, the search box, rows-per-
+          // page select, and the "Showing X-Y of Z" + pagination footer) is
+          // handled by the shared helper — see static/js/list-table-init.js.
+          // Employee List's table is plain DOM rows (no ajax/serverSide),
+          // which is exactly the case that helper's own comments call out.
+          initListDataTable({
+              tableSelector: '#employee-list',
+              searchInputSelector: '#employeeSearchInput',
+              exportSlotSelector: '#empExportSlot',
+              lengthSelectSelector: '#empPageLength',
+              pageInfoSelector: '#empPageInfo',
+              paginationSelector: '#empPagination',
+              itemLabel: 'employees',
+              exportTitle: 'Employees Data export',
+              exportColumns: [0, 1, 2, 3, 4, 5],
+              printHeaderText: 'Employees',
+              dtOptions: {
+                  columnDefs: [{ orderable: false, targets: [6] }]
+              }
+          });
+
+          // Mask/reveal toggle for the Mobile cell.
+          $(document).on('click', '.mask-toggle', function () {
+              const $btn = $(this);
+              const $text = $btn.siblings('.mask-text');
+              const revealed = $text.attr('data-revealed') === 'true';
+              if (revealed) {
+                  $text.text($text.attr('data-masked')).attr('data-revealed', 'false');
+                  $btn.attr('title', 'Show').find('i').attr('class', 'bi bi-eye');
+              } else {
+                  $text.text($text.attr('data-full')).attr('data-revealed', 'true');
+                  $btn.attr('title', 'Hide').find('i').attr('class', 'bi bi-eye-slash');
+              }
+          });
+
+          // Wire up the delete confirmation modal — same event-delegation
+          // pattern Student List uses (rows are static here, not
+          // re-rendered by DataTables, but delegation keeps this identical
+          // in shape to Student's).
+          let deleteUuid = null;
+          $(document).on('click', '.delete-btn', function () {
+              const btn = $(this);
+              deleteUuid = btn.data('uuid');
+              $('#deleteEmployeeName').text(btn.data('name') || '-');
+              $('#deleteDesignation').text(btn.data('designation') || '-');
+              $('#deleteMobile').text(btn.data('mobile') || '-');
+              $('#deleteAddress').text(btn.data('address') || '-');
+          });
+
+          // Submits a real POST (not a GET navigation) so the delete is
+          // covered by Spring Security's CSRF check — the hidden form's
+          // _csrf field was auto-injected by Thymeleaf at page render time
+          // (see the form's own comment). Only the action's uuid segment
+          // needs to be swapped in per click.
+          $('#confirmDeleteButton').on('click', function () {
+              if (deleteUuid) {
+                  const $form = $('#deleteEmployeeForm');
+                  $form.attr('action', contextPath + 'employee/employee-delete/' + deleteUuid);
+                  $form.trigger('submit');
+              }
+          });
+      });
+
+      toastr.options = {
+          "closeButton": true,
+          "debug": false,
+          "newestOnTop": true,
+          "progressBar": false,
+          "positionClass": "toast-top-right",
+          "preventDuplicates": false,
+          "onclick": null,
+          "showDuration": "600",
+          "hideDuration": "1000",
+          "timeOut": "5000",
+          "extendedTimeOut": "1000",
+          "showEasing": "swing",
+          "hideEasing": "linear",
+          "showMethod": "fadeIn",
+          "hideMethod": "fadeOut"
+      }
+
+  </script>
+  <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI / DataTables / Buttons
+       / printThis / list-table-init — all now loaded globally by base.html
+       (see the page=='datatable' block there) — no per-page duplicates
+       needed. -->
 </section>
 </body>
 </html>

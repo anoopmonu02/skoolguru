@@ -11,26 +11,40 @@
   <div class="container-fluid px-3">
     <div class="row mt-2 ">
       <div class="col-md-12">
-        <div class="page-header page-header-row">
-          <h1 class="page-header-title">Discount-Month Mapping List</h1>
-          <div class="page-header-actions">
-            <a sms:access="ADMIN_DISCOUNT_MONTH:CREATE" class="btn btn-success btn-sm" th:href="@{/admin/discount-month/add}"><i class="bi bi-plus-lg"></i> Add Discount-Month Mapping</a>
+
+      <div th:replace="~{components/ui :: list-page-header('Discount-Month Mapping List', null, ~{::discountMonthActions})}"></div>
+      <!-- discountMonthActions is only ever meant to render once, inside the
+           list-page-header call above via ~{::discountMonthActions}. Wrapped in a
+           plain display:none div (not th:remove) - see employee.html for
+           why th:remove on the fragment node itself breaks this. -->
+      <div style="display:none">
+        <div th:fragment="discountMonthActions">
+          <a class="btn-cta" sms:access="ADMIN_DISCOUNT_MONTH:CREATE" th:href="@{/admin/discount-month/add}"><i class="bi bi-plus-lg"></i> Add Discount-Month Mapping</a>
+        </div>
+      </div>
+
+      <div class="list-table-card">
+        <div class="config-list-toolbar list-page-toolbar">
+          <div class="config-search-wrap">
+            <i class="bi bi-search"></i>
+            <input type="text" class="form-control form-control-sm" id="discountMonthSearchInput"
+                   placeholder="Search discount-month mappings…">
           </div>
+          <div id="discountMonthExportSlot" class="list-export-slot"></div>
         </div>
 
-        <table class="table table-bordered table-striped table-hover table-sm" th:if="${hasDiscountMonthMap}" id="feeDateTable">
+        <table class="table table-sm list-table" id="discountmonth-list" th:if="${hasDiscountMonthMap}">
           <thead>
           <tr>
             <th>#</th>
-            <th>Discounthead</th>
+            <th>Discount Head</th>
             <th>Month</th>
             <th>Applicable</th>
             <th>Description</th>
             <th>Actions</th>
           </tr>
           </thead>
-          <tbody class="table-group-divider">
-
+          <tbody>
           <tr th:each="dmmap,iterStat : ${discountmonths}">
             <td th:text="${iterStat.index + 1}"></td>
             <td th:text="${dmmap.discounthead.discountName}"></td>
@@ -39,129 +53,174 @@
               <i th:classappend="${dmmap.isApplicable} ? 'bi bi-bookmark-check-fill text-success' : 'bi bi-bookmark-x-fill text-danger'"></i>
             </td>
             <td th:text="${dmmap.description}"></td>
-
-            <td style="white-space: nowrap" class="text-center">
-              <a sms:access="ADMIN_DISCOUNT_MONTH:EDIT" class="btn btn-primary" th:href="@{/admin/discount-month/edit/{id}(id=${dmmap.id})}" data-bs-toggle="tooltip" data-bs-title="Default tooltip">
-                <i class="bi bi-pencil-square"></i> </a>
-
-              <button sms:access="ADMIN_DISCOUNT_MONTH:DELETE" class="btn btn-danger delete-btn" th:attr="data-item-id=${dmmap.id}"><i class="bi bi-trash3-fill"></i> </button>
+            <td class="text-nowrap text-center">
+              <div class="row-actions">
+                <a sms:access="ADMIN_DISCOUNT_MONTH:EDIT" class="config-icon-btn" title="Edit"
+                   th:href="@{/admin/discount-month/edit/{id}(id=${dmmap.id})}">
+                  <i class="bi bi-pencil"></i></a>
+                <button type="button" sms:access="ADMIN_DISCOUNT_MONTH:DELETE" class="config-icon-btn danger delete-btn" title="Delete"
+                        th:data-id="${dmmap.id}" th:data-discounthead="${dmmap.discounthead.discountName}"
+                        th:data-month="${dmmap.monthMaster.monthName}"
+                        th:data-applicable="${dmmap.isApplicable} ? 'Yes' : 'No'"
+                        th:data-description="${dmmap.description}"
+                        data-bs-toggle="modal" data-bs-target="#deleteConfirmationModal">
+                  <i class="bi bi-trash3"></i></button>
+              </div>
             </td>
           </tr>
           </tbody>
         </table>
-        <div th:if="${!hasDiscountMonthMap}">
+
+        <div th:if="${!hasDiscountMonthMap}" class="p-3">
           <div th:replace="~{components/ui :: empty-state('No Discount-Month Mapping found.', 'bi-inbox')}"></div>
+        </div>
+
+        <!-- Custom footer: rows-per-page + "Showing X-Y of Z" + page-number
+             pagination — built by the shared initListDataTable() helper
+             (static/js/list-table-init.js), same as Employee/Academic-Year. -->
+        <div class="list-table-footer" th:if="${hasDiscountMonthMap}">
+          <div class="list-footer-left">
+            <label class="list-length-label">Rows per page
+              <select id="discountMonthPageLength" class="list-length-select">
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </label>
+            <span id="discountMonthPageInfo" class="list-page-info">Showing 0 of 0 discount-month mappings</span>
+          </div>
+          <div class="list-pagination" id="discountMonthPagination"></div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header bg-danger-subtle">
+          <h5 class="modal-title text-danger-emphasis" id="deleteConfirmationModalLabel">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>Remove Discount-Month Mapping
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-3">You're about to remove the following discount-month mapping:</p>
+
+          <div class="border rounded p-3 mb-3 bg-light">
+            <div class="row gy-2">
+              <div class="col-6">
+                <small class="text-muted d-block">Discount Head</small>
+                <span class="fw-semibold" id="deleteDiscountMonthDiscounthead">-</span>
+              </div>
+              <div class="col-6">
+                <small class="text-muted d-block">Month</small>
+                <span class="fw-semibold" id="deleteDiscountMonthMonth">-</span>
+              </div>
+              <div class="col-6">
+                <small class="text-muted d-block">Applicable</small>
+                <span class="fw-semibold" id="deleteDiscountMonthApplicable">-</span>
+              </div>
+              <div class="col-12">
+                <small class="text-muted d-block">Description</small>
+                <span class="fw-semibold" id="deleteDiscountMonthDescription">-</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="alert alert-warning d-flex align-items-start mb-0" role="alert">
+            <i class="bi bi-info-circle-fill me-2 mt-1"></i>
+            <div>This cannot be undone.</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancel </button>
+          <button type="button" class="btn btn-danger" id="confirmDeleteButton"><i class="bi bi-trash3-fill"></i> Remove Mapping </button>
         </div>
       </div>
     </div>
   </div>
 
-  <script th:inline="javascript" type="text/javascript">
+  <!-- Real POST form the confirm button submits - a state-changing action
+       needs to go through POST so Spring Security's CSRF check actually
+       covers it (GET requests are exempt from CSRF). Thymeleaf auto-injects
+       the _csrf hidden field for any th:action form, same as every other
+       POST form in this app. -->
+  <form id="deleteDiscountMonthForm" method="post" th:action="@{/admin/discount-month/delete/0}" style="display:none"></form>
+
+  <script type="text/javascript" th:inline="javascript">
     const contextPath = /*[[@{/}]]*/ '/';
+
+    // Flash-attribute success/error banner after redirects (save/edit/delete
+    // all set these server-side already; this page just never displayed them
+    // before now).
+    const discountMonthSuccessMessage = [[${success}]];
+    const discountMonthErrorMessage   = [[${error}]];
+
     $(document).ready(function () {
-      $('.delete-btn').click(function (e) {
-        e.preventDefault(); // Prevent default action of the button
-        let itemId = $(this).data('item-id'); // Get the item ID from data attribute
-        console.log("itemId  "+itemId);
-        if (confirm('Are you sure you want to delete this record?')) {
-          // Send DELETE request using AJAX
-          $.ajax({
-            type: 'POST',
-            url: `${contextPath}admin/discount-month/delete/` + itemId,
-            success: function (response) {
-              // Optionally handle success response
-              console.log('Item deleted successfully '+response);
-              if(response.status === "success"){
-                showMsg("info", "Discount-Month mapping deleted successfully.","Delete");
-              } else{
-                var errorMsg = "Failed to delete the record." + response.message;
-                //toastr["error"](errorMsg, "Error");
-                showMsg("error", errorMsg, "Error");
-              }
-              //location.reload(); // Reload the page after successful deletion
-              $('#feeDateTable').load(location.href + " #feeDateTable > *");
-            },
-            error: function (xhr, status, error) {
-              // Handle error
-              console.error('Error deleting item:', error);
-              //alert('Failed to delete the record.');
-              //toastr["error"]("Failed to delete the record.", "Error");
-              showMsg("error", "Failed to delete the record.", "Error");
-            }
-          });
+      if (discountMonthSuccessMessage) showMsg("success", discountMonthSuccessMessage, "Success");
+      if (discountMonthErrorMessage)   showMsg("error", discountMonthErrorMessage, "Error");
+
+      if ($('#discountmonth-list').length) {
+        initListDataTable({
+          tableSelector: '#discountmonth-list',
+          searchInputSelector: '#discountMonthSearchInput',
+          exportSlotSelector: '#discountMonthExportSlot',
+          lengthSelectSelector: '#discountMonthPageLength',
+          pageInfoSelector: '#discountMonthPageInfo',
+          paginationSelector: '#discountMonthPagination',
+          itemLabel: 'discount-month mappings',
+          exportTitle: 'Discount-Month Mapping Data export',
+          exportColumns: [0, 1, 2, 3, 4],
+          printHeaderText: 'Discount-Month Mappings',
+          dtOptions: {
+            columnDefs: [{ orderable: false, targets: [0, 5] }]
+          }
+        });
+      }
+
+      // Delete confirmation modal wiring — same pattern as Employee/Academic-Year List.
+      let deleteDiscountMonthId = null;
+      $(document).on('click', '.delete-btn', function () {
+        const btn = $(this);
+        deleteDiscountMonthId = btn.data('id');
+        $('#deleteDiscountMonthDiscounthead').text(btn.data('discounthead') || '-');
+        $('#deleteDiscountMonthMonth').text(btn.data('month') || '-');
+        $('#deleteDiscountMonthApplicable').text(btn.data('applicable') || '-');
+        $('#deleteDiscountMonthDescription').text(btn.data('description') || '-');
+      });
+
+      $('#confirmDeleteButton').on('click', function () {
+        if (deleteDiscountMonthId) {
+          const $form = $('#deleteDiscountMonthForm');
+          $form.attr('action', contextPath + 'admin/discount-month/delete/' + deleteDiscountMonthId);
+          $form.trigger('submit');
         }
       });
     });
+
+    toastr.options = {
+      "closeButton": true,
+      "debug": false,
+      "newestOnTop": false,
+      "progressBar": false,
+      "positionClass": "toast-top-right",
+      "preventDuplicates": false,
+      "onclick": null,
+      "showDuration": "600",
+      "hideDuration": "1000",
+      "timeOut": "5000",
+      "extendedTimeOut": "1000",
+      "showEasing": "swing",
+      "hideEasing": "linear",
+      "showMethod": "fadeIn",
+      "hideMethod": "fadeOut"
+    }
   </script>
-
-  <script type="text/javascript" th:inline="javascript">
-    $(document).ready(function () {
-      $('#feeDateTable').DataTable({
-        layout: {
-          bottomEnd: {
-            paging: {
-              firstLast: false
-            }
-          },
-          top1Start: {
-            buttons: [
-              {
-                extend: 'excelHtml5',
-                text: '<i class="bi bi-file-excel-fill text-success"></i>',
-                titleAttr: 'Excel',
-                title: 'Discount-Month Mapping Data export',
-                exportOptions: {
-                  columns: [0, 1, 2, 3, 4]
-                }
-              },
-              {
-                extend: 'csvHtml5',
-                text: '<i class="bi bi-filetype-csv text-info"></i>',
-                titleAttr: 'CSV',
-                title: 'Discount-Month Mapping Data export'
-              },
-              {
-                extend: 'pdfHtml5',
-                text: '<i class="bi bi-file-pdf-fill text-danger"></i>',
-                titleAttr: 'PDF',
-                title: 'Discount-Month Mapping Data export',
-                exportOptions: {
-                  columns: [0, 1, 2, 3, 4]
-                }
-              },
-              'colvis'
-            ]
-          }
-        },
-        lengthMenu: [
-          [5, 10, 25, 50, 100, -1],
-          [5, 10, 25, 50, 100, 'All']
-        ],
-        pageLength: 25,
-        columnDefs: [
-          { "orderable": false, "targets": [0,5] } // Disable sorting on the first and fourth columns
-        ]
-      });
-      $(".buttons-excel, .buttons-csv, .buttons-pdf").each(function() {
-        // Remove the btn-secondary class from each button
-        $(this).removeClass("btn-secondary");
-      });
-    });
-
-    
-
-
-    
-
-
-
-    
-
-
-  </script>
-  <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html
-       now loads them in <head>, so they are available before this page's
-       inline scripts run. They used to be duplicated on every page. -->
 </section>
 </body>
 </html>

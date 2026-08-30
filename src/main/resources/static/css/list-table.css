@@ -1,0 +1,199 @@
+/* ── Shared "datatable list page" chrome ─────────────────────────────────
+   One shared source for every list page's table card, export toolbar, table
+   row styling, and custom footer/pagination — Student List, Employee List,
+   and any future list page all render from this file instead of each
+   keeping its own copy. Pair with static/js/list-table-init.js (wires the
+   search box, export buttons, and footer/pagination to a DataTable
+   instance) and components/ui.html :: list-page-header (the title + stat
+   tile row above the table).
+
+   Usage on a page:
+     <table class="table table-sm list-table" id="my-list"> ...
+     <div class="list-table-card"> ... <div class="list-export-slot"></div>
+
+   Nothing here is page-specific — do not add page-only rules to this file;
+   give the page its own small <style> block instead (see employee.html /
+   student.html for examples of what stays page-scoped: font-size tweaks,
+   one-off column widths, etc).
+   ---------------------------------------------------------------------- */
+
+.list-table-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+
+/* Named .list-page-toolbar, NOT .list-toolbar: components.css already has
+   an unused, unrelated ".list-toolbar { max-width: 320px; margin-bottom:
+   12px; }" left over from an older "global config list pages" search box
+   pattern (see components.css around line 280). That class loads before
+   this file, so reusing its name silently inherited that 320px cap on top
+   of this pattern's own rules - confirmed live via getComputedStyle before
+   this rename (width computed to exactly 320px, matching content, not the
+   card). Nothing else in the codebase uses that old class as a standalone
+   selector, but it's left in place rather than deleted/repurposed, so this
+   pattern gets its own name instead. */
+.list-page-toolbar {
+  display: flex !important;
+  justify-content: space-between !important;
+  flex-wrap: nowrap !important;
+}
+.list-page-toolbar .config-search-wrap {
+  flex: 1 1 auto !important;
+  max-width: 320px !important;
+}
+.list-page-toolbar .list-export-slot {
+  margin-left: auto !important;
+}
+
+.list-export-slot {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+.list-export-slot .dt-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+/* !important throughout: the Buttons extension also attaches its own
+   Bootstrap classes (btn, btn-secondary, buttons-html5, ...) alongside
+   .list-export-btn, and those carry a solid grey/blue Bootstrap button look
+   (padding, background, border) that otherwise wins the cascade. */
+.list-export-slot .list-export-btn {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: var(--radius-sm) !important;
+  border: 1px solid var(--border-color) !important;
+  background: var(--card-bg) !important;
+  color: var(--text-muted) !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+  font-size: .92rem;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+.list-export-slot .list-export-btn:hover {
+  background: var(--accent-light) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+
+/* Safety net alongside DataTables' scrollX:true — guarantees a horizontal
+   scrollbar shows up instead of the table squashing/overflowing whenever it
+   is wider than the viewport. */
+.list-table-card .dt-scroll-body { overflow-x: auto !important; }
+
+/* Clean table look (no vertical grid lines, no zebra stripes) instead of
+   Bootstrap's table-bordered/table-striped — plain, hover-highlighted rows. */
+table.list-table { border: none; }
+.list-table thead th {
+  text-align: left;
+  padding: 10px 14px;
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  background: var(--body-bg);
+  white-space: nowrap;
+  border-top: none !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+.list-table tbody td {
+  padding: 9px 14px;
+  vertical-align: middle;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  background-color: transparent !important;
+}
+.list-table tbody tr:hover td { background-color: var(--body-bg) !important; }
+.list-table tbody tr:last-child td { border-bottom: none !important; }
+
+/* Name cell with an avatar-initials chip. */
+.list-cell { display: flex; align-items: center; gap: 10px; }
+.list-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .68rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.list-name-text { color: var(--text-primary); font-weight: 600; }
+
+/* ── Footer: rows-per-page + "Showing X-Y of Z" + page-number pagination — */
+.list-table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+  flex-wrap: wrap;
+}
+.list-footer-left { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.list-length-label { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--text-muted); }
+.list-length-select {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  padding: 4px 8px;
+  font-size: .8rem;
+}
+.list-page-info { font-size: .8rem; color: var(--text-muted); }
+.list-pagination { display: flex; gap: 5px; }
+.list-page-btn {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+.list-page-btn:hover:not(.disabled):not(.active) {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.list-page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; cursor: default; }
+.list-page-btn.disabled { opacity: .45; cursor: default; pointer-events: none; }
+.list-page-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  color: var(--text-muted);
+  font-size: .8rem;
+}
+
+/* "+ Add X" CTA in the shared page header is an <a>, not a <button>; without
+   this it inherits the app's default link underline. Also drop the header's
+   bottom divider — the stat tiles directly below already read as a clear
+   section break. */
+.list-page-header.page-header { border-bottom: none; }
+.list-page-header .btn-cta { text-decoration: none; }
+.list-page-header .btn-cta:hover { text-decoration: none; }

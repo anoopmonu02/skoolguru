@@ -7,129 +7,262 @@
 <body>
 <section>
 
+  <style>
+    /* ============================================================
+       Edit Employee — sectioned single-page form, same design
+       language as Edit Student (edit-student.html): a sticky sidebar
+       with a jump-nav, colorful per-section cards instead of one flat
+       Bootstrap grid. Every th:field/id/name binding below is
+       unchanged from the previous plain-grid version - this is a
+       chrome/styling pass only. Employee has a smaller field set than
+       Student, so this uses 3 sections (Personal/Contact/Professional)
+       instead of Student's 7 - no fields invented, none dropped.
+       Class names reused verbatim from edit-student.html so both pages
+       share one visual system and one CSS footprint.
+       ============================================================ */
+    .es-wrap { max-width: 1180px; margin: 4px auto 40px; display: grid; grid-template-columns: 250px 1fr; gap: 24px; }
+    @media (max-width: 900px) { .es-wrap { grid-template-columns: 1fr; } }
+
+    .es-sidebar { position: sticky; top: 16px; align-self: start; }
+    .es-id-card {
+      background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm); padding: 24px 20px 20px; text-align: center; margin-bottom: 14px;
+      position: relative; overflow: hidden;
+    }
+    .es-id-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 5px;
+      background: linear-gradient(90deg, #0ea5e9, #8b5cf6, #ec4899, #f59e0b);
+    }
+    .es-avatar {
+      width: 72px; height: 72px; border-radius: 50%; object-fit: cover;
+      border: 3px solid var(--accent-light); margin: 12px auto 12px; display: block;
+      box-shadow: 0 0 0 3px rgba(14,165,233,.15);
+    }
+    .es-avatar-fallback {
+      width: 72px; height: 72px; border-radius: 50%; margin: 12px auto 12px;
+      background: linear-gradient(135deg, var(--accent-light), rgba(139,92,246,.18)); color: var(--accent); font-size: 28px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .es-id-card .es-name { font-size: 15.5px; font-weight: 800; margin: 0 0 3px; color: var(--text-primary); word-break: break-word; }
+    .es-id-card .es-sub { font-size: 12px; color: var(--text-muted); }
+
+    /* Section color accents - same palette/tokens as Edit Student. */
+    .es-c-blue    { --sdc: var(--accent); --sdc-bg: var(--accent-light); }
+    .es-c-emerald { --sdc: #10b981; --sdc-bg: rgba(16,185,129,.12); }
+    .es-c-amber   { --sdc: #f59e0b; --sdc-bg: rgba(245,158,11,.12); }
+
+    .es-nav { display: flex; flex-direction: column; gap: 2px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); padding: 8px; }
+    .es-nav a { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 9px; font-size: 13px; font-weight: 600; color: var(--text-muted); text-decoration: none; border-left: 2px solid transparent; transition: background var(--transition), color var(--transition), border-color var(--transition); }
+    .es-nav a i { font-size: 14px; width: 16px; text-align: center; color: var(--sdc, var(--text-muted)); transition: color var(--transition); }
+    .es-nav a:hover { background: var(--sdc-bg, var(--accent-light)); color: var(--sdc, var(--accent)); }
+    .es-nav a.active { background: var(--sdc-bg, var(--accent-light)); color: var(--sdc, var(--accent)); border-left-color: var(--sdc, var(--accent)); }
+    .es-nav a.active i { color: var(--sdc, var(--accent)); }
+
+    .es-back-link {
+      display: inline-flex; align-items: center; gap: 6px; color: #fff; text-decoration: none;
+      font-size: 13px; font-weight: 700; padding: 9px 16px; border: none;
+      border-radius: 10px; background: linear-gradient(135deg, var(--accent), #0284c7);
+      box-shadow: 0 2px 8px rgba(14,165,233,.35);
+      transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
+    }
+    .es-back-link:hover { color: #fff; opacity: .93; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(14,165,233,.45); }
+
+    .es-section { background: var(--card-bg); border: 1px solid var(--border-color); border-top: 3px solid var(--sdc, var(--accent)); border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); padding: 22px 26px; margin-bottom: 16px; scroll-margin-top: 16px; }
+    .es-section h4 { display: flex; align-items: center; gap: 11px; font-size: 15px; font-weight: 800; margin: 0 0 18px; color: var(--text-primary); }
+    .es-h-icon { width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: var(--sdc-bg, var(--accent-light)); color: var(--sdc, var(--accent)); font-size: 15px; flex-shrink: 0; }
+
+    .es-section .form-label { font-size: 12.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .02em; margin-bottom: 5px; }
+    .es-section .form-control, .es-section .form-select { border-color: var(--border-color); border-radius: var(--radius-sm); font-size: 13.8px; }
+    .es-section .form-control:focus, .es-section .form-select:focus { border-color: var(--sdc, var(--accent)); box-shadow: 0 0 0 3px var(--sdc-bg, var(--accent-light)); }
+    .es-section .text-danger { font-size: 12px; margin-top: 3px; }
+
+    .es-submit-row {
+      display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+      background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-xs); padding: 16px 20px; margin-bottom: 40px;
+    }
+    .es-save-btn {
+      display: inline-flex; align-items: center; gap: 8px; border: none; color: #fff;
+      background: linear-gradient(135deg, #16a34a, #15803d); padding: 11px 24px; border-radius: 10px;
+      font-size: 14px; font-weight: 700; box-shadow: 0 2px 8px rgba(22,163,74,.35);
+      transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
+    }
+    .es-save-btn:hover { opacity: .93; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(22,163,74,.45); }
+
+    /* -- Photo upload + preview (same pattern as Add Employee / Edit Student) -- */
+    .wiz-photo-row { display: flex; align-items: flex-start; gap: 14px; }
+    .wiz-photo-preview {
+      width: 64px; height: 64px; flex-shrink: 0; border-radius: 50%;
+      background: var(--accent-light); color: var(--accent); border: 1px solid var(--border-color);
+      display: flex; align-items: center; justify-content: center; font-size: 26px; overflow: hidden;
+    }
+    .wiz-photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .wiz-photo-input-col { flex: 1; min-width: 0; }
+    .wiz-photo-status { font-size: 11.5px; margin-top: 5px; color: var(--text-muted); }
+  </style>
+
   <div class="container-fluid px-3">
     <div class="mt-2 gy-5 mb-5">
-      <div th:replace="~{components/ui :: page-header('Edit Employee')}"></div>
-
-      <form th:action="@{/employee/employee-save}" th:object="${employee}" method="post" class="row g-3" enctype="multipart/form-data">
-        <div class="col-12">
-          <h4>Personal Information</h4>
+      <div class="page-header page-header-row">
+        <h1 class="page-header-title">Edit Employee</h1>
+        <div class="page-header-actions">
+          <a class="es-back-link" th:href="@{/employee/employee-list}"><i class="bi bi-arrow-left"></i> Back to List</a>
         </div>
+      </div>
+
+      <form th:action="@{/employee/employee-save}" th:object="${employee}" method="post" enctype="multipart/form-data" id="editEmployeeForm">
         <input type="hidden" name="school_id" id="school_id" th:field="*{school.id}"/>
         <input type="hidden" name="id" th:field="*{id}"/>
         <input type="hidden" name="uuid" th:field="*{uuid}"/>
-        <div class="col-md-6">
-          <label for="employeeName" class="form-label">Employee Name</label>
-          <input type="text" id="employeeName" class="form-control" th:field="*{employeeName}">
-          <p class="text-danger" th:if="${#fields.hasErrors('employeeName')}" th:errors="*{employeeName}">emp name Error</p>
-        </div>
-        <div class="col-md-3">
-          <label for="dob" class="form-label">Date of Birth</label>
-          <input type="text" id="dob" class="form-control" th:field="*{dob}">
-          <p class="text-danger" th:if="${#fields.hasErrors('dob')}" th:errors="*{dob}">f name Error</p>
-        </div>
-        <div class="col-md-3">
-        </div>
 
-        <div class="col-md-6">
-          <label for="fatherName" class="form-label">Father Name</label>
-          <input type="text" id="fatherName" class="form-control" th:field="*{fatherName}">
-          <p class="text-danger" th:if="${#fields.hasErrors('fatherName')}" th:errors="*{fatherName}">f name Error</p>
-        </div>
-        <div class="col-md-6">
-        </div>
+        <div class="es-wrap">
+          <div class="es-sidebar">
+            <div class="es-id-card">
+              <img th:if="${employee.pic != null}" class="es-avatar" th:src="@{'/employee/images/' + ${employee.pic}}" alt="Employee photo">
+              <div th:if="${employee.pic == null}" class="es-avatar-fallback"><i class="bi bi-person"></i></div>
+              <div class="es-name" th:text="${employee.employeeName}">Employee Name</div>
+              <div class="es-sub">Editing employee profile</div>
+            </div>
 
-        <div class="col-md-6">
-          <label for="motherName" class="form-label">Mother Name</label>
-          <input type="text" id="motherName" class="form-control" th:field="*{motherName}">
-          <p class="text-danger" th:if="${#fields.hasErrors('motherName')}" th:errors="*{motherName}">m name Error</p>
-        </div>
-        <div class="col-md-6">
-        </div>
-
-        <div class="col-md-4">
-          <label for="customerPic" class="form-label">Employee Image</label>
-          <input type="file" class="form-control" id="customerPic" name="customerPic">
-          <p class="text-danger" th:if="${#fields.hasErrors('pic')}" th:errors="*{pic}">pic Error</p>
-        </div>
-        <div class="col-md-2">
-          <label for="nationality" class="form-label">Nationality</label>
-          <input type="text" id="nationality" class="form-control" th:field="*{nationality}" readonly="readonly">
-        </div>
-        <div class="col-md-6">
-          <!-- Update this image tag -->
-          <img th:src="@{'/employee/images/' + ${employee.pic}}" class="rounded float-start" alt="Employee Image" width="12%" height="100%" id="preImg"/>
-          <!--<img th:src="@{/employee-images/{filename}(filename=${employee.pic})}"  alt="Employee Image2">-->
-        </div>
-
-        <div class="col-md-7">
-          <label for="description" class="form-label">Description</label>
-          <div class="form-floating">
-            <textarea id="description" placeholder="Add description here" class="form-control" name="description" style="height: 100px;" rows="4" cols="50" th:field="*{description}"></textarea>
-            <label for="description">Add Description Here</label>
+            <div class="es-nav" id="esNav">
+              <a class="es-c-blue active" href="#es1"><i class="bi bi-person"></i> Personal</a>
+              <a class="es-c-emerald" href="#es2"><i class="bi bi-geo-alt"></i> Contact</a>
+              <a class="es-c-amber" href="#es3"><i class="bi bi-briefcase"></i> Professional</a>
+            </div>
           </div>
-          <p class="text-danger" th:if="${#fields.hasErrors('description')}" th:errors="*{description}">description Error</p>
-        </div>
-        <div class="col-md-5">
-        </div>
 
-        <div class="col-12">
-          <h4>Contact Information</h4>
-        </div>
-        <div class="col-md-7">
-          <label for="address" class="form-label">Address</label>
-          <div class="form-floating">
-            <textarea id="address" placeholder="Add address here" class="form-control" name="address" style="height: 100px;" rows="4" cols="50" th:field="*{address}"></textarea>
-            <label for="address">Add Address</label>
+          <div>
+
+            <!-- ============ PERSONAL ============ -->
+            <div class="es-section es-c-blue" id="es1">
+              <h4><span class="es-h-icon"><i class="bi bi-person"></i></span> Personal Information</h4>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="employeeName" class="form-label">Employee Name</label>
+                  <input type="text" id="employeeName" class="form-control" th:field="*{employeeName}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('employeeName')}" th:errors="*{employeeName}">emp name Error</p>
+                </div>
+
+                <div class="col-md-3">
+                  <label for="dob" class="form-label">Date of Birth</label>
+                  <input type="text" id="dob" class="form-control" th:field="*{dob}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('dob')}" th:errors="*{dob}">dob Error</p>
+                </div>
+                <div class="col-md-3"></div>
+
+                <div class="col-md-6">
+                  <label for="fatherName" class="form-label">Father Name</label>
+                  <input type="text" id="fatherName" class="form-control" th:field="*{fatherName}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('fatherName')}" th:errors="*{fatherName}">f name Error</p>
+                </div>
+                <div class="col-md-6"></div>
+
+                <div class="col-md-6">
+                  <label for="motherName" class="form-label">Mother Name</label>
+                  <input type="text" id="motherName" class="form-control" th:field="*{motherName}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('motherName')}" th:errors="*{motherName}">m name Error</p>
+                </div>
+                <div class="col-md-6"></div>
+
+                <div class="col-md-3">
+                  <label for="nationality" class="form-label">Nationality</label>
+                  <input type="text" id="nationality" class="form-control" th:field="*{nationality}" readonly="readonly">
+                </div>
+                <div class="col-md-9"></div>
+
+                <div class="col-md-7">
+                  <label for="description" class="form-label">Description</label>
+                  <div class="form-floating">
+                    <textarea id="description" placeholder="Add description here" class="form-control" name="description" style="height: 100px;" rows="4" cols="50" th:field="*{description}"></textarea>
+                    <label for="description">Add Description Here</label>
+                  </div>
+                  <p class="text-danger" th:if="${#fields.hasErrors('description')}" th:errors="*{description}">description Error</p>
+                </div>
+                <div class="col-md-5"></div>
+
+                <div class="col-md-6">
+                  <label for="customerPic" class="form-label">Employee Image</label>
+                  <div class="wiz-photo-row">
+                    <div class="wiz-photo-preview" id="photoPreviewBox">
+                      <img th:if="${employee.pic != null}" id="photoPreviewImg" th:src="@{'/employee/images/' + ${employee.pic}}" alt="Selected employee photo preview">
+                      <img th:if="${employee.pic == null}" id="photoPreviewImg" class="d-none" alt="Selected employee photo preview">
+                      <i class="bi bi-person" id="photoPreviewPlaceholder" th:classappend="${employee.pic != null} ? 'd-none' : ''"></i>
+                    </div>
+                    <div class="wiz-photo-input-col">
+                      <input type="file" class="form-control" id="customerPic" name="customerPic">
+                      <div class="wiz-photo-status">Leave empty to keep the current photo.</div>
+                    </div>
+                  </div>
+                  <p class="text-danger" th:if="${#fields.hasErrors('pic')}" th:errors="*{pic}">pic Error</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ CONTACT ============ -->
+            <div class="es-section es-c-emerald" id="es2">
+              <h4><span class="es-h-icon"><i class="bi bi-geo-alt"></i></span> Contact Information</h4>
+              <div class="row g-3">
+                <div class="col-md-7">
+                  <label for="address" class="form-label">Address</label>
+                  <div class="form-floating">
+                    <textarea id="address" placeholder="Add address here" class="form-control" name="address" style="height: 100px;" rows="4" cols="50" th:field="*{address}"></textarea>
+                    <label for="address">Add Address</label>
+                  </div>
+                  <p class="text-danger" th:if="${#fields.hasErrors('address')}" th:errors="*{address}">Address Error</p>
+                </div>
+                <div class="col-md-5"></div>
+
+                <div class="col-md-4">
+                  <label for="landmark" class="form-label">Landmark</label>
+                  <input type="text" id="landmark" class="form-control" th:field="*{landmark}">
+                </div>
+                <div class="col-md-8"></div>
+
+                <div class="col-md-3">
+                  <label for="mobile1" class="form-label">Mobile 1</label>
+                  <input type="text" id="mobile1" class="form-control intfields" th:field="*{mobile1}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('mobile1')}" th:errors="*{mobile1}">Mobile 1 Error</p>
+                </div>
+                <div class="col-md-3">
+                  <label for="mobile2" class="form-label">Mobile 2</label>
+                  <input type="text" id="mobile2" class="form-control intfields" th:field="*{mobile2}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('mobile2')}" th:errors="*{mobile2}">Mobile 2 Error</p>
+                </div>
+                <div class="col-md-6"></div>
+
+                <div class="col-md-4">
+                  <label for="email" class="form-label">Email</label>
+                  <input type="text" id="email" class="form-control" th:field="*{userEntity.email}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('userEntity.email')}" th:errors="*{userEntity.email}">Email Error</p>
+                </div>
+                <div class="col-md-8"></div>
+              </div>
+            </div>
+
+            <!-- ============ PROFESSIONAL ============ -->
+            <div class="es-section es-c-amber" id="es3">
+              <h4><span class="es-h-icon"><i class="bi bi-briefcase"></i></span> Professional Information</h4>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label for="designation" class="form-label">Designation</label>
+                  <input type="text" id="designation" class="form-control" th:field="*{designation}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('designation')}" th:errors="*{designation}">Designation Error</p>
+                </div>
+                <div class="col-md-4">
+                  <label for="department" class="form-label">Department</label>
+                  <input type="text" id="department" class="form-control" th:field="*{department}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('department')}" th:errors="*{department}">Department Error</p>
+                </div>
+                <div class="col-md-4"></div>
+              </div>
+            </div>
+
+            <div class="es-submit-row">
+              <a class="es-back-link" th:href="@{/employee/employee-list}"><i class="bi bi-arrow-left"></i> Back to List</a>
+              <button type="submit" class="es-save-btn"><i class="bi bi-save2-fill"></i> Save Changes</button>
+            </div>
+
           </div>
-          <p class="text-danger" th:if="${#fields.hasErrors('address')}" th:errors="*{address}">Address Error</p>
-        </div>
-        <div class="col-md-5"></div>
-        <div class="col-md-4">
-          <label for="landmark" class="form-label">Landmark</label>
-          <input type="text" id="landmark" class="form-control" th:field="*{landmark}">
-        </div>
-        <div class="col-md-8"></div>
-
-        <div class="col-md-3">
-          <label for="mobile1" class="form-label">Mobile 1</label>
-          <input type="text" id="mobile1" class="form-control intfields" th:field="*{mobile1}">
-          <p class="text-danger" th:if="${#fields.hasErrors('mobile1')}" th:errors="*{mobile1}">City Error</p>
-        </div>
-        <div class="col-md-3">
-          <label for="mobile2" class="form-label">Mobile 2</label>
-          <input type="text" id="mobile2" class="form-control intfields" th:field="*{mobile2}">
-          <p class="text-danger" th:if="${#fields.hasErrors('mobile2')}" th:errors="*{mobile2}">City Error</p>
-        </div>
-        <div class="col-md-6"></div>
-
-        <div class="col-md-4">
-          <label for="email" class="form-label">Email</label>
-          <input type="text" id="email" class="form-control" th:field="*{userEntity.email}">
-          <p class="text-danger" th:if="${#fields.hasErrors('userEntity.email')}" th:errors="*{userEntity.email}">City Error</p>
-        </div>
-        <div class="col-md-8"></div>
-
-        <div class="col-12">
-          <h4>Professional Information</h4>
-        </div>
-        <div class="col-md-4">
-          <label for="designation" class="form-label">Designation</label>
-          <input type="text" id="designation" class="form-control" th:field="*{designation}">
-          <p class="text-danger" th:if="${#fields.hasErrors('designation')}" th:errors="*{designation}">City Error</p>
-        </div>
-        <div class="col-md-4">
-          <label for="department" class="form-label">Department</label>
-          <input type="text" id="department" class="form-control" th:field="*{department}">
-          <p class="text-danger" th:if="${#fields.hasErrors('department')}" th:errors="*{department}">City Error</p>
-        </div>
-        <div class="col-md-4"></div>
-        <hr/>
-        <div class="col-md-4">
-          <a class="btn btn-outline-secondary btn-sm" th:href="@{/employee/employee-list}"><i class="bi bi-arrow-left"></i> Back to List</a>
-        </div>
-        <div class="col-md-6 mb-5">
-          <button type="submit" class="btn btn-primary"><i class="bi bi-save2-fill"></i> Save</button>
         </div>
       </form>
     </div>
@@ -163,13 +296,63 @@
       "hideMethod": "fadeOut"
     }
 
-    
+    // ===================== Employee photo: preview only =====================
+    // No size cap (Employee never had one - that check exists only on
+    // Student, tied to a Student-only system_config key). Leaving the file
+    // input empty keeps the employee's current photo (handled server-side).
+    $(document).on('change', '#customerPic', function () {
+      const file = this.files && this.files[0];
+      const $img = $('#photoPreviewImg');
+      const $placeholder = $('#photoPreviewPlaceholder');
+      if (!file) {
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        $img.attr('src', e.target.result).removeClass('d-none');
+        $placeholder.addClass('d-none');
+      };
+      reader.readAsDataURL(file);
+    });
 
-    
+    $(document).ready(function () {
+      // If the server round-tripped a validation error, scroll to the
+      // first one instead of leaving the user on top with no clue why.
+      const $firstError = $('.es-section .text-danger').filter(function () { return $(this).text().trim().length > 0; }).first();
+      if ($firstError.length) {
+        $firstError[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
 
-    
-
+      // Sidebar nav: highlight the section currently in view while scrolling.
+      // Same hardened pattern as Edit Student - rAF-throttled, runs once
+      // immediately on load.
+      const esSections = $('.es-section').map(function () { return this.id; }).get();
+      const $esNavLinks = $('#esNav a');
+      let esNavTicking = false;
+      const updateEsActiveNav = function () {
+        let current = esSections[0];
+        esSections.forEach(function (id) {
+          const el = document.getElementById(id);
+          if (el && el.getBoundingClientRect().top < 140) { current = id; }
+        });
+        $esNavLinks.removeClass('active');
+        $esNavLinks.filter('[href="#' + current + '"]').addClass('active');
+        esNavTicking = false;
+      };
+      $(window).on('scroll', function () {
+        if (!esNavTicking) {
+          esNavTicking = true;
+          window.requestAnimationFrame(updateEsActiveNav);
+        }
+      });
+      updateEsActiveNav();
+      $esNavLinks.on('click', function () {
+        $esNavLinks.removeClass('active');
+        $(this).addClass('active');
+      });
+    });
   </script>
+
   <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html
        now loads them in <head>, so they are available before this page's
        inline scripts run. They used to be duplicated on every page. -->
