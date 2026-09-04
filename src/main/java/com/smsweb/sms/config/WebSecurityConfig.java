@@ -3,6 +3,8 @@ package com.smsweb.sms.config;
 
 import com.smsweb.sms.config.mobile.JwtAuthenticationFilter;
 import com.smsweb.sms.config.mobile.JwtTokenProvider;
+import com.smsweb.sms.config.mobile.MaintenanceModeFilter;
+import com.smsweb.sms.services.admin.MaintenanceModeService;
 import com.smsweb.sms.services.users.UserDetailsServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -41,6 +43,9 @@ public class WebSecurityConfig {
 
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
+
+    @Autowired
+    private MaintenanceModeService maintenanceModeService;
 
     // Inject the @Service-annotated bean so DI is properly wired (userRepository, etc.)
     @Autowired
@@ -96,6 +101,13 @@ public class WebSecurityConfig {
             .addFilterBefore(
                 new JwtAuthenticationFilter(jwtTokenProvider),
                 UsernamePasswordAuthenticationFilter.class
+            )
+            // Maintenance-mode gate — runs BEFORE the JWT filter, so a maintenance
+            // block happens before any token is even parsed (applies to logged-out
+            // and logged-in mobile requests alike). See MaintenanceModeFilter javadoc.
+            .addFilterBefore(
+                new MaintenanceModeFilter(maintenanceModeService),
+                JwtAuthenticationFilter.class
             )
             // Return 401 JSON instead of redirect-to-login for API clients
             .exceptionHandling(ex -> ex

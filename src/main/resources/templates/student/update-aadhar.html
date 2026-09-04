@@ -556,7 +556,7 @@
       let rowCount = 0;
       let tbl = '<table class="table table-sm" id="sr-table-data" style="width:100%">'
         + '<thead><tr><th>Student Name</th><th>Father Name</th><th>Mother Name</th><th>Mobile</th><th>Aadhar</th></tr></thead>'
-        + '<tbody class="table-group-divider">';
+        + '<tbody>';
       studentData.forEach(function(student, idx) {
         let srno = student.student.aadharNo ? student.student.aadharNo.trim() : '';
         let name = student.student.studentName || '';
