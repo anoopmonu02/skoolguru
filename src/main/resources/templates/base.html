@@ -242,6 +242,12 @@
                                 <span>Database Backup</span>
                             </a>
                         </li>
+                        <li sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN')" class="sidebar-item">
+                            <a class="sidebar-link" th:href="@{/admin/app-config}">
+                                <i class="bi bi-toggles text-danger"></i>
+                                <span>App Config</span>
+                            </a>
+                        </li>
                         <li sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN','ROLE_STAFF')" class="sidebar-item">
                             <a class="sidebar-link" sms:access="ADMIN_STUDENT_REGIONAL:VIEW" th:href="@{/admin/student-regional}">
                                 <i class="bi bi-translate text-success"></i>

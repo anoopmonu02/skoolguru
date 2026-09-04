@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="~{base::Layout(~{::section})}">
+<head>
+  <meta charset="UTF-8">
+  <title>UAIC - App Config</title>
+</head>
+<body>
+<section>
+
+  <style>
+    .ac-hero {
+      background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%);
+      border-radius: 16px;
+      padding: 24px 28px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 16px rgba(180,83,9,.25);
+    }
+    .ac-hero-icon {
+      width: 56px; height: 56px; border-radius: 14px;
+      background: var(--overlay-bg);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; flex-shrink: 0;
+    }
+    .ac-hero h1 { font-size: 20px; font-weight: 700; margin: 0 0 2px; }
+    .ac-hero p { font-size: 13px; margin: 0; opacity: .92; }
+
+    .ac-card {
+      background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.05);
+      padding: 22px;
+      height: 100%;
+    }
+    .ac-card-title {
+      font-size: 15px; font-weight: 700; color: var(--text-primary);
+      display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+    }
+
+    .stat-chip {
+      background: var(--body-bg); border: 1px solid var(--border-color); border-radius: 12px;
+      padding: 14px 16px; display: flex; align-items: center; gap: 12px; height: 100%;
+    }
+    .stat-chip-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
+    }
+    .stat-chip-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+    .stat-chip-value { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+
+    /* ── Toggle panel ─────────────────────────────────────────────────────── */
+    .mm-toggle-panel {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; padding: 18px; border-radius: 14px;
+      border: 1px solid var(--border-color); background: var(--body-bg);
+      margin-bottom: 18px;
+    }
+    .mm-toggle-panel.is-on {
+      background: #fef3c7; border-color: #fde68a;
+    }
+    .mm-toggle-label { font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
+    .mm-toggle-sub { font-size: 12.5px; color: var(--text-muted); }
+    .mm-switch { transform: scale(1.5); transform-origin: right center; }
+
+    .mm-status-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 700; padding: 4px 12px; border-radius: 20px;
+    }
+    .mm-status-badge.on { background: #fef3c7; color: #92400e; }
+    .mm-status-badge.off { background: #dcfce7; color: #166534; }
+  </style>
+
+  <div class="container-fluid px-3">
+    <div class="row mt-2">
+      <div class="col-md-12">
+
+        <div class="ac-hero">
+          <div class="ac-hero-icon"><i class="bi bi-toggles"></i></div>
+          <div>
+            <h1>App Config — Maintenance Mode</h1>
+            <p>Take the mobile parent app offline for planned maintenance, with a custom message shown on its maintenance screen. Takes effect within seconds — no restart needed.</p>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <div class="stat-chip">
+              <div class="stat-chip-icon" th:style="${maintenanceEnabled} ? 'background:#fef3c7;color:#b45309;' : 'background:#dcfce7;color:#16a34a;'">
+                <i th:class="${maintenanceEnabled} ? 'bi bi-cone-striped' : 'bi bi-check-circle-fill'"></i>
+              </div>
+              <div>
+                <div class="stat-chip-label">Mobile App Status</div>
+                <div class="stat-chip-value" id="statusChipText" th:text="${maintenanceEnabled} ? 'Under Maintenance' : 'Live'">Live</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="stat-chip">
+              <div class="stat-chip-icon" style="background:#e0f2fe;color:#0284c7;"><i class="bi bi-shield-check"></i></div>
+              <div>
+                <div class="stat-chip-label">Scope</div>
+                <div class="stat-chip-value" style="font-size:13px;">All mobile API calls</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="stat-chip">
+              <div class="stat-chip-icon" style="background:#ede9fe;color:#6366f1;"><i class="bi bi-clock-history"></i></div>
+              <div>
+                <div class="stat-chip-label">Last Changed</div>
+                <div class="stat-chip-value" style="font-size:13px;"
+                     th:text="${lastUpdated != null} ? ${#dates.format(lastUpdated, 'dd-MMM-yyyy HH:mm')} : 'Never'">Never</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+          <div class="col-md-6">
+            <div class="ac-card">
+              <div class="ac-card-title"><i class="bi bi-power text-warning"></i> Maintenance Mode</div>
+
+              <div class="mm-toggle-panel" id="mmTogglePanel" th:classappend="${maintenanceEnabled} ? 'is-on' : ''">
+                <div>
+                  <div class="mm-toggle-label">Take mobile app offline</div>
+                  <div class="mm-toggle-sub">Parents see the maintenance message below instead of using the app.</div>
+                </div>
+                <div class="form-check form-switch mb-0">
+                  <input class="form-check-input mm-switch" type="checkbox" id="maintenanceToggle" th:checked="${maintenanceEnabled}">
+                </div>
+              </div>
+
+              <div class="d-flex align-items-center gap-2">
+                <span>Currently:</span>
+                <span class="mm-status-badge" id="statusBadge" th:classappend="${maintenanceEnabled} ? 'on' : 'off'">
+                  <i th:class="${maintenanceEnabled} ? 'bi bi-cone-striped' : 'bi bi-check-circle-fill'"></i>
+                  <span id="statusBadgeText" th:text="${maintenanceEnabled} ? 'MAINTENANCE ON' : 'LIVE'">LIVE</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <div class="ac-card">
+              <div class="ac-card-title"><i class="bi bi-chat-square-text text-primary"></i> Maintenance Message</div>
+              <p class="text-muted small mb-2">Shown to parents on the mobile app's maintenance screen while maintenance mode is on.</p>
+              <textarea class="form-control mb-2" id="maintenanceMessage" rows="4" maxlength="255"
+                        th:text="${maintenanceMessage}"></textarea>
+              <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted small"><span id="msgCharCount">0</span>/255</span>
+                <button type="button" class="btn btn-primary btn-sm" id="saveMessageBtn">
+                  <i class="bi bi-check2-circle"></i> Save Message
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm-enable modal — enabling maintenance mode is disruptive (blocks every
+       parent's app immediately), so it gets a confirmation step. Disabling it does not. -->
+  <div class="modal fade" id="confirmMaintenanceModal" tabindex="-1" aria-labelledby="confirmMaintenanceModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header bg-warning-subtle">
+          <h5 class="modal-title" id="confirmMaintenanceModalLabel">
+            <i class="bi bi-exclamation-triangle-fill me-2 text-warning"></i>Turn On Maintenance Mode?
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-0">This immediately blocks the mobile app for every parent across every school, until you turn it back off here.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancel</button>
+          <button type="button" class="btn btn-warning" id="confirmMaintenanceBtn"><i class="bi bi-cone-striped"></i> Turn On</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="text/javascript" th:inline="javascript">
+    const contextPath = /*[[@{/}]]*/ '/';
+
+    function showMsg(msgType, msg, headerValue){
+      toastr.options = {
+        "closeButton": true, "debug": false, "newestOnTop": false, "progressBar": false,
+        "positionClass": "toast-top-right", "preventDuplicates": false, "onclick": null,
+        "showDuration": "600", "hideDuration": "1000", "timeOut": "6000", "extendedTimeOut": "1000",
+        "showEasing": "swing", "hideEasing": "linear", "showMethod": "fadeIn", "hideMethod": "fadeOut"
+      };
+      toastr[msgType](msg, headerValue);
+    }
+
+    /* ── Char counter ──────────────────────────────────────────────────────── */
+    const $msgBox = $('#maintenanceMessage');
+    const updateCharCount = () => $('#msgCharCount').text($msgBox.val().length);
+    $msgBox.on('input', updateCharCount);
+    updateCharCount();
+
+    /* ── UI sync helper ───────────────────────────────────────────────────── */
+    function applyStatusUi(enabled) {
+      $('#mmTogglePanel').toggleClass('is-on', enabled);
+      $('#statusBadge').toggleClass('on', enabled).toggleClass('off', !enabled);
+      $('#statusBadgeText').text(enabled ? 'MAINTENANCE ON' : 'LIVE');
+      $('#statusChipText').text(enabled ? 'Under Maintenance' : 'Live');
+    }
+
+    /* ── Toggle (enabling asks for confirmation first) ────────────────────── */
+    let _pendingToggleValue = null;
+
+    function sendToggle(enabled) {
+      $('#maintenanceToggle').prop('disabled', true);
+      fetch(`${contextPath}admin/app-config/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'enabled=' + encodeURIComponent(enabled)
+      })
+      .then(r => r.json().then(data => ({ ok: r.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok || data.error) {
+          showMsg('error', data.error || 'Could not save.', 'Error');
+          $('#maintenanceToggle').prop('checked', !enabled); // revert on failure
+        } else {
+          applyStatusUi(enabled);
+          showMsg('success', data.message || 'Saved.', 'Success');
+        }
+      })
+      .catch(() => {
+        showMsg('error', 'Could not save. Please try again.', 'Error');
+        $('#maintenanceToggle').prop('checked', !enabled); // revert on failure
+      })
+      .finally(() => $('#maintenanceToggle').prop('disabled', false));
+    }
+
+    $('#maintenanceToggle').on('change', function () {
+      const enabled = $(this).is(':checked');
+      if (enabled) {
+        _pendingToggleValue = true;
+        new bootstrap.Modal(document.getElementById('confirmMaintenanceModal')).show();
+      } else {
+        sendToggle(false);
+      }
+    });
+
+    $('#confirmMaintenanceModal').on('hidden.bs.modal', function () {
+      // Modal dismissed (Cancel / backdrop / Esc) without confirming — revert the switch.
+      if (_pendingToggleValue !== null) {
+        $('#maintenanceToggle').prop('checked', false);
+        _pendingToggleValue = null;
+      }
+    });
+
+    $('#confirmMaintenanceBtn').on('click', function () {
+      _pendingToggleValue = null;
+      bootstrap.Modal.getInstance(document.getElementById('confirmMaintenanceModal'))?.hide();
+      sendToggle(true);
+    });
+
+    /* ── Save message ──────────────────────────────────────────────────────── */
+    $('#saveMessageBtn').on('click', function () {
+      const message = $msgBox.val().trim();
+      if (!message) {
+        showMsg('error', 'Please enter a message.', 'Error');
+        return;
+      }
+      let btn = $(this);
+      btn.prop('disabled', true);
+      fetch(`${contextPath}admin/app-config/message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'message=' + encodeURIComponent(message)
+      })
+      .then(r => r.json().then(data => ({ ok: r.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok || data.error) {
+          showMsg('error', data.error || 'Could not save.', 'Error');
+        } else {
+          showMsg('success', data.message || 'Saved.', 'Success');
+        }
+      })
+      .catch(() => showMsg('error', 'Could not save. Please try again.', 'Error'))
+      .finally(() => btn.prop('disabled', false));
+    });
+  </script>
+
+</section>
+</body>
+</html>

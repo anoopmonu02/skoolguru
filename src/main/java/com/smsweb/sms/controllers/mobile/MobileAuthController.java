@@ -4,6 +4,7 @@ import com.smsweb.sms.config.mobile.JwtTokenProvider;
 import com.smsweb.sms.dto.mobile.*;
 import com.smsweb.sms.models.student.AcademicStudent;
 import com.smsweb.sms.models.student.FamilyAccount;
+import com.smsweb.sms.services.admin.MaintenanceModeService;
 import com.smsweb.sms.services.mobile.FamilyAccountService;
 import com.smsweb.sms.services.mobile.LoginAttemptService;
 import com.smsweb.sms.services.mobile.MobileRefreshTokenService;
@@ -47,19 +48,22 @@ public class MobileAuthController {
     private final ParentSessionStore       parentSessionStore;
     private final MobileRefreshTokenService refreshTokenService;   // new, mobile-only (feature #10)
     private final LoginAttemptService      loginAttemptService;    // new, mobile-only — login throttling
+    private final MaintenanceModeService   maintenanceModeService; // new, mobile-only — /ping status for the maintenance screen
 
     public MobileAuthController(FamilyAccountService familyAccountService,
                                 AcademicStudentService academicStudentService,
                                 JwtTokenProvider jwtTokenProvider,
                                 ParentSessionStore parentSessionStore,
                                 MobileRefreshTokenService refreshTokenService,
-                                LoginAttemptService loginAttemptService) {
+                                LoginAttemptService loginAttemptService,
+                                MaintenanceModeService maintenanceModeService) {
         this.familyAccountService   = familyAccountService;
         this.academicStudentService = academicStudentService;
         this.jwtTokenProvider       = jwtTokenProvider;
         this.parentSessionStore     = parentSessionStore;
         this.refreshTokenService    = refreshTokenService;
         this.loginAttemptService    = loginAttemptService;
+        this.maintenanceModeService = maintenanceModeService;
     }
 
     // ── POST /api/v1/auth/login ───────────────────────────────────────────────
@@ -398,6 +402,23 @@ public class MobileAuthController {
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    // ── GET /api/v1/auth/ping ─────────────────────────────────────────────────
+    // Always reachable — deliberately exempted from MaintenanceModeFilter (see its
+    // javadoc) so the mobile app's maintenance screen can poll this via its
+    // "Try Again" button to find out when maintenance mode has been turned back off.
+    // No auth required: a user staring at the maintenance screen isn't logged in yet
+    // (or their token may have expired during the maintenance window).
+
+    @GetMapping("/ping")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> ping() {
+        boolean maintenance = maintenanceModeService.isEnabled();
+        Map<String, Object> data = Map.of(
+                "maintenanceMode", maintenance,
+                "message", maintenance ? maintenanceModeService.getMessage() : ""
+        );
+        return ResponseEntity.ok(ApiResponse.success(data));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

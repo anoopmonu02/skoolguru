@@ -478,4 +478,28 @@ public class RoleInitializer {
             repo.save(new AppScreen(module, screenName, screenKey, description));
         }
     }
+
+    /**
+     * Self-healing rename: if an AppScreen row for screenKey already exists and its
+     * current screenName differs from newScreenName, updates it in place. A no-op if
+     * the screen doesn't exist yet (seed(...) creates it with the right name the very
+     * first time) or already has the target name — so this is safe to leave in this
+     * method permanently and call again on every future startup.
+     *
+     * screenKey itself is the permission matrix's actual identity (matched against
+     * @CheckAccess(screen=...) / sms:access="KEY:ACTION" everywhere) — only the
+     * human-readable label shown in the Permission Matrix / sidebar changes here.
+     *
+     * Not currently invoked for any screen — added as a reusable capability. Wire up
+     * a call here (with the exact skoolguru screenKey + desired new label) if/when a
+     * specific screen name needs correcting without a manual DB edit.
+     */
+    private void renameScreen(AppScreenRepository repo, String screenKey, String newScreenName) {
+        repo.findByScreenKey(screenKey).ifPresent(screen -> {
+            if (!newScreenName.equals(screen.getScreenName())) {
+                screen.setScreenName(newScreenName);
+                repo.save(screen);
+            }
+        });
+    }
 }
