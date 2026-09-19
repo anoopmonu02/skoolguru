@@ -304,6 +304,20 @@
 
     <script type="text/javascript" th:inline="javascript">
         const contextPath = /*[[@{/}]]*/ '/';
+
+        // Escapes a value before it is interpolated into an .html()-built string.
+        // Student/father/mother names, mobile numbers, grade/section labels below
+        // come straight from a JSON response with no server-side escaping, and
+        // were previously interpolated into .html() unescaped - a stored-XSS gap
+        // (a name/field containing "<img src=x onerror=...>" would execute for
+        // every staff member who searched for or opened that student's fee-
+        // submission screen). Same fix pattern already applied to
+        // feesubmitform.html moments earlier.
+        const escapeHtml = function (value) {
+            const div = document.createElement('div');
+            div.textContent = value !== undefined && value !== null ? value : '';
+            return div.innerHTML;
+        };
         
 
         
@@ -399,8 +413,8 @@
         let _searchDebounceTimer = null;
 
         const renderStudentRow = (student) => {
-            let srval = student.classSrNo != null && student.classSrNo != '' ? ' / ' + student.classSrNo : ' / -';
-            return `<a onclick="loadStudentData(${student.id})" href="#" class='list-group-item list-group-item-action'>${student.student.studentName} / ${student.student.fatherName} / ${student.grade.gradeName}-${student.section.sectionName}${srval}</a>`;
+            let srval = student.classSrNo != null && student.classSrNo != '' ? ' / ' + escapeHtml(student.classSrNo) : ' / -';
+            return `<a onclick="loadStudentData(${student.id})" href="#" class='list-group-item list-group-item-action'>${escapeHtml(student.student.studentName)} / ${escapeHtml(student.student.fatherName)} / ${escapeHtml(student.grade.gradeName)}-${escapeHtml(student.section.sectionName)}${srval}</a>`;
         };
 
         const fetchStudents = (query, page, append) => {
@@ -535,15 +549,15 @@
 
         function setFeeRelatedData(data, flag){
             if(flag===1){
-                $(".studname").html(`${data.student.studentName} <span class="badge rounded-pill ${data.countStu=='OLD'?'text-bg-primary':'text-bg-success'}"> <b>${data.countStu}</b> </span>`);
-                $(".fname").html(`${data.student.fatherName}`);
-                $(".mname").html(`${data.student.motherName}`);
-                $(".contactno").html(`${data.student.mobile1}`);
+                $(".studname").html(`${escapeHtml(data.student.studentName)} <span class="badge rounded-pill ${data.countStu=='OLD'?'text-bg-primary':'text-bg-success'}"> <b>${escapeHtml(data.countStu)}</b> </span>`);
+                $(".fname").html(`${escapeHtml(data.student.fatherName)}`);
+                $(".mname").html(`${escapeHtml(data.student.motherName)}`);
+                $(".contactno").html(`${escapeHtml(data.student.mobile1)}`);
 
-                $(".cmedium").html(`${data.student.medium}`);
-                $(".cgrade").html(`${data.student.grade}`);
-                $(".csection").html(`${data.student.section}`);
-                $(".csr").html(`${data.student.classSrNo==null?"":data.student.classSrNo}`);
+                $(".cmedium").html(`${escapeHtml(data.student.medium)}`);
+                $(".cgrade").html(`${escapeHtml(data.student.grade)}`);
+                $(".csection").html(`${escapeHtml(data.student.section)}`);
+                $(".csr").html(`${data.student.classSrNo==null?"":escapeHtml(data.student.classSrNo)}`);
 
                 $('#academicStudentId').val(`${data.student.academicId}`);
                 $('#StudentId').val(`${data.student.id}`);

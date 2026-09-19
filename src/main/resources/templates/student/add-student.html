@@ -248,7 +248,10 @@
               </div>
               <div class="col-md-3">
                 <label for="fatherQualification" class="form-label">Father Qualification</label>
-                <input type="text" id="fatherQualification" class="form-control" th:field="*{fatherQualification}">
+                <select id="fatherQualification" class="form-select" th:field="*{fatherQualification}">
+                  <option value="">Select</option>
+                  <option th:each="entry : ${qualifications}" th:value="${entry.value}" th:text="${entry.key}"></option>
+                </select>
               </div>
 
               <div class="col-md-6">
@@ -262,7 +265,10 @@
               </div>
               <div class="col-md-3">
                 <label for="motherQualification" class="form-label">Mother Qualification</label>
-                <input type="text" id="motherQualification" class="form-control" th:field="*{motherQualification}">
+                <select id="motherQualification" class="form-select" th:field="*{motherQualification}">
+                  <option value="">Select</option>
+                  <option th:each="entry : ${qualifications}" th:value="${entry.value}" th:text="${entry.key}"></option>
+                </select>
               </div>
 
               <div class="wiz-subhead">Address &amp; Contact</div>

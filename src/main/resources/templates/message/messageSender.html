@@ -406,6 +406,18 @@
     <script type="text/javascript" th:inline="javascript">
         const contextPath = /*[[@{/}]]*/ '/';
 
+        // Escapes a value before it is interpolated into an .html()-built string.
+        // Student/father/mother names, mobile numbers, grade/section/medium
+        // labels below come straight from a JSON response with no server-side
+        // escaping, and were previously interpolated into .html() unescaped -
+        // a stored-XSS gap. Same fix pattern already applied elsewhere in this
+        // pass.
+        const escapeHtml = function (value) {
+            const div = document.createElement('div');
+            div.textContent = value !== undefined && value !== null ? value : '';
+            return div.innerHTML;
+        };
+
         // Same flatpickr config used app-wide (student registration, fee reminder, etc.) — d/M/Y = dd/MMM/yyyy
         flatpickr("#grievanceDueDate", { dateFormat: "d/M/Y" });
         let selectedStudent = null;
@@ -468,7 +480,7 @@
 
 
         let _msQuery = '', _msPage = 0, _msMore = false, _msLoading = false;
-        const _msRow = (s) => `<a onclick="loadStudentData(${s.id})" href="#" class='list-group-item list-group-item-action'>${s.student.studentName} / ${s.student.fatherName} / ${s.grade.gradeName}-${s.section.sectionName}</a>`;
+        const _msRow = (s) => `<a onclick="loadStudentData(${s.id})" href="#" class='list-group-item list-group-item-action'>${escapeHtml(s.student.studentName)} / ${escapeHtml(s.student.fatherName)} / ${escapeHtml(s.grade.gradeName)}-${escapeHtml(s.section.sectionName)}</a>`;
         const _msFetch = (query, page, append) => {
             if (_msLoading) return;
             _msLoading = true;
@@ -514,20 +526,20 @@
                     }
                     else{
                         selectedStudent = data.student
-                        $(".studname").html(`<strong>Student Name: </strong> ${data.student.student.studentName}`);
-                        $(".fname").html(`<strong>Father Name: </strong> ${data.student.student.fatherName}`);
-                        $(".mname").html(`<strong>Mother Name: </strong> ${data.student.student.motherName}`);
-                        $(".contactno").html(`<strong>Contact No: </strong> ${data.student.student.mobile1}`);
+                        $(".studname").html(`<strong>Student Name: </strong> ${escapeHtml(data.student.student.studentName)}`);
+                        $(".fname").html(`<strong>Father Name: </strong> ${escapeHtml(data.student.student.fatherName)}`);
+                        $(".mname").html(`<strong>Mother Name: </strong> ${escapeHtml(data.student.student.motherName)}`);
+                        $(".contactno").html(`<strong>Contact No: </strong> ${escapeHtml(data.student.student.mobile1)}`);
 
-                        $(".cmedium").html(`<strong>Medium: </strong> ${data.student.medium.mediumName}`);
-                        $(".cgrade").html(`<strong>Class: </strong> ${data.student.grade.gradeName}`);
-                        $(".csection").html(`<strong>Section: </strong> ${data.student.section.sectionName}`);
-                        $(".csr").html(`<strong>SR No: </strong> ${data.student.classSrNo==null?"":data.student.classSrNo}`);
+                        $(".cmedium").html(`<strong>Medium: </strong> ${escapeHtml(data.student.medium.mediumName)}`);
+                        $(".cgrade").html(`<strong>Class: </strong> ${escapeHtml(data.student.grade.gradeName)}`);
+                        $(".csection").html(`<strong>Section: </strong> ${escapeHtml(data.student.section.sectionName)}`);
+                        $(".csr").html(`<strong>SR No: </strong> ${data.student.classSrNo==null?"":escapeHtml(data.student.classSrNo)}`);
                         // Set the accordion title
                         let name = data.student.student.studentName;
                         let grade = data.student.grade.gradeName;
                         let section = data.student.section.sectionName;
-                        $("#headingStudentDetail button").html(`${name} / ${grade}-${section}`);
+                        $("#headingStudentDetail button").html(`${escapeHtml(name)} / ${escapeHtml(grade)}-${escapeHtml(section)}`);
                     }
                     let messageType = $("#messageType").val();
 
@@ -595,20 +607,30 @@
                             dt = dt.replaceAll(" ", "/");
                         }
                         let isResolved = msg.resolution === 'RESOLVED' || msg.resolution === 'RESLOVED';
-                        let resolveBtn = isResolved
-                            ? '<span class="text-success fw-bold">RESOLVED</span>'
-                            : `<button class="btn btn-sm btn-primary me-1" onclick="resolveSmsMessage(${msg.id}, this)">Resolve</button>`;
-                        let convoBtn = !isResolved
-                            ? `<button class="btn btn-sm btn-warning text-white" onclick="openAddConversationModal(${msg.id},'${msg.smsHeading}')">Add Conversation</button>`
-                            : '';
-                        let row = `<tr onclick="loadSmsConversations(${msg.id})" style="cursor:pointer">
+                        // msg.id is a numeric DB id (safe to interpolate directly);
+                        // msg.smsHeading is free-text and is set below via .text()/a
+                        // closure instead of being embedded into markup or an
+                        // inline onclick attribute, so no escaping scheme is needed.
+                        let $row = $(`<tr data-msg-id="${msg.id}" style="cursor:pointer">
                             <td>${counter}</td>
-                            <td>${msg.smsHeading}</td>
+                            <td class="ms-heading-cell"></td>
                             <td>${dt}</td>
-                            <td>${resolveBtn}${convoBtn}</td>
+                            <td class="ms-action-cell"></td>
                             <td></td>
-                        </tr>`;
-                        tbody.append(row);
+                        </tr>`);
+                        $row.find('.ms-heading-cell').text(msg.smsHeading || '');
+                        const $actionCell = $row.find('.ms-action-cell');
+                        if (isResolved) {
+                            $actionCell.html('<span class="text-success fw-bold">RESOLVED</span>');
+                        } else {
+                            const $resolveBtn = $('<button type="button" class="btn btn-sm btn-primary me-1">Resolve</button>');
+                            $resolveBtn.on('click', function () { resolveSmsMessage(msg.id, this); });
+                            const $convoBtn = $('<button type="button" class="btn btn-sm btn-warning text-white">Add Conversation</button>');
+                            $convoBtn.on('click', function () { openAddConversationModal(msg.id, msg.smsHeading); });
+                            $actionCell.append($resolveBtn).append($convoBtn);
+                        }
+                        $row.on('click', function () { loadSmsConversations(msg.id); });
+                        tbody.append($row);
                         counter++;
                     });
                 })
@@ -643,21 +665,32 @@
                         let recipientLabel = n.recipientType === 'CLASS'
                             ? `Class: ${n.className || ''} - ${n.sectionName || ''}`
                             : (n.recipientType === 'ALL' ? 'All Students' : 'Student');
-                        let attachmentCell = '<span class="text-muted">&mdash;</span>';
-                        if (Array.isArray(n.attachments) && n.attachments.length > 0) {
-                            const attJson = encodeURIComponent(JSON.stringify(n.attachments));
-                            attachmentCell = `<a href="#" onclick="openAttachmentViewer('${attJson}');return false;" title="View attachment(s)">
-                                <i class="bi bi-paperclip"></i> ${n.attachments.length}
-                            </a>`;
-                        }
-                        let row = `<tr>
+                        // n.smsHeading/className/sectionName/attachments[].originalFileName
+                        // are all free text (message content / uploaded file names) and
+                        // are set below via .text()/attr()-safe DOM APIs rather than
+                        // interpolated into markup or an inline onclick attribute -
+                        // encodeURIComponent does NOT escape a literal "'", so the old
+                        // `onclick="openAttachmentViewer('${attJson}')"` pattern could be
+                        // broken out of by an uploaded file whose name contains one.
+                        let $row = $(`<tr>
                             <td>${counter}</td>
-                            <td>${n.smsHeading || ''}</td>
+                            <td class="ms-notif-heading-cell"></td>
                             <td>${dt}</td>
-                            <td><span class="badge text-bg-info">${recipientLabel}</span></td>
-                            <td>${attachmentCell}</td>
-                        </tr>`;
-                        tbody.append(row);
+                            <td><span class="badge text-bg-info ms-notif-recipient-cell"></span></td>
+                            <td class="ms-notif-attachment-cell"></td>
+                        </tr>`);
+                        $row.find('.ms-notif-heading-cell').text(n.smsHeading || '');
+                        $row.find('.ms-notif-recipient-cell').text(recipientLabel);
+                        const $attCell = $row.find('.ms-notif-attachment-cell');
+                        if (Array.isArray(n.attachments) && n.attachments.length > 0) {
+                            const $attLink = $('<a href="#" title="View attachment(s)"><i class="bi bi-paperclip"></i> </a>');
+                            $attLink.append(document.createTextNode(n.attachments.length));
+                            $attLink.on('click', function (e) { e.preventDefault(); openAttachmentViewer(n.attachments); });
+                            $attCell.append($attLink);
+                        } else {
+                            $attCell.html('<span class="text-muted">&mdash;</span>');
+                        }
+                        tbody.append($row);
                         counter++;
                     });
                 })
@@ -672,20 +705,36 @@
         // inline (click to open full size in a new tab); documents show as a
         // download link. Admin web UI can download any type today; the mobile
         // app (separate workstream) only renders images inline for now.
-        function openAttachmentViewer(attachmentsJsonEncoded) {
-            const attachments = JSON.parse(decodeURIComponent(attachmentsJsonEncoded));
-            let bodyHtml = '';
-            attachments.forEach(att => {
-                const fullUrl = `${contextPath}${att.url}`;
-                if (att.image) {
-                    bodyHtml += `<a href="${fullUrl}" target="_blank" class="d-inline-block m-2">
-                        <img src="${fullUrl}" alt="${att.originalFileName}" style="max-width:200px;max-height:200px;border:1px solid #dee2e6;border-radius:4px;">
-                    </a>`;
-                } else {
-                    bodyHtml += `<div class="m-2"><a href="${fullUrl}" target="_blank"><i class="bi bi-file-earmark-arrow-down"></i> ${att.originalFileName}</a></div>`;
-                }
-            });
-            $('#attachmentViewerBody').html(bodyHtml || '<p class="text-muted">No attachments.</p>');
+        function openAttachmentViewer(attachments) {
+            // Built via DOM/jQuery .attr()/text-node APIs rather than string-
+            // interpolated markup, since att.url/att.originalFileName are
+            // server-stored but ultimately user-supplied (an uploaded file's
+            // original name) - a filename containing a quote or "<" must not
+            // be able to break out of the img/href attributes or inject markup.
+            const $body = $('<div></div>');
+            if (!Array.isArray(attachments) || attachments.length === 0) {
+                $body.html('<p class="text-muted">No attachments.</p>');
+            } else {
+                attachments.forEach(att => {
+                    const fullUrl = `${contextPath}${att.url}`;
+                    if (att.image) {
+                        const $a = $('<a target="_blank" class="d-inline-block m-2"></a>').attr('href', fullUrl);
+                        const $img = $('<img style="max-width:200px;max-height:200px;border:1px solid #dee2e6;border-radius:4px;">')
+                            .attr('src', fullUrl)
+                            .attr('alt', att.originalFileName || '');
+                        $a.append($img);
+                        $body.append($a);
+                    } else {
+                        const $wrap = $('<div class="m-2"></div>');
+                        const $a = $('<a target="_blank"></a>').attr('href', fullUrl);
+                        $a.append('<i class="bi bi-file-earmark-arrow-down"></i> ');
+                        $a.append(document.createTextNode(att.originalFileName || ''));
+                        $wrap.append($a);
+                        $body.append($wrap);
+                    }
+                });
+            }
+            $('#attachmentViewerBody').html($body.html());
             $('#attachmentViewerModal').modal('show');
         }
 
@@ -743,13 +792,18 @@
                         const alignClass = (by === 'SCHOOL') ? 'text-start' : 'text-end';
                         const bubbleClass = (by === 'SCHOOL') ? 'bg-light' : 'bg-primary text-white';
 
+                        // conv.message is free-text typed by a parent/staff member and
+                        // rendered here for every other party in the thread - the most
+                        // directly exploitable stored-XSS surface in this file if left
+                        // unescaped. by/time are backend-controlled (an enum, a
+                        // formatted date) but escaped too for defense in depth.
                         timelineHTML += `
                     <div class="${alignClass} mb-2">
                         <span class="d-inline-block px-3 py-2 border rounded ${bubbleClass}" style="max-width: 70%;">
                             <div class="small mb-1">
-                                <strong>${by}</strong> - ${time} ${tick}
+                                <strong>${escapeHtml(by)}</strong> - ${escapeHtml(time)} ${tick}
                             </div>
-                            <div>${conv.message}</div>
+                            <div>${escapeHtml(conv.message)}</div>
                         </span>
                     </div>
                 `;
@@ -935,7 +989,7 @@
                         alert("Please select Section to proceed");
                         return;
                     }
-                    messageDetails += ` | Class: <strong>${selectedClass}</strong> - Section: <strong>${selectedSection}</strong>`;
+                    messageDetails += ` | Class: <strong>${escapeHtml(selectedClass)}</strong> - Section: <strong>${escapeHtml(selectedSection)}</strong>`;
                     $("#modalMessageDetails").html(messageDetails);
                     $("#notificationMessageModal").modal("show");
                 }
@@ -949,7 +1003,7 @@
                     let name = selectedStudent.student.studentName;
                     let grade = selectedStudent.grade.gradeName;
                     let section = selectedStudent.section.sectionName;
-                    const selectedStudentText = `${name} / ${grade}-${section}`;
+                    const selectedStudentText = `${escapeHtml(name)} / ${escapeHtml(grade)}-${escapeHtml(section)}`;
                     messageDetails += ` | Student: <strong>${selectedStudentText}</strong>`;
                     $("#modalMessageDetails").html(messageDetails);
                     $("#notificationMessageModal").modal("show");

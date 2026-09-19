@@ -6,53 +6,117 @@
 </head>
 <body>
 <section>
+
+    <!-- Page-local, scoped card look — same ".aa-card" pattern already used on
+         Update Aadhar / Update Student Details / Student Health Report, reused
+         here for visual consistency rather than redefined. Purely cosmetic:
+         no selector below is referenced by this page's JS (which binds by id
+         and by .remove-sibling-row / .search-result / etc., all untouched). -->
+    <style>
+        .aa-card {
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xs); padding: 20px 22px; margin-bottom: 18px;
+        }
+        .aa-card h4 { font-size: 14.5px; font-weight: 800; margin: 0 0 2px; color: var(--text-primary); }
+        .aa-card hr { margin: 10px 0 16px; }
+
+        /* Compact, borderless look for the dynamically-built sibling table,
+           matching the font-size/header-background convention used on every
+           other list/table this session (e.g. Student List, Update Student
+           Details) — kept as a plain styled <table>, not a DataTables
+           instance: rows here are added/removed one at a time by
+           buildSiblingRow()/renumberSiblingRows() as the user searches, which
+           is a different interaction shape from a load-once, browse/sort/
+           export list, so DataTables' own row ownership would fight this
+           page's incremental add/remove instead of helping it. */
+        #siblingTable { border: none; }
+        #siblingTable thead th {
+            text-align: left; padding: 10px 14px; color: var(--text-muted); font-weight: 700;
+            font-size: .68rem; text-transform: uppercase; letter-spacing: .04em;
+            background: var(--card-bg); white-space: nowrap;
+            border-top: none !important; border-bottom: 1px solid var(--border-color) !important;
+        }
+        #siblingTable tbody td {
+            padding: 9px 14px; vertical-align: middle; font-size: .85rem;
+            border-top: none !important; border-left: none !important; border-right: none !important;
+            border-bottom: 1px solid var(--border-color) !important; background-color: transparent !important;
+        }
+        #siblingTable tbody tr:last-child td { border-bottom: none !important; }
+
+        /* Search box + results dropdown — same pattern as Discount Assign's
+           student search (student/discountassign.html), reused verbatim
+           here for both search boxes on this page. */
+        .da-search-wrap { position: relative; }
+        .da-search-wrap input { padding-left: 38px; }
+        .da-search-wrap .bi-search { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+        .da-search-results { position: absolute; z-index: 20; width: 100%; max-height: 320px; overflow-y: auto; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-xs); margin-top: 4px; display: none; }
+        .da-result-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border-color); }
+        .da-result-row:last-child { border-bottom: none; }
+        .da-result-row:hover { background: var(--accent-light); }
+        .da-result-name { font-weight: 600; color: var(--text-primary); }
+        .da-result-sub { font-size: .72rem; color: var(--text-muted); }
+        .da-result-empty { padding: 14px; color: var(--text-muted); font-size: .85rem; text-align: center; }
+    </style>
+
     <div class="container-fluid px-3">
         <div class="row mt-2">
             <div class="col-md-12">
                 <div th:replace="~{components/ui :: page-header('Sibling Group Form')}"></div>
 
                 <!--Search box-->
-                <div class="search-container my-3">
-                    <!--<input  type="text" class="form-control" id="search-input" placeholder="Search student name">-->
-                    <input type="text" onkeyup="searchStuName()" class="form-control" id="search-input" placeholder="Search student name">
-                    <div class="search-result" style="max-height:300px; overflow-y:auto; border:1px solid #dee2e6; border-radius:4px; display:none;">
+                <div class="aa-card">
+                    <h4>Search by Family</h4>
+                    <p class="aa-sub" style="font-size:12px;color:var(--text-muted);margin:2px 0 12px;">
+                        Search an already-known sibling and this pulls in every student on record with the same family — fastest way to build a group.
+                    </p>
+                    <div class="da-search-wrap">
+                        <i class="bi bi-search"></i>
+                        <input type="text" onkeyup="searchStuName()" class="form-control" id="search-input" placeholder="Search student name" autocomplete="off">
+                        <div class="da-search-results search-result"></div>
                     </div>
                 </div>
+
                 <!--Add Individual Student-->
-                <h4>Add Manually, if not sure</h4>
-                <hr/>
-                <div class="row search-container1 my-3">
-                    <div class="col-md-6 search-block">
-                        <label for="search-input1" class="form-label">Student Name</label>
-                        <input type="text" onkeyup="searchStuNameIndividual()" class="form-control" id="search-input1" placeholder="Search student name" name="stuname">
-                        <div class="search-result1" style="max-height:300px; overflow-y:auto; border:1px solid #dee2e6; border-radius:4px; display:none;">
+                <div class="aa-card">
+                    <h4>Add Manually, if not sure</h4>
+                    <hr/>
+                    <div class="row search-container1">
+                        <div class="col-md-6 search-block">
+                            <label for="search-input1" class="form-label">Student Name</label>
+                            <div class="da-search-wrap">
+                                <i class="bi bi-search"></i>
+                                <input type="text" onkeyup="searchStuNameIndividual()" class="form-control" id="search-input1" placeholder="Search student name" name="stuname" autocomplete="off">
+                                <div class="da-search-results search-result1"></div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="col-md-1">
-                        <input type="hidden" id="academic_student" name="academic_student" />
-                        <input type="hidden" id="student_id_global" />
-                    </div>
-                    <div class="col-md-5 align-self-end mb-2">
-                        <label class="form-label">&nbsp;</label>
-                        <div class="col-sm-4">
-                            <button onclick="checkStudentData()" class="btn btn-primary" id="siblingAddBtn"><i class="bi bi-person-plus-fill"></i> Add Student</button>
+                        <div class="col-md-1">
+                            <input type="hidden" id="academic_student" name="academic_student" />
+                            <input type="hidden" id="student_id_global" />
+                        </div>
+                        <div class="col-md-5 align-self-end">
+                            <label class="form-label">&nbsp;</label>
+                            <div>
+                                <button onclick="checkStudentData()" class="btn btn-primary" id="siblingAddBtn"><i class="bi bi-person-plus-fill"></i> Add Student</button>
+                            </div>
                         </div>
                     </div>
                 </div>
+
                 <div class="group-data" style="display: none">
                     <div th:replace="~{components/ui :: page-header('Create Group')}"></div>
 
                     <form name="siblinggroup" th:action="@{/sibling/savesiblinggroup}" method="post">
-                        <div class="row">
-                            <div class="col-md-6 mb-2">
-                                <label for="groupname" class="form-label">Group Name</label>
-                                <input type="text" class="form-control" name="groupname" id="groupname">
+                        <div class="aa-card">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="groupname" class="form-label">Group Name</label>
+                                    <input type="text" class="form-control" name="groupname" id="groupname">
+                                </div>
                             </div>
-                            <div class="col-md-6 mb-2">
-                            </div>
-                            <div class="col-md-12 mb-2">
-                                <h6><b>Sibling List</b></h6>
-                                <table class="table table-bordered table-striped table-sm" id="siblingTable">
+                            <h4>Sibling List</h4>
+                            <hr/>
+                            <div class="table-responsive">
+                                <table class="table table-sm" id="siblingTable">
                                     <thead>
                                     <tr>
                                         <th>#</th>
@@ -64,7 +128,7 @@
                                         <th>Action</th>
                                     </tr>
                                     </thead>
-                                    <tbody class="table-group-divider">
+                                    <tbody>
 
                                     </tbody>
                                 </table>
@@ -72,9 +136,9 @@
                         </div>
                         <div class="row">
                             <div class="col-md-5">
-                                <a class="btn btn-outline-secondary btn-sm" th:href="@{/sibling/sibling-group}"><i class="bi bi-arrow-left"></i> Back to List</a>
+                                <a th:replace="~{components/ui :: back-link('/sibling/sibling-group', 'Back to List')}"></a>
                             </div>
-                            <div class="col-md-6 mb-5">
+                            <div class="col-md-6 mb-5 text-md-end">
                                 <button type="button" onclick="checkData()" class="btn btn-primary" id="siblingSubmitBtn"><i class="bi bi-save2-fill"></i> Save</button>
                             </div>
                         </div>
@@ -87,19 +151,36 @@
         const contextPath = /*[[@{/}]]*/ '/';
     </script>
     <script type="text/javascript" th:inline="javascript">
-        
-
-        
-
-        
-
-        
+        // Escapes a value before it's concatenated into innerHTML below -
+        // student/father names are DB data, not hard-coded strings, so this
+        // closes off a stored-XSS path in the AJAX-built search results
+        // (same approach used on Student List / Discount Assign).
+        const daEscape = function (value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        };
+        const daAvatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+        const daInitialsOf = function (name) {
+            return (name || '').trim().split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+        };
+        const daAvatarColorFor = function (id) {
+            return daAvatarColors[Math.abs(id || 0) % daAvatarColors.length];
+        };
 
         /* ── Search box 1 (group search via searchStudentForOtherPage) ── */
         let _sb1Query = '', _sb1Page = 0, _sb1More = false, _sb1Loading = false;
         const _sb1Row = (s) => {
-            let sr = s.classSrNo ? ' / ' + s.classSrNo : ' / -';
-            return `<a onclick="loadStudentData(${s.id})" href="#" class='list-group-item list-group-item-action'>${s.student.studentName} / ${s.student.fatherName} / ${s.grade.gradeName}-${s.section.sectionName}${sr}</a>`;
+            const sr = s.classSrNo ? ' / SR ' + daEscape(s.classSrNo) : '';
+            const color = daAvatarColorFor(s.student ? s.student.id : s.id);
+            return `<div class="da-result-row" onclick="loadStudentData(${s.id})">` +
+                `<div class="stu-avatar" style="background:${color}22;color:${color}">${daEscape(daInitialsOf(s.student.studentName))}</div>` +
+                `<div><div class="da-result-name">${daEscape(s.student.studentName)}</div>` +
+                `<div class="da-result-sub">${daEscape(s.student.fatherName)} &middot; ${daEscape(s.grade.gradeName)}-${daEscape(s.section.sectionName)}${sr}</div></div>` +
+                `</div>`;
         };
         const _sb1Fetch = (query, page, append) => {
             if (_sb1Loading) return;
@@ -109,9 +190,13 @@
                     _sb1Loading = false;
                     _sb1More = data.length === 10;
                     if (!append) {
-                        let html = `<div class='list-group' id='sb1-list-group'>`;
-                        data.forEach(s => { html += _sb1Row(s); });
-                        $(".search-result").html(html + `</div>`).show();
+                        if (data.length === 0) {
+                            $(".search-result").html(`<div class="da-result-empty">No students found.</div>`).show();
+                        } else {
+                            let html = `<div id='sb1-list-group'>`;
+                            data.forEach(s => { html += _sb1Row(s); });
+                            $(".search-result").html(html + `</div>`).show();
+                        }
                     } else {
                         data.forEach(s => { $('#sb1-list-group').append(_sb1Row(s)); });
                     }
@@ -135,9 +220,14 @@
         const _sb2Cache = {};
 
         const _sb2Row = (s) => {
-            let sr = s.classSrNo ? ' / ' + s.classSrNo : ' / -';
-            let school = s.school ? ' [' + s.school.schoolName + ']' : '';
-            return `<a onclick="loadStudentData1(${s.id})" href="#" class='list-group-item list-group-item-action'>${s.student.studentName} / ${s.student.fatherName} / ${s.grade.gradeName}-${s.section.sectionName}${sr}${school}</a>`;
+            const sr = s.classSrNo ? ' / SR ' + daEscape(s.classSrNo) : '';
+            const school = s.school ? ' &middot; ' + daEscape(s.school.schoolName) : '';
+            const color = daAvatarColorFor(s.student ? s.student.id : s.id);
+            return `<div class="da-result-row" onclick="loadStudentData1(${s.id})">` +
+                `<div class="stu-avatar" style="background:${color}22;color:${color}">${daEscape(daInitialsOf(s.student.studentName))}</div>` +
+                `<div><div class="da-result-name">${daEscape(s.student.studentName)}</div>` +
+                `<div class="da-result-sub">${daEscape(s.student.fatherName)} &middot; ${daEscape(s.grade.gradeName)}-${daEscape(s.section.sectionName)}${sr}${school}</div></div>` +
+                `</div>`;
         };
         const _sb2Fetch = (query, page, append) => {
             if (_sb2Loading) return;
@@ -150,9 +240,13 @@
                     // Cache each result by academicStudent.id
                     data.forEach(s => { _sb2Cache[s.id] = s; });
                     if (!append) {
-                        let html = `<div class='list-group' id='sb2-list-group'>`;
-                        data.forEach(s => { html += _sb2Row(s); });
-                        $(".search-result1").html(html + `</div>`).show();
+                        if (data.length === 0) {
+                            $(".search-result1").html(`<div class="da-result-empty">No students found.</div>`).show();
+                        } else {
+                            let html = `<div id='sb2-list-group'>`;
+                            data.forEach(s => { html += _sb2Row(s); });
+                            $(".search-result1").html(html + `</div>`).show();
+                        }
                     } else {
                         data.forEach(s => { $('#sb2-list-group').append(_sb2Row(s)); });
                     }
@@ -178,7 +272,7 @@
                 <td>${value.student.motherName}</td>
                 <td>${value.grade.gradeName} - ${value.section.sectionName}</td>
                 <td>${value.school.schoolName}</td>
-                <td><button type="button" class="btn btn-danger btn-sm remove-sibling-row"><i class="bi bi-trash"></i></button></td>
+                <td><button type="button" class="config-icon-btn danger remove-sibling-row" title="Remove"><i class="bi bi-trash"></i></button></td>
             </tr>`;
         };
 
@@ -335,8 +429,5 @@
        now loads them in <head>, so they are available before this page's
        inline scripts run. They used to be duplicated on every page. -->
 </section>
-</body>
-</html>
-
 </body>
 </html>

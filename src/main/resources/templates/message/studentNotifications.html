@@ -171,6 +171,17 @@
 
     <script type="text/javascript"  th:inline="javascript">
         const contextPath = /*[[@{/}]]*/ '/';
+
+        // Escapes a value before it is interpolated into an .html()-built string
+        // or handed to DataTables (which renders each column value as raw HTML
+        // by default). Student/message data below comes straight from a JSON
+        // response with no server-side escaping - a stored-XSS gap. Same fix
+        // pattern already applied elsewhere in this pass.
+        const escapeHtml = function (value) {
+            const div = document.createElement('div');
+            div.textContent = value !== undefined && value !== null ? value : '';
+            return div.innerHTML;
+        };
         let selectedStudent = null;
         $(document).ready(function () {
 
@@ -233,7 +244,7 @@
 
         let selectedId = null;
         let _snQuery = '', _snPage = 0, _snMore = false, _snLoading = false;
-        const _snRow = (s) => `<a onclick="loadStudentData(${s.id})" href="#" class='list-group-item list-group-item-action'>${s.student.studentName} / ${s.student.fatherName} / ${s.grade.gradeName}-${s.section.sectionName}</a>`;
+        const _snRow = (s) => `<a onclick="loadStudentData(${s.id})" href="#" class='list-group-item list-group-item-action'>${escapeHtml(s.student.studentName)} / ${escapeHtml(s.student.fatherName)} / ${escapeHtml(s.grade.gradeName)}-${escapeHtml(s.section.sectionName)}</a>`;
         const _snFetch = (query, page, append) => {
             if (_snLoading) return;
             _snLoading = true;
@@ -279,20 +290,20 @@
                     }
                     else{
                         selectedStudent = data.student
-                        $(".studname").html(`<strong>Student Name: </strong> ${data.student.student.studentName}`);
-                        $(".fname").html(`<strong>Father Name: </strong> ${data.student.student.fatherName}`);
-                        $(".mname").html(`<strong>Mother Name: </strong> ${data.student.student.motherName}`);
-                        $(".contactno").html(`<strong>Contact No: </strong> ${data.student.student.mobile1}`);
+                        $(".studname").html(`<strong>Student Name: </strong> ${escapeHtml(data.student.student.studentName)}`);
+                        $(".fname").html(`<strong>Father Name: </strong> ${escapeHtml(data.student.student.fatherName)}`);
+                        $(".mname").html(`<strong>Mother Name: </strong> ${escapeHtml(data.student.student.motherName)}`);
+                        $(".contactno").html(`<strong>Contact No: </strong> ${escapeHtml(data.student.student.mobile1)}`);
 
-                        $(".cmedium").html(`<strong>Medium: </strong> ${data.student.medium.mediumName}`);
-                        $(".cgrade").html(`<strong>Class: </strong> ${data.student.grade.gradeName}`);
-                        $(".csection").html(`<strong>Section: </strong> ${data.student.section.sectionName}`);
-                        $(".csr").html(`<strong>SR No: </strong> ${data.student.classSrNo==null?"":data.student.classSrNo}`);
-                        // ✅ Set the accordion title
+                        $(".cmedium").html(`<strong>Medium: </strong> ${escapeHtml(data.student.medium.mediumName)}`);
+                        $(".cgrade").html(`<strong>Class: </strong> ${escapeHtml(data.student.grade.gradeName)}`);
+                        $(".csection").html(`<strong>Section: </strong> ${escapeHtml(data.student.section.sectionName)}`);
+                        $(".csr").html(`<strong>SR No: </strong> ${data.student.classSrNo==null?"":escapeHtml(data.student.classSrNo)}`);
+                        // Set the accordion title
                         let name = data.student.student.studentName;
                         let grade = data.student.grade.gradeName;
                         let section = data.student.section.sectionName;
-                        $("#headingStudentDetail button").html(`${name} / ${grade}-${section}`);
+                        $("#headingStudentDetail button").html(`${escapeHtml(name)} / ${escapeHtml(grade)}-${escapeHtml(section)}`);
                     }
                     let messageType = $("#messageType").val();
 
@@ -315,22 +326,50 @@
         // inline (click to open full size in a new tab); documents show as a
         // download link. Admin web UI can download any type today; the mobile
         // app (separate workstream) only renders images inline for now.
-        function openAttachmentViewer(attachmentsJsonEncoded) {
-            const attachments = JSON.parse(decodeURIComponent(attachmentsJsonEncoded));
-            let bodyHtml = '';
-            attachments.forEach(att => {
-                const fullUrl = `${contextPath}${att.url}`;
-                if (att.image) {
-                    bodyHtml += `<a href="${fullUrl}" target="_blank" class="d-inline-block m-2">
-                        <img src="${fullUrl}" alt="${att.originalFileName}" style="max-width:200px;max-height:200px;border:1px solid #dee2e6;border-radius:4px;">
-                    </a>`;
-                } else {
-                    bodyHtml += `<div class="m-2"><a href="${fullUrl}" target="_blank"><i class="bi bi-file-earmark-arrow-down"></i> ${att.originalFileName}</a></div>`;
-                }
-            });
-            $('#attachmentViewerBody').html(bodyHtml || '<p class="text-muted">No attachments.</p>');
+        function openAttachmentViewer(attachments) {
+            // Built via DOM/jQuery .attr()/text-node APIs rather than string-
+            // interpolated markup, since att.url/att.originalFileName are
+            // ultimately user-supplied (an uploaded file's original name) - a
+            // filename containing a quote or "<" must not be able to break out
+            // of the img/href attributes or inject markup.
+            const $body = $('<div></div>');
+            if (!Array.isArray(attachments) || attachments.length === 0) {
+                $body.html('<p class="text-muted">No attachments.</p>');
+            } else {
+                attachments.forEach(att => {
+                    const fullUrl = `${contextPath}${att.url}`;
+                    if (att.image) {
+                        const $a = $('<a target="_blank" class="d-inline-block m-2"></a>').attr('href', fullUrl);
+                        const $img = $('<img style="max-width:200px;max-height:200px;border:1px solid #dee2e6;border-radius:4px;">')
+                            .attr('src', fullUrl)
+                            .attr('alt', att.originalFileName || '');
+                        $a.append($img);
+                        $body.append($a);
+                    } else {
+                        const $wrap = $('<div class="m-2"></div>');
+                        const $a = $('<a target="_blank"></a>').attr('href', fullUrl);
+                        $a.append('<i class="bi bi-file-earmark-arrow-down"></i> ');
+                        $a.append(document.createTextNode(att.originalFileName || ''));
+                        $wrap.append($a);
+                        $body.append($wrap);
+                    }
+                });
+            }
+            $('#attachmentViewerBody').html($body.html());
             $('#attachmentViewerModal').modal('show');
         }
+
+        // Attachment arrays for the currently-rendered notification table rows,
+        // looked up by row index from a delegated click handler below - avoids
+        // JSON-encoding attachment data into an onclick attribute string (see
+        // openAttachmentViewer's comment for why that was unsafe).
+        let _notifAttachmentsByIdx = [];
+        $(document).on('click', '#notificationTable tbody .att-view-btn', function (e) {
+            e.preventDefault();
+            const idx = $(this).data('idx');
+            const attachments = _notifAttachmentsByIdx[idx];
+            if (attachments) openAttachmentViewer(attachments);
+        });
 
         function fetchMessagesAndPopulateTable(selectedId) {
             const url = `${contextPath}message/notifications?studentId=${selectedId}`;
@@ -342,21 +381,25 @@
                     let table = $('#notificationTable').DataTable();
                     table.clear();
 
-                    const rows = data.map(item => {
+                    _notifAttachmentsByIdx = [];
+                    const rows = data.map((item, idx) => {
                         let attachmentCell = '<span class="text-muted">&mdash;</span>';
                         if (Array.isArray(item.attachments) && item.attachments.length > 0) {
-                            const attJson = encodeURIComponent(JSON.stringify(item.attachments));
-                            attachmentCell = `<a href="#" onclick="openAttachmentViewer('${attJson}');return false;" title="View attachment(s)">
+                            _notifAttachmentsByIdx[idx] = item.attachments;
+                            attachmentCell = `<a href="#" class="att-view-btn" data-idx="${idx}" title="View attachment(s)">
                                 <i class="bi bi-paperclip"></i> ${item.attachments.length}
                             </a>`;
                         }
+                        // className/sectionName/recipientType/smsHeading/smsContent/
+                        // smsDate are free text rendered as raw HTML by DataTables'
+                        // default cell renderer, so each is escaped here first.
                         return [
-                            item.className,        // Class
-                            item.sectionName,      // Section
-                            item.recipientType,    // Recipient Type
-                            item.smsHeading,       // Message Heading
-                            item.smsContent,       // Message Content
-                            item.smsDate,          // Message Date
+                            escapeHtml(item.className),        // Class
+                            escapeHtml(item.sectionName),      // Section
+                            escapeHtml(item.recipientType),    // Recipient Type
+                            escapeHtml(item.smsHeading),       // Message Heading
+                            escapeHtml(item.smsContent),       // Message Content
+                            escapeHtml(item.smsDate),          // Message Date
                             attachmentCell          // Attachment
                         ];
                     });

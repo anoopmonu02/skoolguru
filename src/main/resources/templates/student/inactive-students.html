@@ -4,166 +4,611 @@
 <head>
   <meta charset="UTF-8">
   <title>UAIC - Student</title>
-
-
 </head>
 <body>
 <section>
 
+  <!-- Page-scoped look, reused (near-verbatim) from the Student List redesign
+       (student.html) so this page reads as the same design system: the same
+       card shell (.stu-table-card), toolbar/search (.config-list-toolbar +
+       .config-search-wrap - both GLOBAL, components.css), export-button
+       styling (.stu-export-btn) and custom footer/pagination wired to
+       DataTables' own table.search()/.page()/.page.len()/.buttons() API.
+       .stu-cell/.stu-avatar/.config-icon-btn/.row-actions/.header-count-badge
+       are GLOBAL classes (components.css) - not redeclared here. -->
+  <style>
+    .stu-table-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-xs);
+      overflow: hidden;
+    }
+    .stu-toolbar { justify-content: space-between; }
+    .stu-export-slot {
+      margin-left: auto; flex-shrink: 0;
+      display: flex; align-items: center; gap: 6px; flex-wrap: nowrap;
+    }
+    .stu-export-slot .dt-buttons { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+    /* !important throughout: the Buttons extension also attaches its own
+       Bootstrap classes (btn, btn-secondary, buttons-html5, ...) alongside
+       .stu-export-btn, and those carry a solid grey/blue Bootstrap button
+       look (padding, background, border) that otherwise wins the cascade. */
+    .stu-export-slot .stu-export-btn {
+      width: 32px !important; height: 32px !important;
+      border-radius: var(--radius-sm) !important;
+      border: 1px solid var(--border-color) !important;
+      background: var(--card-bg) !important;
+      color: var(--text-muted) !important;
+      display: inline-flex !important; align-items: center; justify-content: center;
+      padding: 0 !important; margin: 0 !important;
+      box-shadow: none !important;
+      font-size: .92rem;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    .stu-export-slot .stu-export-btn:hover {
+      background: var(--accent-light) !important; border-color: var(--accent) !important; color: var(--accent) !important;
+    }
+
+    /* Safety net alongside DataTables' scrollX:true. */
+    .stu-table-card .dt-scroll-body { overflow-x: auto !important; }
+
+    /* Clean table look (no vertical grid lines, no zebra stripes) instead of
+       Bootstrap's table-bordered/table-striped - matches the Student List
+       redesign's plain, hover-highlighted row list. */
+    #students-deleted.table { border: none; }
+    #students-deleted thead th {
+      text-align: left;
+      padding: 10px 14px;
+      color: var(--text-muted);
+      font-weight: 700;
+      font-size: .68rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      background: var(--body-bg);
+      white-space: nowrap;
+      border-top: none !important;
+      border-bottom: 1px solid var(--border-color) !important;
+    }
+    #students-deleted tbody td {
+      padding: 9px 14px;
+      vertical-align: middle;
+      border-top: none !important;
+      border-left: none !important;
+      border-right: none !important;
+      border-bottom: 1px solid var(--border-color) !important;
+      background-color: transparent !important;
+      /* Compact body text - matches the Student List table's own
+         #student-list, #student-list th, #student-list td { font-size:
+         0.82rem; } treatment for its (also wide, many-column) table. */
+      font-size: .82rem;
+    }
+    #students-deleted tbody tr:hover td { background-color: var(--body-bg) !important; }
+    #students-deleted tbody tr:last-child td { border-bottom: none !important; }
+
+    /* Name-cell subtext: "Grade - Section · SR No" under the student's name,
+       replacing the old separate Grade / SR No columns. Page-scoped, new to
+       this page. */
+    .stu-name-text { font-weight: 600; color: var(--text-primary); font-size: .86rem; }
+    .stu-sub-text { font-size: .72rem; color: var(--text-muted); margin-top: 1px; }
+
+    /* Restore action reads as a positive/undo action, not the usual accent
+       blue - a page-scoped ".success" tint alongside .config-icon-btn's
+       existing .danger/.view variants (components.css). Doesn't touch the
+       shared file, so no other page's icon buttons are affected. */
+    .config-icon-btn.success { background: rgba(22, 163, 74, .10); color: #16a34a; }
+    .config-icon-btn.success:hover { background: #16a34a; border-color: #16a34a; color: #fff; }
+
+    /* ── Footer: rows-per-page + "Showing X-Y of Z" + page-number pagination,
+       custom-built and wired to table.page()/table.page.len(). ─────────── */
+    .stu-table-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      border-top: 1px solid var(--border-color);
+      flex-wrap: wrap;
+    }
+    .stu-footer-left { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+    .stu-length-label { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--text-muted); }
+    .stu-length-select {
+      border-radius: var(--radius-sm); border: 1px solid var(--border-color);
+      background: var(--card-bg); color: var(--text-primary); padding: 4px 8px; font-size: .8rem;
+    }
+    .stu-page-info { font-size: .8rem; color: var(--text-muted); }
+    .stu-pagination { display: flex; gap: 5px; }
+    .stu-page-btn {
+      min-width: 30px; height: 30px; padding: 0 8px;
+      border-radius: var(--radius-sm); border: 1px solid var(--border-color);
+      background: var(--card-bg); color: var(--text-primary);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: .8rem; font-weight: 600; cursor: pointer;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    .stu-page-btn:hover:not(.disabled):not(.active) {
+      background: var(--accent-light); border-color: var(--accent); color: var(--accent);
+    }
+    .stu-page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; cursor: default; }
+    .stu-page-btn.disabled { opacity: .45; cursor: default; pointer-events: none; }
+    .stu-page-ellipsis {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; color: var(--text-muted); font-size: .8rem;
+    }
+  </style>
+
   <div class="container-fluid px-3">
     <div class="row mt-2 ">
       <div class="col-md-12">
-        <div th:replace="~{components/ui :: page-header('Removed Student List')}"></div>
+        <div class="page-header page-header-row">
+          <h1 class="page-header-title">Removed Student List
+            <span class="header-count-badge" th:text="${students != null ? #lists.size(students) : 0}">0</span>
+          </h1>
+        </div>
 
-        <table id="students-deleted" class="table table-bordered table-striped table-hover table-sm" th:if="${hasStudent}">
-          <thead>
-          <tr>
-            <th>Student Name</th>
-            <th>SR No</th>
-            <th>Grade</th>
-            <th>Regis. Date</th>
-            <!--<th>Regis. #</th>-->
-            <th>Mother Name</th>
-            <th>Father Name</th>
-            <th>Mobile</th>
-            <th>Email</th>
-            <th>Address</th>
-            <th>Status</th>
-            <th>Remove Date</th>
-            <th>Action</th>
-          </tr>
-          </thead>
-          <tbody class="table-group-divider">
+        <div class="stu-table-card" th:if="${hasStudent}">
+          <div class="config-list-toolbar stu-toolbar">
+            <div class="config-search-wrap">
+              <i class="bi bi-search"></i>
+              <input type="text" class="form-control form-control-sm" id="deletedStudentSearchInput"
+                     placeholder="Search by name, father name, mobile…">
+            </div>
+            <!-- DataTables Buttons' own container gets appended here by
+                 table.buttons().container() after init (see script below),
+                 so exports sit inline with search instead of on their own row. -->
+            <div id="delExportSlot" class="stu-export-slot"></div>
+          </div>
 
-          <tr th:each="academicStudent,iterStat : ${students}">
-            <td>
-              <a th:href="@{/student/student/showdeleted/{id}(id=${academicStudent.student.uuid})}" th:text="${academicStudent.student.studentName}"></a>
-            </td>
-            <td th:text="${academicStudent.classSrNo}"></td>
-            <td th:text="${academicStudent.grade.gradeName} + ' - ' + ${academicStudent.section.sectionName}"></td>
-            <td th:text="${#dates.format(academicStudent.student.registrationDate, 'dd/MMM/yyyy')}"></td>
-            <!--<td th:text="${customer.registrationNo}"></td>-->
-            <td th:text="${academicStudent.student.motherName}"></td>
-            <td th:text="${academicStudent.student.fatherName}"></td>
-            <td th:text="${academicStudent.student.mobile1}"></td>
-            <td th:text="${academicStudent.student.getUserEntity().getEmail()}"></td>
-            <td th:text="${academicStudent.student.address}"></td>
-            <td th:text="${academicStudent.student.status}"></td>
-            <td th:text="${#dates.format(academicStudent.student.lastUpdated, 'dd/MMM/yyyy')}"></td>
-            <td style="white-space: nowrap" class="text-center">
-              <a sms:access="STUDENT_ACTIVATE:CREATE" class="btn btn-success activateBtn" id="activateBtnLink" th:data-id="${academicStudent.id}" data-bs-toggle="modal" data-bs-target="#activateConfirmationModal" data-bs-title="Default tooltip" th:data-name="${academicStudent.student.studentName}">
-                <i class="bi bi-person-fill-check"></i>
-              </a>
-            </td>
-          </tr>
-          </tbody>
-        </table>
+          <table id="students-deleted" class="table table-sm">
+            <thead>
+            <tr>
+              <th>Student</th>
+              <th>Regis. Date</th>
+              <th>Mother Name</th>
+              <th>Father Name</th>
+              <th class="text-end">Mobile</th>
+              <th>Email</th>
+              <th>Address</th>
+              <th>Status</th>
+              <th>Removed On</th>
+              <th>Action</th>
+            </tr>
+            </thead>
+            <tbody>
+
+            <tr th:each="academicStudent : ${students}">
+              <td>
+                <div class="stu-cell">
+                  <div class="stu-avatar" th:data-id="${academicStudent.id}" th:data-name="${academicStudent.student.studentName}">?</div>
+                  <div>
+                    <div class="stu-name-text" th:text="${academicStudent.student.studentName}">-</div>
+                    <div class="stu-sub-text">
+                      <span th:text="${academicStudent.grade.gradeName} + '-' + ${academicStudent.section.sectionName}">Grade-Section</span><span>&nbsp;|&nbsp;SRNo:&nbsp;</span><span th:text="${academicStudent.classSrNo} ?: '-'">-</span>
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td th:text="${#dates.format(academicStudent.student.registrationDate, 'dd/MMM/yyyy')}"></td>
+              <td th:text="${academicStudent.student.motherName}"></td>
+              <td th:text="${academicStudent.student.fatherName}"></td>
+              <td class="mobile-cell" th:data-order="${academicStudent.student.mobile1}" th:text="${academicStudent.student.mobile1}"></td>
+              <td class="email-cell" th:text="${academicStudent.student.getUserEntity().getEmail()}"></td>
+              <td th:text="${academicStudent.student.address}"></td>
+              <td th:text="${academicStudent.student.status}"></td>
+              <td th:text="${#dates.format(academicStudent.student.lastUpdated, 'dd/MMM/yyyy')}"></td>
+              <td class="text-center">
+                <div class="row-actions">
+                  <button type="button" sms:access="STUDENT_ACTIVATE:CREATE" class="config-icon-btn success restore-btn" title="Restore Student"
+                          th:data-id="${academicStudent.id}"
+                          th:data-name="${academicStudent.student.studentName}"
+                          th:data-grade="${academicStudent.grade.gradeName}"
+                          th:data-section="${academicStudent.section.sectionName}"
+                          th:data-sr="${academicStudent.classSrNo}"
+                          th:data-father="${academicStudent.student.fatherName}"
+                          th:data-mother="${academicStudent.student.motherName}"
+                          th:data-removed="${#dates.format(academicStudent.student.lastUpdated, 'dd/MMM/yyyy')}"
+                          data-bs-toggle="modal" data-bs-target="#activateConfirmationModal">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            </tbody>
+          </table>
+
+          <!-- Custom footer: rows-per-page + "Showing X-Y of Z" + page-number
+               pagination - replaces DataTables' own default footer chrome
+               (disabled via layout.bottomStart/bottomEnd = null below), same
+               pattern as the Student List page, wired to the DataTable's own
+               table.page()/table.page.len() API so sorting/searching/paging
+               all keep working unchanged. -->
+          <div class="stu-table-footer">
+            <div class="stu-footer-left">
+              <label class="stu-length-label">Rows per page
+                <select id="delPageLength" class="stu-length-select">
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                  <option value="25" selected>25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+              </label>
+              <span id="delPageInfo" class="stu-page-info">Showing 0 of 0 removed students</span>
+            </div>
+            <div class="stu-pagination" id="delPagination"></div>
+          </div>
+        </div>
+
         <div th:if="${!hasStudent}">
-          <div th:replace="~{components/ui :: empty-state('No Student found.', 'bi-inbox')}"></div>
+          <div th:replace="~{components/ui :: empty-state('No removed students found.', 'bi-inbox')}"></div>
         </div>
 
       </div>
     </div>
   </div>
 
-  <!-- Delete Confirmation Modal -->
+  <!-- Restore Confirmation Modal -->
   <div class="modal fade" id="activateConfirmationModal" tabindex="-1" aria-labelledby="activateConfirmationModalLabel" aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="activateConfirmationModalLabel">Confirm Activation</h5>
+        <div class="modal-header bg-success-subtle">
+          <h5 class="modal-title text-success-emphasis" id="activateConfirmationModalLabel">
+            <i class="bi bi-arrow-counterclockwise me-2"></i>Restore Student
+          </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <p id="confirmMessage"></p>
+          <p class="mb-3">You're about to restore the following student back to the active list:</p>
+
+          <div class="border rounded p-3 mb-3 bg-light">
+            <div class="row gy-2">
+              <div class="col-12">
+                <small class="text-muted d-block">Student Name</small>
+                <span class="fw-semibold" id="restoreStudentName">-</span>
+              </div>
+              <div class="col-6">
+                <small class="text-muted d-block">Grade-Section</small>
+                <span class="fw-semibold" id="restoreGradeSection">-</span>
+              </div>
+              <div class="col-6">
+                <small class="text-muted d-block">SR No.</small>
+                <span class="fw-semibold" id="restoreSr">-</span>
+              </div>
+              <div class="col-6">
+                <small class="text-muted d-block">Father Name</small>
+                <span class="fw-semibold" id="restoreFatherName">-</span>
+              </div>
+              <div class="col-6">
+                <small class="text-muted d-block">Mother Name</small>
+                <span class="fw-semibold" id="restoreMotherName">-</span>
+              </div>
+              <div class="col-12">
+                <small class="text-muted d-block">Removed On</small>
+                <span class="fw-semibold" id="restoreRemovedOn">-</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="alert alert-success d-flex align-items-start mb-0" role="alert">
+            <i class="bi bi-check-circle-fill me-2 mt-1"></i>
+            <div>
+              This student will reappear in your active student list, with their fee,
+              attendance, and exam history intact.
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancel </button>
-          <button type="button" class="btn btn-success" id="confirmDeleteButton"><i class="bi bi-person-check-fill"></i> Update </button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancel</button>
+          <button type="button" class="btn btn-success" id="confirmRestoreButton"><i class="bi bi-person-fill-check"></i> Restore Student</button>
         </div>
       </div>
     </div>
   </div>
 
-
+  <!-- Real POST form the confirm button submits (was window.location.href to a
+       GET URL - see the comment above StudentController#activateStudent for why
+       that changed). th:action gets its _csrf hidden field auto-injected by
+       Thymeleaf at render time like every other POST form in this app; the "0"
+       is a harmless placeholder, JS overwrites it with the real id right before
+       every submit. -->
+  <form id="activateStudentPostForm" method="post" th:action="@{/student/activate-student/0}" style="display:none"></form>
 
   <script type="text/javascript" th:inline="javascript">
     $(document).ready(function () {
-      $('#students-deleted').DataTable({
-        scrollX: true,
-        layout: {
-          bottomEnd: {
-            paging: {
-              firstLast: false
-            }
-          },
-          top1Start: {
-            buttons: [
-              {
-                extend: 'excelHtml5',
-                text: '<i class="bi bi-file-excel-fill text-success"></i>',
-                titleAttr: 'Excel',
-                title: 'Deleted Students Data export',
-                exportOptions: {
-                  columns: [0, 1, 2, 3, 4, 5, 6, 7, 8]
-                }
-              },
-              {
-                extend: 'csvHtml5',
-                text: '<i class="bi bi-filetype-csv text-info"></i>',
-                titleAttr: 'CSV',
-                title: 'Deleted Students Data export'
-              },
-              {
-                extend: 'pdfHtml5',
-                text: '<i class="bi bi-file-pdf-fill text-danger"></i>',
-                titleAttr: 'PDF',
-                title: 'Deleted Students Data export',
-                exportOptions: {
-                  columns: [0, 1, 2, 3, 4, 5, 6, 7, 8]
-                }
-              },
-              'colvis'
-            ]
+      // Avatar-initials chip next to the student's name - same small helper
+      // already used on the Student List page and elsewhere in this app.
+      // Reads id/name from data-* attributes Thymeleaf rendered via th:data-*
+      // (auto-escaped at render time) and only ever writes back with
+      // .text()/.css() - never .html() - so it stays safe regardless of what
+      // characters a student's name contains.
+      const avatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+      const initialsOf = function (name) {
+        return (name || '').trim().split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+      };
+      $('#students-deleted .stu-avatar').each(function () {
+        const $el = $(this);
+        const id = parseInt($el.data('id'), 10) || 0;
+        const color = avatarColors[Math.abs(id) % avatarColors.length];
+        $el.text(initialsOf($el.data('name'))).css({ background: color + '22', color: color });
+      });
+
+      // ── Mobile / Email masking (display-only, click-to-reveal) ──────────
+      // Same idea as the Student List page's own maskMobile/mask-cell
+      // pattern, adapted for this page's server-rendered (non-AJAX) rows:
+      // reads the already-escaped cell text (safe - Thymeleaf's th:text
+      // rendered it), then rebuilds the cell using .text()/.attr() only -
+      // never .html() with an interpolated value - so it stays safe
+      // regardless of what characters a mobile/email value contains. Done
+      // BEFORE the DataTable() call below so DataTables' own data cache is
+      // built from the final (masked) DOM instead of drifting out of sync
+      // with it. Wrapped in its own try/catch, and the reveal handler is
+      // registered right here (unconditionally, not dependent on DataTables
+      // initializing at all below) so a problem in the table setup can never
+      // take masking/reveal down with it. NOTE: display-only, like the
+      // Student List page's masking - the real value is still present in the
+      // page source, just not shown by default.
+      try {
+        const maskMobile = function (raw) {
+          const v = String(raw || '');
+          if (v.length <= 4) { return v; }
+          return v.slice(0, 2) + 'x'.repeat(v.length - 4) + v.slice(-2);
+        };
+        const maskEmail = function (raw) {
+          const v = String(raw || '');
+          const at = v.indexOf('@');
+          if (at <= 1) { return v; }
+          const user = v.slice(0, at);
+          const domain = v.slice(at);
+          const maskedUser = user.length <= 1 ? user : user[0] + 'x'.repeat(user.length - 1);
+          return maskedUser + domain;
+        };
+        const buildMaskCell = function (raw, maskFn) {
+          const full = String(raw || '');
+          if (!full) { return null; }
+          const masked = maskFn(full);
+          const $text = $('<span class="mask-text"></span>')
+            .text(masked)
+            .attr({ 'data-full': full, 'data-masked': masked, 'data-revealed': 'false' });
+          const $btn = $('<button type="button" class="mask-toggle" title="Show"></button>')
+            .append('<i class="bi bi-eye"></i>');
+          return $('<span class="mask-cell"></span>').append($text).append($btn);
+        };
+        $('#students-deleted .mobile-cell').each(function () {
+          const $td = $(this);
+          const $cell = buildMaskCell($td.text().trim(), maskMobile);
+          if ($cell) { $td.empty().append($cell); }
+        });
+        $('#students-deleted .email-cell').each(function () {
+          const $td = $(this);
+          const $cell = buildMaskCell($td.text().trim(), maskEmail);
+          if ($cell) { $td.empty().append($cell); }
+        });
+      } catch (e) {
+        console.error('Mobile/Email masking failed to initialize', e);
+      }
+
+      // Mask/reveal toggle for the Mobile & Email cells built above -
+      // delegated on document (works for the cells whether or not the block
+      // above ran cleanly) and completely independent of DataTables.
+      $(document).on('click', '.mask-toggle', function () {
+        const $btn = $(this);
+        const $text = $btn.siblings('.mask-text');
+        const revealed = $text.attr('data-revealed') === 'true';
+        if (revealed) {
+          $text.text($text.attr('data-masked')).attr('data-revealed', 'false');
+          $btn.attr('title', 'Show').find('i').attr('class', 'bi bi-eye');
+        } else {
+          $text.text($text.attr('data-full')).attr('data-revealed', 'true');
+          $btn.attr('title', 'Hide').find('i').attr('class', 'bi bi-eye-slash');
+        }
+      });
+
+      // Custom footer: "Showing X-Y of Z removed students" + numbered page
+      // buttons.
+      const renderPagination = function (tableApi) {
+        const info = tableApi.page.info();
+        const shown = info.recordsDisplay === 0 ? 0 : info.start + 1;
+        $('#delPageInfo').text(
+          'Showing ' + shown + '–' + info.end + ' of ' + info.recordsDisplay.toLocaleString() + ' removed students'
+        );
+
+        const $pg = $('#delPagination').empty();
+        const cur = info.page, total = info.pages;
+
+        const addBtn = function (label, page, opts) {
+          opts = opts || {};
+          const $b = $('<button type="button" class="stu-page-btn"></button>').html(label);
+          if (opts.active) { $b.addClass('active'); }
+          if (opts.disabled) {
+            $b.addClass('disabled').attr('disabled', 'disabled');
+          } else {
+            $b.on('click', function () { tableApi.page(page).draw('page'); });
           }
+          $pg.append($b);
+        };
+
+        addBtn('<i class="bi bi-chevron-left"></i>', cur - 1, { disabled: cur <= 0 });
+
+        let pages = [];
+        if (total <= 7) {
+          for (let i = 0; i < total; i++) { pages.push(i); }
+        } else {
+          pages.push(0);
+          if (cur > 2) { pages.push('…'); }
+          for (let j = Math.max(1, cur - 1); j <= Math.min(total - 2, cur + 1); j++) { pages.push(j); }
+          if (cur < total - 3) { pages.push('…'); }
+          if (total > 1) { pages.push(total - 1); }
+        }
+        pages.forEach(function (p) {
+          if (p === '…') {
+            $pg.append('<span class="stu-page-ellipsis">…</span>');
+            return;
+          }
+          addBtn(String(p + 1), p, { active: p === cur });
+        });
+
+        addBtn('<i class="bi bi-chevron-right"></i>', cur + 1, { disabled: cur >= total - 1 });
+      };
+
+      // Every bit of DataTables' own auto-generated chrome (top length/search,
+      // bottom info/paging) is disabled via layout: {...null} below - the
+      // toolbar search box, export buttons, and footer/pagination in this
+      // page's HTML are custom markup wired to the DataTable's own API
+      // (table.search()/.page()/.page.len()/.buttons()), matching the Student
+      // List page instead of DataTables' stock look. Data itself is still
+      // plain client-side (rows already rendered server-side by Thymeleaf
+      // above) - same as before this redesign, just restyled.
+      //
+      // Deliberately NO initComplete/buttons callback here. This table has
+      // no ajax/serverSide source, so DataTables finishes its entire first
+      // draw synchronously as part of THIS constructor call - by the time
+      // the statement below returns, `table` is fully initialized (buttons,
+      // paging info, everything). Anything that needs the finished table
+      // (appending the export buttons, priming the footer) is therefore done
+      // as plain statements AFTER this call, not inside an initComplete
+      // callback - a callback fires *during* this same construction, which
+      // for a client-side table is *before* `table` has been assigned,
+      // making any reference to the outer `table` there throw. That thrown,
+      // never-caught error was silently aborting the rest of this whole
+      // $(document).ready(...) handler - which is why the pagination text,
+      // export buttons, AND (since its registration came after this point
+      // too) the reveal-toggle handler could all break together.
+      const table = $('#students-deleted').DataTable({
+        scrollX: true,
+        autoWidth: false,
+        layout: {
+          topStart: null,
+          topEnd: null,
+          top1Start: null,
+          bottomStart: null,
+          bottomEnd: null
         },
+        buttons: [
+          {
+            extend: 'excelHtml5',
+            text: '<i class="bi bi-file-excel-fill"></i>',
+            titleAttr: 'Excel',
+            title: 'Removed Students Data export',
+            className: 'stu-export-btn',
+            exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7, 8] }
+          },
+          {
+            extend: 'csvHtml5',
+            text: '<i class="bi bi-filetype-csv"></i>',
+            titleAttr: 'CSV',
+            title: 'Removed Students Data export',
+            className: 'stu-export-btn',
+            exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7, 8] }
+          },
+          {
+            extend: 'pdfHtml5',
+            text: '<i class="bi bi-file-pdf-fill"></i>',
+            titleAttr: 'PDF',
+            title: 'Removed Students Data export',
+            className: 'stu-export-btn',
+            exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7, 8] }
+          }
+          // NOTE: no 'colvis' (column-visibility) button - that button type
+          // needs its own extension file (dataTables.buttons.colVis.js /
+          // .min.js), which base.html does NOT load for this app (only
+          // dataTables.buttons.js + buttons.html5.min.js + jszip/pdfmake are
+          // included, for excelHtml5/csvHtml5/pdfHtml5). Referencing an
+          // unregistered 'extend' type throws SYNCHRONOUSLY while the
+          // Buttons extension is processing this `buttons:` array - which
+          // happens *inside* the DataTable({...}) constructor call below -
+          // so it was aborting the entire table initialization (pagination
+          // info, the export button container, everything downstream of
+          // this call) even though it never surfaced as a visible error.
+        ],
         lengthMenu: [
           [5, 10, 25, 50, 100, -1],
           [5, 10, 25, 50, 100, 'All']
         ],
         pageLength: 25,
         columnDefs: [
-          { "orderable": false, "targets": [0,7] } // Disable sorting on the first and fourth columns
+          // Student (composite name+subtext cell) and Action never sort by
+          // raw text. Email IS orderable (unlike the pre-redesign page).
+          { orderable: false, targets: [0, 9] }
         ]
       });
-      $(".buttons-excel, .buttons-csv, .buttons-pdf").each(function() {
-        // Remove the btn-secondary class from each button
-        $(this).removeClass("btn-secondary");
+
+      try {
+        $('#delExportSlot').append(table.buttons().container());
+      } catch (e) {
+        console.error('Export buttons failed to initialize', e);
+      }
+
+      try {
+        renderPagination(table);
+        table.on('draw', function () { renderPagination(table); });
+      } catch (e) {
+        console.error('Pagination footer failed to initialize', e);
+      }
+
+      // Custom search pill (replaces DataTables' default top search box,
+      // disabled above via layout.topEnd = null).
+      let searchDebounce;
+      $('#deletedStudentSearchInput').on('input', function () {
+        const value = this.value;
+        clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(function () { table.search(value).draw(); }, 300);
+      });
+
+      // Custom "rows per page" selector.
+      $('#delPageLength').on('change', function () {
+        table.page.len(parseInt(this.value, 10)).draw();
+      });
+
+      // With scrollX, DataTables computes the header row and body rows as
+      // separate elements sized to the container's width AT DRAW TIME. The
+      // sidebar's collapse/expand is a CSS width transition on a sibling
+      // element, not a window resize, so DataTables never hears about it and
+      // the header stays sized for the old width - columns drift out from
+      // under their labels (this is what was showing as "distorted" data
+      // whenever the sidebar was toggled). Re-measuring after the sidebar's
+      // own transition finishes (and on a real window resize) keeps them in
+      // sync - same fix already used on the Student List page.
+      const sidebarEl = document.getElementById('sidebar');
+      if (sidebarEl) {
+        sidebarEl.addEventListener('transitionend', function () {
+          table.columns.adjust();
+        });
+      }
+      let resizeDebounce;
+      $(window).on('resize', function () {
+        clearTimeout(resizeDebounce);
+        resizeDebounce = setTimeout(function () { table.columns.adjust(); }, 150);
       });
     });
 
     let studentIdForUpdate = null;
     const contextPath = /*[[@{/}]]*/ '/';
 
-    // Capture the ID of the record to be deleted when the delete button is clicked
-    $('a[data-bs-target="#activateConfirmationModal"]').on('click', function () {
-      const studentId = $(this).data("id");
-      const studentName = $(this).data("name");
-      console.log("*********************studentName::: "+studentName)
-      // Set dynamic message
-      $("#confirmMessage").html(
-              "Are you sure you want to activate: <b><i>" + studentName + "</i></b>?"
-      );
-      studentIdForUpdate = $(this).data('id');
-      console.log("*********************::: "+studentIdForUpdate)
+    // Populate the confirmation modal's detail box from the clicked row's
+    // button (event delegation - not strictly required here since rows are
+    // server-rendered once, not re-drawn by DataTables, but kept consistent
+    // with how every other list page in this app wires up its row actions).
+    $(document).on('click', '.restore-btn', function () {
+      const $btn = $(this);
+      studentIdForUpdate = $btn.data('id');
+      $('#restoreStudentName').text($btn.data('name') || '-');
+      $('#restoreGradeSection').text(($btn.data('grade') || '-') + ' - ' + ($btn.data('section') || '-'));
+      $('#restoreSr').text($btn.data('sr') || '-');
+      $('#restoreFatherName').text($btn.data('father') || '-');
+      $('#restoreMotherName').text($btn.data('mother') || '-');
+      $('#restoreRemovedOn').text($btn.data('removed') || '-');
     });
 
-    // Handle the deletion when "Delete" button is clicked in the modal
-    $('#confirmDeleteButton').on('click', function () {
-      console.log("============================::: "+studentIdForUpdate)
+    // Handle restoration when "Restore Student" is clicked in the modal.
+    // Submits a real POST (not a GET navigation) so this is covered by Spring
+    // Security's CSRF check - the hidden form's _csrf field was auto-injected
+    // by Thymeleaf at page render time (see the form's own comment above).
+    // Only the action's id segment needs to be swapped in per click.
+    $('#confirmRestoreButton').on('click', function () {
       if (studentIdForUpdate) {
-        // Redirect to the activate URL
-        window.location.href = `${contextPath}student/activate-student/${studentIdForUpdate}`;
+        const $form = $('#activateStudentPostForm');
+        $form.attr('action', `${contextPath}student/activate-student/${studentIdForUpdate}`);
+        $form.trigger('submit');
       }
     });
 

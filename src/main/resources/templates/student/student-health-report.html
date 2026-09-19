@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="~{base::Layout(~{::section})}">
+<head>
+  <meta charset="UTF-8">
+  <title>UAIC - Student</title>
+</head>
+<body>
+<section>
+
+  <style>
+    /* ============================================================
+       Student Health Report (Grade-wise) — filter card + read-only
+       report table, styled 1:1 off the Update Aadhar / Student List
+       pages so the same visual language means the same thing
+       everywhere in the app.
+       ============================================================ */
+    .aa-card {
+      background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-xs); padding: 20px 22px; margin-bottom: 18px;
+    }
+    .aa-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+    .aa-card-head h2 { font-size: 14.5px; font-weight: 800; margin: 0; color: var(--text-primary); }
+    .aa-icon { width: 30px; height: 30px; border-radius: 9px; background: rgba(220,38,38,.10); color: #dc2626; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+    .aa-sub { font-size: 12px; color: var(--text-muted); margin: 2px 0 16px; }
+
+    .aa-btn-primary {
+      background: var(--accent); border: 1px solid var(--accent); color: #fff; padding: 8px 18px;
+      border-radius: var(--radius-md); font-size: 13.5px; font-weight: 700; display: inline-flex;
+      align-items: center; gap: 7px; cursor: pointer; box-shadow: var(--shadow-sm);
+      transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
+    }
+    .aa-btn-primary:hover { background: var(--brand-600); border-color: var(--brand-600); color: #fff; box-shadow: var(--shadow-md); }
+    .aa-btn-primary:active { transform: translateY(1px); }
+
+    .aa-btn-outline {
+      background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 18px;
+      border-radius: var(--radius-md); font-size: 13.5px; font-weight: 700; display: inline-flex;
+      align-items: center; gap: 7px; cursor: pointer;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    .aa-btn-outline:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+
+    .aa-count-badge {
+      display: inline-flex; align-items: center; gap: 6px; background: var(--accent-light); color: var(--accent);
+      border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 700; margin-left: auto;
+    }
+
+    /* Table look copied 1:1 from the Student List page — no vertical grid
+       lines, no zebra stripes; header row + bottom hairline under each body
+       row, hover highlight. No Bootstrap table-bordered. */
+    #hr-table.table { border: none; width: 100%; }
+    #hr-table, #hr-table th, #hr-table td { font-size: 0.82rem; }
+    #hr-table thead th {
+      text-align: left; padding: 10px 14px; color: var(--text-muted); font-weight: 700;
+      font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; background: var(--card-bg) !important;
+      white-space: nowrap; border-top: none !important; border-bottom: 1px solid var(--border-color) !important;
+    }
+    #hr-table tbody td {
+      padding: 9px 14px; vertical-align: middle; border-top: none !important; border-left: none !important;
+      border-right: none !important; border-bottom: 1px solid var(--border-color) !important; background-color: transparent !important;
+    }
+    #hr-table tbody tr:hover td { background-color: var(--body-bg) !important; }
+    #hr-table tbody tr:last-child td { border-bottom: none !important; }
+    .hr-table-scroll { overflow-x: auto; }
+
+    .stu-name-text { color: var(--text-primary); font-weight: 600; }
+    .aa-name-block { display: flex; flex-direction: column; line-height: 1.3; }
+    .aa-sr-sub { font-size: 11px; color: var(--text-muted); font-weight: 500; margin-left: 44px; }
+    .hr-photo { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-color); }
+    /* Match the initials-fallback avatar to the real photo's size (34px, not
+       the global 28px) so the sub-line's left indent lines up the same way
+       whether a row shows a real photo or falls back to initials. */
+    #hr-table .stu-avatar { width: 34px; height: 34px; font-size: .72rem; }
+    .hr-issue-yes { color: #dc2626; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+    .hr-issue-no { color: #16a34a; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+
+    .aa-empty { text-align: center; color: var(--text-muted); font-size: 13.5px; padding: 34px 10px; }
+    .aa-empty i { font-size: 26px; display: block; margin-bottom: 8px; color: var(--border-color); }
+  </style>
+
+  <div class="container-fluid px-3">
+    <div class="row mt-2 ">
+      <div class="col-md-12 ">
+        <div th:replace="~{components/ui :: page-header('Student Health Report (Grade-wise)')}"></div>
+      </div>
+
+      <div class="col-12">
+        <div class="aa-card">
+          <div class="aa-card-head"><span class="aa-icon"><i class="bi bi-heart-pulse-fill"></i></span><h2>Filter Students</h2></div>
+          <div class="aa-sub">Pick Academic Year / Medium / Health to load the health report.</div>
+          <div class="row g-3">
+            <div class="col-md-2">
+              <label for="academicYear" class="form-label">Academic Year</label>
+              <select name="academicYear" id="academicYear" class="form-select">
+                <option th:each="ay : ${academicYears}" th:value="${ay.id}" th:text="${ay.sessionFormat}">Academic Year</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label for="medium" class="form-label">Medium</label>
+              <select name="medium" id="medium" class="form-select">
+                <option value="">Select</option>
+                <option th:each="med : ${mediums}" th:value="${med.id}" th:text="${med.mediumName}">Medium</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label for="health" class="form-label">Health</label>
+              <select name="health" id="health" class="form-select">
+                <option value="">Select</option>
+                <option th:each="h : ${healthOptions}" th:value="${h}" th:text="${h}">Health</option>
+              </select>
+            </div>
+            <div class="col-md-3 align-self-end">
+              <button type="button" id="getListBtn" class="aa-btn-primary"><i class="bi bi-search"></i> Get Report</button>
+            </div>
+            <div class="col-md-3 align-self-end text-md-end" id="report-toolbar" style="display:none;">
+              <button type="button" id="printReportBtn" class="aa-btn-outline"><i class="bi bi-printer-fill"></i> Print Report</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12">
+        <div class="aa-card aa-table-wrap">
+          <div class="aa-card-head">
+            <span class="aa-icon"><i class="bi bi-people-fill"></i></span><h2>Health Report</h2>
+            <span class="aa-count-badge d-none" id="hrCountBadge"><i class="bi bi-person-check"></i> <span id="hrCountNum">0</span> students</span>
+          </div>
+
+          <div id="health-report-table-container">
+            <div class="aa-empty"><i class="bi bi-search"></i>Pick Medium / Grade / Section above, then click "Get Report".</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="text/javascript" th:inline="javascript">
+    const contextPath = /*[[@{/}]]*/ '/';
+    let currentRows = [];
+    let currentFilterLabel = '';
+
+    function showMsg(msgType, msg, headerValue) {
+      toastr.options = {
+        "closeButton": true, "debug": false, "newestOnTop": false, "progressBar": false,
+        "positionClass": "toast-top-right", "preventDuplicates": false, "onclick": null,
+        "showDuration": "600", "hideDuration": "1000", "timeOut": "5000", "extendedTimeOut": "1000",
+        "showEasing": "swing", "hideEasing": "linear", "showMethod": "fadeIn", "hideMethod": "fadeOut"
+      };
+      toastr[msgType](msg, headerValue);
+    }
+
+    const avatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+    const initialsOf = function (name) {
+      return (name || '').trim().split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+    };
+
+    function escapeHtml(value) {
+      if (value === null || value === undefined) return '';
+      return String(value)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    // Display-only masking, click-to-reveal — same pattern as the Student
+    // List page (components.css .mask-cell/.mask-text/.mask-toggle). NOT a
+    // substitute for server-side masking: the real value is still present
+    // in this page's AJAX response.
+    const maskMobile = function (raw) {
+      var v = String(raw || '');
+      if (v.length <= 4) return v;
+      return v.slice(0, 2) + 'x'.repeat(v.length - 4) + v.slice(-2);
+    };
+    const maskedCell = function (raw) {
+      if (!raw) return '';
+      var full = escapeHtml(raw);
+      var masked = escapeHtml(maskMobile(raw));
+      return '<span class="mask-cell">' +
+        '<span class="mask-text" data-full="' + full + '" data-masked="' + masked + '">' + masked + '</span>' +
+        '<button type="button" class="mask-toggle" title="Show"><i class="bi bi-eye"></i></button>' +
+        '</span>';
+    };
+
+    // Yes/No rendered with a relatable icon rather than plain text — a
+    // heart-pulse icon for Health Issue, an eye icon for Eye Issue, green
+    // check when clear either way.
+    function issueBadge(hasIssue, iconWhenYes) {
+      if (hasIssue) return `<span class="hr-issue-yes"><i class="bi ${iconWhenYes}"></i>Yes</span>`;
+      return `<span class="hr-issue-no"><i class="bi bi-check-circle-fill"></i>No</span>`;
+    }
+
+    function buildTableHtml(rows) {
+      let html = `<div class="hr-table-scroll"><table class="table table-sm" id="hr-table"><thead><tr>` +
+        '<th>Student</th>' +
+        '<th>Father Name</th><th>Mother Name</th><th>Address</th><th>Mobile 1</th><th>Mobile 2</th>' +
+        '<th>Body Type</th><th>Blood Group</th><th>Height</th><th>Weight</th>' +
+        '<th>Health Issue</th><th>Eye Issue</th></tr></thead><tbody>';
+
+      rows.forEach((r, idx) => {
+        const gradeSection = [r.gradeName, r.sectionName].filter(Boolean).join(' - ');
+        const imgUrl = r.pic ? (contextPath + 'student/images/' + encodeURIComponent(r.pic)) : '';
+        const color = avatarColors[idx % avatarColors.length];
+        const initials = initialsOf(r.studentName);
+        const photoHtml = imgUrl
+          ? `<img src="${imgUrl}" alt="" class="hr-photo" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'stu-avatar',style:'background:${color}',textContent:'${escapeHtml(initials)}'}))">`
+          : `<span class="stu-avatar" style="background:${color}">${escapeHtml(initials)}</span>`;
+
+        const subParts = [gradeSection, r.classSrNo ? ('SR: ' + r.classSrNo) : ''].filter(Boolean);
+        html += '<tr>' +
+          `<td><div class="aa-name-block"><div class="stu-cell">${photoHtml}<span class="stu-name-text">${escapeHtml(r.studentName)}</span></div>${subParts.length ? `<span class="aa-sr-sub">${escapeHtml(subParts.join(' | '))}</span>` : ''}</div></td>` +
+          `<td>${escapeHtml(r.fatherName)}</td>` +
+          `<td>${escapeHtml(r.motherName)}</td>` +
+          `<td>${escapeHtml(r.address)}</td>` +
+          `<td>${maskedCell(r.mobile1)}</td>` +
+          `<td>${maskedCell(r.mobile2)}</td>` +
+          `<td>${escapeHtml(r.bodyType)}</td>` +
+          `<td>${escapeHtml(r.bloodGroup)}</td>` +
+          `<td>${r.height !== null && r.height !== undefined ? escapeHtml(r.height) : '-'}</td>` +
+          `<td>${r.weight !== null && r.weight !== undefined ? escapeHtml(r.weight) : '-'}</td>` +
+          `<td>${issueBadge(r.haveHealthIssues, 'bi-heart-pulse-fill')}</td>` +
+          `<td>${issueBadge(r.haveEyeIssue, 'bi-eye-fill')}</td>` +
+          '</tr>';
+      });
+
+      html += '</tbody></table></div>';
+      return html;
+    }
+
+    function validateFilters() {
+      const academicYear = $('#academicYear').val();
+      const medium = $('#medium').val();
+      const health = $('#health').val();
+      if (!academicYear || !medium || !health) {
+        showMsg('warning', 'Academic Year, Medium and Health are all mandatory.', 'Warning');
+        return false;
+      }
+      return true;
+    }
+
+    $('#getListBtn').on('click', function () {
+      if (!validateFilters()) return;
+
+      currentFilterLabel = $('#academicYear option:selected').text() + ' / ' +
+        $('#medium option:selected').text() + ' / ' + $('#health option:selected').text();
+
+      fetch(`${contextPath}getStudentsForHealthReport`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ academicYearId: $('#academicYear').val(), medium: $('#medium').val(), bodyType: $('#health').val() })
+      })
+        .then(response => {
+          if (!response.ok) return response.text().then(t => { throw new Error(t || 'Network response was not ok'); });
+          return response.json();
+        })
+        .then(data => {
+          currentRows = Array.isArray(data) ? data : [];
+          if (currentRows.length === 0) {
+            $('#health-report-table-container').html('<div class="aa-empty"><i class="bi bi-emoji-frown"></i>No students found for this Academic Year / Medium / Health.</div>');
+            $('#report-toolbar').hide();
+            $('#hrCountBadge').addClass('d-none');
+            showMsg('warning', 'No students found for the given criteria.', 'No Data');
+            return;
+          }
+          $('#health-report-table-container').html(buildTableHtml(currentRows));
+          $('#hrCountNum').text(currentRows.length);
+          $('#hrCountBadge').removeClass('d-none');
+          $('#report-toolbar').show();
+        })
+        .catch(err => {
+          console.error(err);
+          showMsg('error', 'An error occurred while fetching the report.', 'Error');
+        });
+    });
+
+    // Print in popup window (same convention as fee-receipt / id-card-print) —
+    // the browser's own print-to-PDF handles embedding the photos, which the
+    // vendored DataTables Buttons/jszip/pdfmake export stack can't produce.
+    function printReport() {
+      const el = document.getElementById('hr-table');
+      if (!el) {
+        showMsg('warning', 'No data to print', 'Warning');
+        return;
+      }
+
+      // Print output shows the mask/reveal toggle's current on-screen text
+      // (masked unless the user already revealed it) with the inert eye
+      // button stripped out — a live toggle button does nothing useful on
+      // a static, already-printed page.
+      const printEl = el.cloneNode(true);
+      printEl.querySelectorAll('.mask-cell').forEach(function (cell) {
+        const text = cell.querySelector('.mask-text');
+        cell.replaceWith(document.createTextNode(text ? text.textContent : ''));
+      });
+
+      const printWindow = window.open('', 'PRINT', 'height=900,width=1200,top=50,left=100');
+      if (!printWindow) {
+        showMsg('error', 'Popup blocked! Please allow popups for this site.', 'Error');
+        return;
+      }
+
+      printWindow.document.write('<html><head><title>Student Health Report</title>');
+      printWindow.document.write(`<style>
+        @page { size: A4 landscape; margin: 8mm; }
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 10px; font-family: 'Segoe UI', Arial, sans-serif; }
+        table { width: 100%; font-size: 11px; border-collapse: collapse; }
+        th, td { padding: 4px 6px; border: 1px solid #999; text-align: left; }
+        thead th { background: #eee; }
+        img { width: 30px; height: 30px; object-fit: cover; border-radius: 50%; vertical-align: middle; margin-right: 6px; }
+        h4 { margin: 0 0 4px 0; }
+        p.meta { margin: 0 0 10px 0; color: #555; font-size: 12px; }
+      </style>`);
+      printWindow.document.write('</head><body>');
+      printWindow.document.write('<h4>Student Health Report (Grade-wise)</h4>');
+      printWindow.document.write('<p class="meta">' + escapeHtml(currentFilterLabel) +
+        ' &nbsp;|&nbsp; Generated: ' + new Date().toLocaleString() + '</p>');
+      printWindow.document.write(printEl.outerHTML);
+      printWindow.document.write('</body></html>');
+
+      printWindow.document.close();
+      printWindow.focus();
+
+      setTimeout(function () {
+        printWindow.print();
+        printWindow.close();
+      }, 1000);
+    }
+
+    $('#printReportBtn').on('click', printReport);
+
+    // Mask/reveal toggle for Mobile cells (event delegation — rows are
+    // rendered dynamically).
+    $(document).on('click', '.mask-toggle', function () {
+      var $btn = $(this);
+      var $text = $btn.siblings('.mask-text');
+      var revealed = $text.attr('data-revealed') === 'true';
+      if (revealed) {
+        $text.text($text.attr('data-masked')).attr('data-revealed', 'false');
+        $btn.attr('title', 'Show').find('i').attr('class', 'bi bi-eye');
+      } else {
+        $text.text($text.attr('data-full')).attr('data-revealed', 'true');
+        $btn.attr('title', 'Hide').find('i').attr('class', 'bi bi-eye-slash');
+      }
+    });
+  </script>
+</section>
+</body>
+</html>

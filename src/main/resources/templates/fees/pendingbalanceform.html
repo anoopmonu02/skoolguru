@@ -7,12 +7,117 @@
 </head>
 <body>
 <section>
+    <!--
+        Collect Balance — card layout rebuilt on the same design system used by
+        fees/feesubmitform-neo.html (combined Student+Academic info card with
+        avatar initials, .cb-irow detail rows, icon+label section headers
+        instead of pill badges, and labeled fields with a rupee-prefixed
+        input). Every id/class/name the inline script below depends on
+        (search-input, academicStudentId, submitAmount, paymentType,
+        saveBalanceBtn, historyTable, historyTableBody, etc.) is the same one
+        already wired to /fees/searchStudentForPendingBalance,
+        /fees/getPendingBalanceData and /fees/collect-balance-save, so nothing
+        on the backend changes. Classes introduced for the new look are
+        prefixed "cb-" to avoid clashing with other pages' own styling,
+        following the same per-page style-block convention as
+        feesubmitform-neo.html (da-search-wrap/da-result-row is the one
+        pattern reused verbatim, since it is already the shared search-box
+        look across the app).
+    -->
+    <style>
+        /* ── Search box — same da- pattern as feesubmitform-neo / Assign Discount ── */
+        .da-search-wrap { position: relative; margin-bottom: 18px; max-width: 460px; }
+        .da-search-wrap input { padding-left: 38px; }
+        .da-search-wrap .bi-search { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+        .da-search-results { position: absolute; z-index: 20; width: 100%; max-height: 320px; overflow-y: auto; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-xs); margin-top: 4px; display: none; }
+        .da-result-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border-color); }
+        .da-result-row:last-child { border-bottom: none; }
+        .da-result-row:hover { background: var(--accent-light); }
+        .da-result-name { font-weight: 600; color: var(--text-primary); font-size: .85rem; }
+        .da-result-sub { font-size: .72rem; color: var(--text-muted); }
+        .da-result-empty { padding: 14px; color: var(--text-muted); font-size: .85rem; text-align: center; }
+
+        /* ── Cards ── */
+        .cb-card{ background:var(--card-bg); border:1px solid var(--border-color); border-radius:var(--radius-lg); box-shadow:var(--shadow-xs); }
+
+        /* ── Student+Academic / Balance Overview — two-card info row ── */
+        .cb-infogrid{ display:grid; grid-template-columns:1.7fr 1fr; gap:14px; margin-bottom:20px; }
+        @media (max-width:900px){ .cb-infogrid{ grid-template-columns:1fr; } }
+
+        .cb-combocard{ padding:18px 20px; display:flex; gap:16px; }
+        .cb-combo-left{ flex:1; min-width:0; }
+        .cb-combo-namerow{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+        .cb-combo-namerow .studname{ font-size:1rem; font-family:"Outfit", sans-serif; color:var(--text-primary); }
+        .cb-combo-namerow .stu-avatar{ width:36px; height:36px; font-size:.78rem; background:var(--accent-light); color:var(--accent); }
+        .cb-combo-metaline{ font-size:.8rem; color:var(--text-muted); margin-bottom:10px; }
+        .cb-combo-metaline b{ color:var(--text-primary); font-weight:600; }
+        .cb-msep{ color:var(--border-color); margin:0 8px; }
+        .cb-combo-contact{ font-size:.84rem; color:var(--text-muted); display:flex; align-items:center; gap:7px; margin-bottom:10px; }
+        .cb-combo-contact i{ color:var(--accent); }
+        .cb-combo-contact b{ color:var(--text-primary); font-weight:600; }
+        .cb-combo-parents{ margin-bottom:0; }
+
+        .cb-combo-photocol{ flex:none; display:flex; align-items:flex-start; }
+        .cb-combo-photo-img, .cb-combo-photo-fallback{ width:84px; height:96px; border-radius:10px; border:1px solid var(--border-color); }
+        .cb-combo-photo-img{ object-fit:cover; }
+        .cb-combo-photo-fallback{ background:var(--body-bg); color:var(--text-muted); display:flex; align-items:center; justify-content:center; font-size:1.9rem; }
+
+        .cb-icard-hd{ display:flex; align-items:center; gap:9px; padding:14px 18px; border-bottom:1px solid var(--border-color); }
+        .cb-icard-hd i{ color:var(--accent); font-size:1rem; }
+        .cb-icard-hd b{ font-size:.88rem; font-family:"Outfit", sans-serif; color:var(--text-primary); }
+        .cb-icard-body{ padding:2px 18px 6px; }
+        .cb-irow{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border-color); font-size:.84rem; }
+        .cb-irow:last-child{ border-bottom:none; }
+        .cb-irow > span:first-child{ color:var(--text-muted); }
+        .cb-irow > span:last-child{ display:flex; align-items:center; gap:2px; }
+        .cb-irow.cb-warn > span:last-child{ color:#92400e; background:#fef3e2; padding:2px 10px; border-radius:6px; }
+        .cb-rs{ color:var(--text-muted); font-size:.82rem; }
+        .cb-plain-input{ border:none !important; background:transparent !important; text-align:right; font-weight:600; color:inherit; padding:0 !important; width:150px; }
+        .cb-amt-input{ width:70px; font-weight:700 !important; }
+
+        /* ── Section labels (icon + text, replacing the old pill badges) ── */
+        .cb-section-label{ display:flex; align-items:center; gap:9px; font-size:.86rem; font-weight:700; font-family:"Outfit", sans-serif; color:var(--text-primary); margin-bottom:12px; }
+        .cb-section-label i{ font-size:1.05rem; }
+        .cb-label-info i{ color:#0ea5e9; }
+        .cb-label-success i{ color:#16a34a; }
+
+        /* ── History table ── */
+        .cb-table-card{ overflow:hidden; margin-bottom:24px; }
+        .cb-table-card .table-responsive{ margin:0; }
+        .cb-table-card table{ width:100%; margin:0; font-size:.82rem; }
+        .cb-table-card th{ background:var(--body-bg); color:var(--text-muted); font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:11px 16px; border:none; white-space:nowrap; }
+        .cb-table-card td{ padding:11px 16px; border-top:1px solid var(--border-color); vertical-align:middle; }
+        .cb-table-card tbody tr:hover{ background:var(--accent-light); }
+        .cb-table-card td code{ background:var(--accent-light); color:var(--accent); padding:3px 9px; border-radius:6px; font-size:.78rem; }
+
+        /* ── Balance Payment Details form ── */
+        .cb-payform-card{ padding:20px; margin-bottom:24px; }
+        .cb-formgrid{ display:grid; grid-template-columns:1fr 1fr; gap:6px 22px; }
+        @media (max-width:700px){ .cb-formgrid{ grid-template-columns:1fr; } }
+        .cb-field{ margin-bottom:16px; }
+        .cb-field.cb-span2{ grid-column:1 / -1; }
+        .cb-fieldlabel{ font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); margin-bottom:6px; display:block; }
+        .cb-inputwrap{ display:flex; align-items:center; gap:7px; border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0 12px; background:#fff; }
+        .cb-inputwrap:focus-within{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-light); }
+        .cb-inputwrap input{ border:none; outline:none; background:transparent; flex:1; padding:9px 0; font-size:.88rem; color:var(--text-primary); min-width:0; }
+        .cb-inputwrap-readonly{ background:var(--body-bg); }
+        .cb-inputwrap-readonly input{ color:inherit; font-weight:700; }
+        .cb-field select.form-select{ border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:9px 12px; font-size:.88rem; }
+        .cb-field input.form-control{ border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:9px 12px; font-size:.88rem; }
+        .cb-field input.form-control:focus{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-light); }
+
+        .cb-submitbtn-wrap{ display:flex; justify-content:flex-end; padding-top:6px; border-top:1px solid var(--border-color); margin-top:6px; }
+        .btn.cb-submitbtn{ border-radius:10px; padding:10px 26px; font-size:.86rem; font-weight:600; }
+
+        .cb-emptystate{ text-align:center; color:var(--text-muted); padding:56px 20px; }
+        .cb-emptystate i{ font-size:2.1rem; display:block; margin-bottom:12px; color:var(--border-color); }
+    </style>
+
     <div class="container-fluid px-3">
         <div class="row mt-2">
             <div class="col-md-12">
 
                 <div th:replace="~{components/ui :: page-header('Collect Balance')}"></div>
-
 
                 <!-- Flash messages -->
                 <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -20,13 +125,11 @@
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
 
-                <!--Search box — same pattern as feesubmitform-->
-                <div class="search-container my-3">
-                    <input onkeyup="searchStuName()" type="text" class="form-control"
-                           id="search-input" placeholder="Search student name">
-                    <div class="search-result"
-                         style="max-height:300px; overflow-y:auto; border:1px solid #dee2e6; border-radius:4px; display:none;">
-                    </div>
+                <!-- Search box - same da-search-wrap pattern as Fee Submission Neo -->
+                <div class="da-search-wrap">
+                    <i class="bi bi-search"></i>
+                    <input onkeyup="searchStuName()" type="text" class="form-control" id="search-input" placeholder="Search student name">
+                    <div class="da-search-results search-result"></div>
                 </div>
 
                 <form name="collectbalance" th:action="@{/fees/collect-balance-save}" method="post">
@@ -37,170 +140,142 @@
                     <input type="hidden" id="academic_id"       name="academic_id"       th:value="${academicYear?.id}"/>
                     <input type="hidden" id="totalAmount"       name="totalAmount"       value="0">
 
-                    <hr/>
-
-                    <!--Student Info — identical 3-card layout as feesubmitform-->
-                    <div class="student-detail mb-3">
-                        <div class="row">
-                            <!-- Card 1: Student -->
-                            <div class="col-sm-4">
-                                <div class="card border-success">
-                                    <h5 class="card-header">Student Detail</h5>
-                                    <ul class="list-group list-group-flush">
-                                        <li class="list-group-item studname"><strong>Student Name:</strong></li>
-                                        <li class="list-group-item fname"><strong>Father Name:</strong></li>
-                                        <li class="list-group-item mname"><strong>Mother Name:</strong></li>
-                                        <li class="list-group-item contactno"><strong>Contact No:</strong></li>
-                                    </ul>
+                    <!--Student Info — combined card, same "neo" pattern as fees/feesubmitform-neo.html-->
+                    <div class="cb-infogrid">
+                        <div class="cb-card cb-combocard">
+                            <div class="cb-combo-left">
+                                <div class="cb-combo-namerow">
+                                    <span class="stu-avatar" id="studentAvatar"></span>
+                                    <span class="studname"></span>
+                                </div>
+                                <div class="cb-combo-metaline">
+                                    <span>Medium: <b class="cmedium"></b></span><span class="cb-msep">|</span><span>Class: <b class="cgrade"></b>-<b class="csection"></b></span><span class="cb-msep">|</span><span>SR No: <b class="csr"></b></span>
+                                </div>
+                                <div class="cb-combo-contact">
+                                    <i class="bi bi-telephone-fill"></i><span>Contact No:</span> <b class="contactno"></b>
+                                </div>
+                                <div class="cb-combo-metaline cb-combo-parents">
+                                    <span>Father Name: <b class="fname"></b></span><span class="cb-msep">|</span><span>Mother Name: <b class="mname"></b></span>
                                 </div>
                             </div>
-
-                            <!-- Card 2: Academic -->
-                            <div class="col-sm-4">
-                                <div class="card border-success">
-                                    <h5 class="card-header">Academic Detail</h5>
-                                    <ul class="list-group list-group-flush">
-                                        <li class="list-group-item cmedium"><strong>Medium: </strong></li>
-                                        <li class="list-group-item cgrade"><strong>Class: </strong></li>
-                                        <li class="list-group-item csection"><strong>Section: </strong></li>
-                                        <li class="list-group-item csr"><strong>SR No: </strong></li>
-                                    </ul>
-                                </div>
+                            <div class="cb-combo-photocol">
+                                <img id="studentPhoto" class="cb-combo-photo-img" style="display:none;" alt="Student photo">
+                                <div id="studentPhotoFallback" class="cb-combo-photo-fallback"><i class="bi bi-person"></i></div>
                             </div>
+                        </div>
 
-                            <!-- Card 3: Dates & Balance -->
-                            <div class="col-sm-4">
-                                <div class="mb-2 row">
-                                    <label class="col-sm-6 col-form-label"><b>Submission Date:</b></label>
-                                    <div class="col-sm-6">
-                                        <input type="text" readonly class="form-control" id="submissionDate" value="">
-                                    </div>
+                        <div class="cb-card">
+                            <div class="cb-icard-hd"><i class="bi bi-wallet2"></i><b>Balance Overview</b></div>
+                            <div class="cb-icard-body">
+                                <div class="cb-irow">
+                                    <span>Submission Date</span>
+                                    <span><input type="text" readonly class="cb-plain-input" id="submissionDate" value=""></span>
                                 </div>
-                                <div class="mb-2 row">
-                                    <label class="col-sm-6 col-form-label"><b>Pending Balance:</b></label>
-                                    <div class="col-sm-6">
-                                        <input type="text" readonly class="form-control text-danger fw-bold"
-                                               id="displayPendingBalance" value="">
-                                    </div>
+                                <div class="cb-irow cb-warn">
+                                    <span>Pending Balance</span>
+                                    <span><span class="cb-rs">₹</span><input type="text" readonly class="cb-plain-input cb-amt-input" id="displayPendingBalance" value=""></span>
                                 </div>
-                                <div class="mb-2 row">
-                                    <label class="col-sm-6 col-form-label"><b>Fine (Ref):</b></label>
-                                    <div class="col-sm-6">
-                                        <input type="text" readonly class="form-control text-secondary"
-                                               id="displayFineAmount" value=""
-                                               title="Fine from last submission — displayed for reference only. Not collected here.">
-                                    </div>
+                                <div class="cb-irow">
+                                    <span>Fine (Ref)</span>
+                                    <span><span class="cb-rs">₹</span><input type="text" readonly class="cb-plain-input cb-amt-input" id="displayFineAmount" value=""
+                                           title="Fine from last submission — displayed for reference only. Not collected here."></span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <hr/>
-
                     <!--Submission History Table-->
                     <div id="historySection" style="display:none;">
-                        <div class="mb-2">
-                            <span class="badge rounded-pill text-bg-primary fs-6 fw-normal px-3 py-2">
-                                <i class="bi bi-clock-history me-1"></i> Previous Fee Submissions
-                            </span>
+                        <div class="cb-section-label cb-label-info">
+                            <i class="bi bi-clock-history"></i> Previous Fee Submissions
                         </div>
-                        <div class="table-responsive mb-3">
-                            <table class="table table-bordered table-hover table-sm" id="historyTable">
-                                <thead class="table-secondary">
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Submission Date</th>
-                                        <th>Receipt No</th>
-                                        <th class="text-end">Total</th>
-                                        <th class="text-end">Fine</th>
-                                        <th class="text-end">Discount</th>
-                                        <th class="text-end">Paid</th>
-                                        <th class="text-end">Balance</th>
-                                        <th>Remark</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="historyTableBody">
-                                </tbody>
-                            </table>
+                        <div class="cb-card cb-table-card">
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0" id="historyTable">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Submission Date</th>
+                                            <th>Receipt No</th>
+                                            <th class="text-end">Total</th>
+                                            <th class="text-end">Fine</th>
+                                            <th class="text-end">Discount</th>
+                                            <th class="text-end">Paid</th>
+                                            <th class="text-end">Balance</th>
+                                            <th>Remark</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="historyTableBody">
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                        <hr/>
                     </div>
 
                     <!--Balance Payment Form-->
                     <div id="balanceFormSection" style="display:none;">
-                        <div class="mb-3">
-                            <span class="badge rounded-pill text-bg-success fs-6 fw-normal px-3 py-2">
-                                <i class="bi bi-cash-coin me-1"></i> Balance Payment Details
-                            </span>
+                        <div class="cb-section-label cb-label-success">
+                            <i class="bi bi-cash-coin"></i> Balance Payment Details
                         </div>
-                        <div class="row">
-                            <div class="col-sm-6">
 
-                                <div class="mb-3 row">
-                                    <label class="col-sm-5 col-form-label">Total Pending Amount</label>
-                                    <div class="col-sm-4">
-                                        <input type="text" readonly class="form-control fw-bold text-danger"
-                                               id="displayTotalAmount" value="">
+                        <div class="cb-card cb-payform-card">
+                            <div class="cb-formgrid">
+                                <div class="cb-field">
+                                    <label class="cb-fieldlabel">Total Pending Amount</label>
+                                    <div class="cb-inputwrap cb-inputwrap-readonly">
+                                        <span class="cb-rs">₹</span>
+                                        <input type="text" readonly class="text-danger" id="displayTotalAmount" value="">
                                     </div>
                                 </div>
 
-                                <div class="mb-3 row">
-                                    <label for="submitAmount" class="col-sm-5 col-form-label">Submit Amount <span class="text-danger">*</span></label>
-                                    <div class="col-sm-4">
-                                        <input type="number" class="form-control" id="submitAmount"
-                                               name="submitAmount" value="" min="0" step="0.01"
+                                <div class="cb-field">
+                                    <label for="submitAmount" class="cb-fieldlabel">Submit Amount <span class="text-danger">*</span></label>
+                                    <div class="cb-inputwrap">
+                                        <span class="cb-rs">₹</span>
+                                        <input type="number" id="submitAmount" name="submitAmount" value="" min="0" step="0.01"
                                                autocomplete="off" placeholder="0.00">
-                                        <span id="submitAmountErr" class="text-danger small"></span>
+                                    </div>
+                                    <span id="submitAmountErr" class="text-danger small"></span>
+                                </div>
+
+                                <div class="cb-field">
+                                    <label class="cb-fieldlabel">Balance Amount</label>
+                                    <div class="cb-inputwrap cb-inputwrap-readonly">
+                                        <span class="cb-rs">₹</span>
+                                        <input type="number" readonly id="balanceAmount" name="balanceAmount" value="">
                                     </div>
                                 </div>
 
-                                <div class="mb-3 row">
-                                    <label class="col-sm-5 col-form-label">Balance Amount</label>
-                                    <div class="col-sm-4">
-                                        <input type="number" readonly class="form-control" id="balanceAmount"
-                                               name="balanceAmount" value="">
+                                <div class="cb-field">
+                                    <label for="paymentType" class="cb-fieldlabel">Payment Type <span class="text-danger">*</span></label>
+                                    <select id="paymentType" class="form-select" name="paymentType">
+                                        <option value="">Select</option>
+                                        <option value="Cash">Cash</option>
+                                        <option value="Online">Online</option>
+                                        <option value="Both">Both (Cash + Online)</option>
+                                    </select>
+                                    <span id="paymentTypeErr" class="text-danger small"></span>
+                                    <div id="paymentBreakupSummary" class="small mt-1" style="display:none;">
+                                        <span id="paymentBreakupSummaryText"></span>
+                                        <a href="#" id="editBreakupLink">Edit</a>
                                     </div>
+                                    <input type="hidden" id="cashAmount" name="cashAmount" value="">
+                                    <input type="hidden" id="cashRemark" name="cashRemark" value="">
+                                    <input type="hidden" id="onlineAmount" name="onlineAmount" value="">
+                                    <input type="hidden" id="onlineRemark" name="onlineRemark" value="">
                                 </div>
 
-                                <div class="mb-3 row">
-                                    <label for="paymentType" class="col-sm-5 col-form-label">Payment Type <span class="text-danger">*</span></label>
-                                    <div class="col-sm-4">
-                                        <select id="paymentType" class="form-select" name="paymentType">
-                                            <option value="">Select</option>
-                                            <option value="Cash">Cash</option>
-                                            <option value="Online">Online</option>
-                                            <option value="Both">Both (Cash + Online)</option>
-                                        </select>
-                                        <span id="paymentTypeErr" class="text-danger small"></span>
-                                        <div id="paymentBreakupSummary" class="small mt-1" style="display:none;">
-                                            <span id="paymentBreakupSummaryText"></span>
-                                            <a href="#" id="editBreakupLink">Edit</a>
-                                        </div>
-                                        <input type="hidden" id="cashAmount" name="cashAmount" value="">
-                                        <input type="hidden" id="cashRemark" name="cashRemark" value="">
-                                        <input type="hidden" id="onlineAmount" name="onlineAmount" value="">
-                                        <input type="hidden" id="onlineRemark" name="onlineRemark" value="">
-                                    </div>
+                                <div class="cb-field cb-span2">
+                                    <label for="feeRemark" class="cb-fieldlabel">Remark (Optional)</label>
+                                    <input type="text" class="form-control" id="feeRemark"
+                                           name="feeRemark" placeholder="e.g. Cheque payment">
                                 </div>
-
-                                <div class="mb-3 row">
-                                    <label for="feeRemark" class="col-sm-5 col-form-label">Remark (Optional)</label>
-                                    <div class="col-sm-7">
-                                        <input type="text" class="form-control" id="feeRemark"
-                                               name="feeRemark" placeholder="e.g. Cheque payment">
-                                    </div>
-                                </div>
-
                             </div>
-                        </div>
 
-                        <hr/>
-                        <div class="row mb-5">
-                            <div class="col-md-5"></div>
-                            <div class="col-md-6">
+                            <div class="cb-submitbtn-wrap">
                                 <button type="button" sms:access="PENDING_BALANCE_SUBMIT:CREATE"
                                         onclick="validateAndSubmit()"
-                                        class="btn btn-primary" id="saveBalanceBtn" disabled>
+                                        class="btn btn-primary cb-submitbtn" id="saveBalanceBtn" disabled>
                                     <i class="bi bi-save2-fill"></i> Save Balance Payment
                                 </button>
                             </div>
@@ -208,8 +283,9 @@
                     </div>
 
                     <!-- No-student placeholder -->
-                    <div id="noStudentMsg" class="text-center text-muted py-4" style="display:none;">
-                        <i class="bi bi-info-circle"></i> Search and select a student above to begin.
+                    <div id="noStudentMsg" class="cb-emptystate" style="display:none;">
+                        <i class="bi bi-info-circle"></i>
+                        Search and select a student above to begin.
                     </div>
 
                 </form>
@@ -276,6 +352,17 @@
     <script type="text/javascript" th:inline="javascript">
         const contextPath = /*[[@{/}]]*/ '/';
 
+        // Escapes a value before it is interpolated into an .html()/.innerHTML-
+        // built string. Student names, remarks, receipt numbers, etc. below come
+        // straight from a JSON response with no server-side escaping - a
+        // stored-XSS gap. Same fix pattern already applied elsewhere in the Fees
+        // module this pass.
+        const escapeHtml = function (value) {
+            const div = document.createElement('div');
+            div.textContent = value !== undefined && value !== null ? value : '';
+            return div.innerHTML;
+        };
+
         // ── Toast helper (same as rest of app) ──────────────────────────────
         function showMsg(type, msg, header) {
             toastr.options = {
@@ -293,6 +380,31 @@
         const flashSuccess = /*[[${success}]]*/ null;
         if (flashSuccess) showMsg('success', flashSuccess, 'Success');
 
+        // ── Avatar initials/color — same visual pattern as fee-submission "neo" ──
+        const _cbAvatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+        const _cbInitialsOf = (name) => (name || '').trim().split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+        const _cbAvatarColorFor = (id) => _cbAvatarColors[Math.abs(id || 0) % _cbAvatarColors.length];
+
+        // Student photo — same lookup as fees/feesubmitform-neo.html and
+        // fees/fee-receipt.html: pic is just a filename, served via
+        // GET /student/images/{filename}. Falls back to the person icon
+        // if there's no pic or the file fails to load.
+        const _cbShowStudentPhoto = (pic) => {
+            const img = document.getElementById('studentPhoto');
+            const fallback = document.getElementById('studentPhotoFallback');
+            if (pic) {
+                img.onerror = () => { img.style.display = 'none'; fallback.style.display = 'flex'; };
+                img.src = `${contextPath}student/images/${encodeURIComponent(pic)}`;
+                img.style.display = '';
+                fallback.style.display = 'none';
+            } else {
+                img.onerror = null;
+                img.removeAttribute('src');
+                img.style.display = 'none';
+                fallback.style.display = 'flex';
+            }
+        };
+
         // ── Student search with infinite scroll — same pattern as feesubmitform ──
         let _searchQuery   = '';
         let _searchPage    = 0;
@@ -300,11 +412,13 @@
         let _searchLoading = false;
 
         const renderStudentRow = (s) => {
-            let sr = s.classSrNo ? ' / ' + s.classSrNo : ' / -';
-            return `<a onclick="loadStudentData(${s.id})" href="#"
-                       class='list-group-item list-group-item-action'>
-                       ${s.student.studentName} / ${s.student.fatherName} / ${s.grade.gradeName}-${s.section.sectionName}${sr}
-                    </a>`;
+            const sr = s.classSrNo ? ' / SR ' + escapeHtml(s.classSrNo) : '';
+            const color = _cbAvatarColorFor(s.id);
+            return `<div class="da-result-row" onclick="loadStudentData(${s.id})">
+                        <div class="stu-avatar" style="background:${color}22;color:${color}">${escapeHtml(_cbInitialsOf(s.student.studentName))}</div>
+                        <div><div class="da-result-name">${escapeHtml(s.student.studentName)}</div>
+                        <div class="da-result-sub">${escapeHtml(s.student.fatherName)} &middot; ${escapeHtml(s.grade.gradeName)}-${escapeHtml(s.section.sectionName)}${sr}</div></div>
+                    </div>`;
         };
 
         const fetchStudents = (query, page, append) => {
@@ -315,11 +429,16 @@
                 _searchLoading = false;
                 _searchMore    = students.length === 10;
                 if (!append) {
-                    let html = `<div class='list-group' id='student-list-group'>`;
-                    students.forEach(s => { html += renderStudentRow(s); });
-                    html += `</div>`;
-                    document.querySelector('.search-result').innerHTML = html;
-                    document.querySelector('.search-result').style.display = 'block';
+                    if (students.length === 0) {
+                        document.querySelector('.search-result').innerHTML = `<div class="da-result-empty">No students found for "${escapeHtml(query)}"</div>`;
+                        document.querySelector('.search-result').style.display = 'block';
+                    } else {
+                        let html = `<div id='student-list-group'>`;
+                        students.forEach(s => { html += renderStudentRow(s); });
+                        html += `</div>`;
+                        document.querySelector('.search-result').innerHTML = html;
+                        document.querySelector('.search-result').style.display = 'block';
+                    }
                 } else {
                     students.forEach(s => {
                         document.getElementById('student-list-group').insertAdjacentHTML('beforeend', renderStudentRow(s));
@@ -364,22 +483,27 @@
                         return;
                     }
 
-                    // ── Fill student info cards ───────────────────────────────
+                    // ── Fill student info card ────────────────────────────────
                     const s  = data.student;
                     const st = s.student;
-                    document.querySelector('.studname').innerHTML  = `<strong>Student Name:</strong> ${st.studentName}`;
-                    document.querySelector('.fname').innerHTML     = `<strong>Father Name:</strong> ${st.fatherName}`;
-                    document.querySelector('.mname').innerHTML     = `<strong>Mother Name:</strong> ${st.motherName}`;
-                    document.querySelector('.contactno').innerHTML = `<strong>Contact No:</strong> ${st.mobile1 || '-'}`;
-                    document.querySelector('.cmedium').innerHTML   = `<strong>Medium:</strong> ${s.medium ? s.medium.mediumName : '-'}`;
-                    document.querySelector('.cgrade').innerHTML    = `<strong>Class:</strong> ${s.grade ? s.grade.gradeName : '-'}`;
-                    document.querySelector('.csection').innerHTML  = `<strong>Section:</strong> ${s.section ? s.section.sectionName : '-'}`;
-                    document.querySelector('.csr').innerHTML       = `<strong>SR No:</strong> ${s.classSrNo || '-'}`;
+                    const avColor = _cbAvatarColorFor(s.id);
+                    document.getElementById('studentAvatar').textContent    = _cbInitialsOf(st.studentName);
+                    document.getElementById('studentAvatar').style.background = avColor + '22';
+                    document.getElementById('studentAvatar').style.color    = avColor;
+                    _cbShowStudentPhoto(st.pic);
+                    document.querySelector('.studname').innerHTML  = `<b>${escapeHtml(st.studentName)}</b>`;
+                    document.querySelector('.fname').innerHTML     = escapeHtml(st.fatherName) || '-';
+                    document.querySelector('.mname').innerHTML     = escapeHtml(st.motherName) || '-';
+                    document.querySelector('.contactno').innerHTML = escapeHtml(st.mobile1) || '-';
+                    document.querySelector('.cmedium').innerHTML   = s.medium ? escapeHtml(s.medium.mediumName) : '-';
+                    document.querySelector('.cgrade').innerHTML    = s.grade ? escapeHtml(s.grade.gradeName) : '-';
+                    document.querySelector('.csection').innerHTML  = s.section ? escapeHtml(s.section.sectionName) : '-';
+                    document.querySelector('.csr').innerHTML       = escapeHtml(s.classSrNo) || '-';
 
-                    // ── Fill Card 3 ───────────────────────────────────────────
-                    document.getElementById('submissionDate').value      = data.todayDate;
-                    document.getElementById('displayPendingBalance').value = '₹ ' + parseFloat(data.pendingBalance).toFixed(2);
-                    document.getElementById('displayFineAmount').value   = '₹ ' + parseFloat(data.fineAmount).toFixed(2);
+                    // ── Fill Balance Overview card ─────────────────────────────
+                    document.getElementById('submissionDate').value        = data.todayDate;
+                    document.getElementById('displayPendingBalance').value = parseFloat(data.pendingBalance).toFixed(2);
+                    document.getElementById('displayFineAmount').value     = parseFloat(data.fineAmount).toFixed(2);
 
                     // ── Store hidden fields ───────────────────────────────────
                     document.getElementById('academicStudentId').value = s.id;
@@ -393,8 +517,8 @@
                         tbody.insertAdjacentHTML('beforeend', `
                             <tr>
                                 <td>${idx + 1}</td>
-                                <td>${row.submitDate}</td>
-                                <td><code>${row.receiptNo}</code></td>
+                                <td>${escapeHtml(row.submitDate)}</td>
+                                <td><code>${escapeHtml(row.receiptNo)}</code></td>
                                 <td class="text-end">₹ ${parseFloat(row.totalAmount).toFixed(2)}</td>
                                 <td class="text-end">₹ ${parseFloat(row.fineAmount).toFixed(2)}</td>
                                 <td class="text-end">₹ ${parseFloat(row.discountAmount).toFixed(2)}</td>
@@ -402,7 +526,7 @@
                                 <td class="text-end fw-bold ${parseFloat(row.balanceAmount) > 0 ? 'text-danger' : 'text-success'}">
                                     ₹ ${parseFloat(row.balanceAmount).toFixed(2)}
                                 </td>
-                                <td class="small text-muted">${row.feeRemark}</td>
+                                <td class="small text-muted">${escapeHtml(row.feeRemark)}</td>
                             </tr>`);
                     });
                     document.getElementById('historySection').style.display = history.length > 0 ? 'block' : 'none';
@@ -410,7 +534,7 @@
                     // ── Show form section ─────────────────────────────────────
                     document.getElementById('balanceFormSection').style.display = 'block';
                     document.getElementById('noStudentMsg').style.display       = 'none';
-                    document.getElementById('displayTotalAmount').value         = '₹ ' + parseFloat(data.pendingBalance).toFixed(2);
+                    document.getElementById('displayTotalAmount').value         = parseFloat(data.pendingBalance).toFixed(2);
 
                     // ── Handle zero balance ───────────────────────────────────
                     const hasPending = data.hasPendingBalance;
@@ -605,13 +729,13 @@
 
         // ── Reset ─────────────────────────────────────────────────────────────
         const resetForm = () => {
-            ['studname','fname','mname','contactno'].forEach(c => {
+            document.getElementById('studentAvatar').textContent = '';
+            document.getElementById('studentAvatar').style.background = '';
+            document.getElementById('studentAvatar').style.color = '';
+            _cbShowStudentPhoto(null);
+            ['studname','fname','mname','contactno','cmedium','cgrade','csection','csr'].forEach(c => {
                 const el = document.querySelector('.' + c);
-                if (el) el.innerHTML = `<strong>${c === 'studname' ? 'Student Name' : c === 'fname' ? 'Father Name' : c === 'mname' ? 'Mother Name' : 'Contact No'}:</strong>`;
-            });
-            ['cmedium','cgrade','csection','csr'].forEach(c => {
-                const el = document.querySelector('.' + c);
-                if (el) el.innerHTML = `<strong>${c.replace('c','')}:</strong>`;
+                if (el) el.innerHTML = '';
             });
             document.getElementById('submissionDate').value      = '';
             document.getElementById('displayPendingBalance').value = '';

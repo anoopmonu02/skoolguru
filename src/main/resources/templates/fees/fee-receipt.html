@@ -6,46 +6,140 @@
 </head>
 <body>
 <section>
+  <!--
+      Fee Receipt(s) List — card/table/search UI rebuilt on the same design
+      system as fees/feesubmitform-neo.html and fees/pendingbalanceform.html
+      (combined Student+Academic info card with avatar initials, a restyled
+      table, icon+label section headers, and the shared da-search-wrap/
+      da-result-row search box). Every id/class/name the inline script below
+      depends on (search-input, StudentId, gradeId, feetable, disp-receipt,
+      studname/fname/mname/contactno/cmedium/cgrade/csection/csr/studname1,
+      etc.) is unchanged, so /searchStudentForFeePage, /getStudentFeeDetails
+      and /student-receipt-print keep working exactly as before.
+
+      Print/PDF: the old printDiv() (window.open() + a hardcoded CDN
+      bootstrap <link>) is replaced with the same SmsPrintUtils helper
+      (see /js/print-utils.js) already wired into fees/receipt.html this
+      pass — printThis.js for Print, html2canvas+jsPDF for a real PDF
+      download — so this page no longer depends on any CDN either, and the
+      two actions are icon-only buttons side by side instead of one
+      text+icon button. The actual receipt markup built by
+      createReceiptHTML()/createFeeMonthDetailHTML()/createFeeHeadDetailHTML()
+      is untouched - only the surrounding page chrome changed.
+  -->
+  <style>
+    /* ── Search box — same da- pattern used on Fee Submission Neo / Collect Balance ── */
+    .da-search-wrap { position: relative; margin-bottom: 18px; max-width: 460px; }
+    .da-search-wrap input { padding-left: 38px; }
+    .da-search-wrap .bi-search { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+    .da-search-results { position: absolute; z-index: 20; width: 100%; max-height: 320px; overflow-y: auto; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-xs); margin-top: 4px; display: none; }
+    .da-result-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border-color); }
+    .da-result-row:last-child { border-bottom: none; }
+    .da-result-row:hover { background: var(--accent-light); }
+    .da-result-name { font-weight: 600; color: var(--text-primary); font-size: .85rem; }
+    .da-result-sub { font-size: .72rem; color: var(--text-muted); }
+    .da-result-empty { padding: 14px; color: var(--text-muted); font-size: .85rem; text-align: center; }
+
+    /* ── Cards ── */
+    .fr-card{ background:var(--card-bg); border:1px solid var(--border-color); border-radius:var(--radius-lg); box-shadow:var(--shadow-xs); }
+
+    /* Student+Academic card / side "quick view" table — two-column row, same
+       shape as the Fee Submission Neo / Collect Balance info grids. Below
+       900px it stacks, same as those pages. */
+    .fr-infogrid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px; align-items:stretch; }
+    @media (max-width:900px){ .fr-infogrid{ grid-template-columns:1fr; } }
+
+    .fr-combocard{ display:flex; gap:16px; height:100%; padding:18px 20px; box-sizing:border-box; }
+    .fr-combo-left{ flex:1; min-width:0; }
+    .fr-combo-namerow{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+    .fr-combo-namerow .studname{ font-size:1rem; font-family:"Outfit", sans-serif; color:var(--text-primary); }
+    .fr-combo-namerow .stu-avatar{ width:36px; height:36px; font-size:.78rem; background:var(--accent-light); color:var(--accent); }
+    .fr-combo-metaline{ font-size:.8rem; color:var(--text-muted); margin-bottom:10px; }
+    .fr-combo-metaline b{ color:var(--text-primary); font-weight:600; }
+    .fr-msep{ color:var(--border-color); margin:0 8px; }
+    .fr-combo-contact{ font-size:.84rem; color:var(--text-muted); display:flex; align-items:center; gap:7px; margin-bottom:10px; }
+    .fr-combo-contact i{ color:var(--accent); }
+    .fr-combo-contact b{ color:var(--text-primary); font-weight:600; }
+    .fr-combo-parents{ margin-bottom:0; }
+
+    /* Student photo — same fallback-on-missing/403/404 pattern as Fee
+       Submission Neo's own student-photo box (that route is gated on
+       STUDENT_LIST:VIEW, which a Fee-Receipt-only user may not have, so a
+       failed image load here is expected sometimes, not an error). */
+    .fr-combo-photocol{ flex:none; display:flex; align-items:flex-start; }
+    .fr-combo-photo-img, .fr-combo-photo-fallback{ width:84px; height:96px; border-radius:10px; border:1px solid var(--border-color); }
+    .fr-combo-photo-img{ object-fit:cover; }
+    .fr-combo-photo-fallback{ background:var(--body-bg); color:var(--text-muted); display:flex; align-items:center; justify-content:center; font-size:1.9rem; }
+
+    /* Side "quick view" table — same data as the full table below, in a
+       scrollable card so it fills the empty space beside the info card on
+       wide screens instead of duplicating a full-width table there. */
+    /* height:100% + the flex:1 scroll region below is what actually makes
+       this card match the left card's height: CSS Grid's align-items:stretch
+       on .fr-infogrid stretches this card's OUTER box to the row height
+       already, but without these two rules the table content inside just
+       sat at its own natural (shorter) height, leaving dead space at the
+       bottom instead of the scroll area filling the card. */
+    .fr-sidetable-card{ display:flex; flex-direction:column; height:100%; overflow:hidden; }
+    .fr-sidetable-scroll{ flex:1; min-height:0; max-height:280px; overflow:auto; }
+    .fr-sidetable-scroll table{ width:100%; min-width:640px; margin:0; font-size:.78rem; }
+    .fr-sidetable-scroll th{ position:sticky; top:0; background:var(--body-bg); color:var(--text-muted); font-size:.62rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:8px 12px; border:none; white-space:nowrap; z-index:1; }
+    .fr-sidetable-scroll td{ padding:8px 12px; border-top:1px solid var(--border-color); vertical-align:middle; }
+    .fr-sidetable-scroll tbody tr:hover{ background:var(--accent-light); }
+    .fr-sidetable-scroll td code{ background:var(--accent-light); color:var(--accent); padding:2px 7px; border-radius:5px; font-size:.72rem; }
+    .fr-sidetable-empty{ padding:24px 18px; font-size:.78rem; color:var(--text-muted); text-align:center; }
+
+    /* ── Section labels (icon + text) ── */
+    .fr-section-label{ display:flex; align-items:center; gap:9px; font-size:.86rem; font-weight:700; font-family:"Outfit", sans-serif; color:var(--text-primary); margin-bottom:12px; }
+    .fr-section-label i{ font-size:1.05rem; }
+    .fr-label-info i{ color:#0ea5e9; }
+    .fr-label-success i{ color:#16a34a; }
+    .fr-section-label .studname1{ font-weight:500; color:var(--text-muted); }
+
+    /* ── Fee table ── */
+    .fr-table-card{ overflow:hidden; margin-bottom:24px; }
+    .fr-table-card .table-responsive{ margin:0; }
+    .fr-table-card table{ width:100%; margin:0; font-size:.82rem; }
+    .fr-table-card th{ background:var(--body-bg); color:var(--text-muted); font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:11px 16px; border:none; white-space:nowrap; }
+    .fr-table-card td{ padding:11px 16px; border-top:1px solid var(--border-color); vertical-align:middle; }
+    .fr-table-card tbody tr:hover{ background:var(--accent-light); }
+    .fr-table-card td code{ background:var(--accent-light); color:var(--accent); padding:3px 9px; border-radius:6px; font-size:.78rem; }
+
+    /* ── Receipt Print card ── */
+    .fr-printcard{ padding:20px; margin-bottom:24px; }
+    .fr-printcard .fr-actions{ margin-bottom:14px; }
+    .fr-printcard-empty{ text-align:center; color:var(--text-muted); padding:32px 16px; font-size:.84rem; }
+    .fr-printcard-empty i{ font-size:1.7rem; display:block; margin-bottom:8px; color:var(--border-color); }
+  </style>
 
   <div class="container-fluid px-3">
-      <div class="row mt-2 ">
+      <div class="row mt-2">
           <div class="col-md-12">
               <div th:replace="~{components/ui :: page-header('Fee Receipt(s) List - Student')}"></div>
 
-              <!--Search box-->
-              <div class="search-container my-3">
+              <!--Search box - same da-search-wrap pattern as Fee Submission Neo / Collect Balance-->
+              <div class="da-search-wrap">
+                  <i class="bi bi-search"></i>
                   <input class="form-control" id="search-input" onkeyup="searchStuName()" placeholder="Search student name" type="text">
-                  <div class="search-result" style="max-height:300px; overflow-y:auto; border:1px solid #dee2e6; border-radius:4px; display:none;">
-                  </div>
+                  <div class="da-search-results search-result"></div>
               </div>
 
-              <hr/>
-              <div class="student-detail mb-3">
-                  <div class="academic-student-block">
-                      <div class="row">
-                          <div class="col-sm-4">
-                              <div class="card border-success">
-                                  <h5 class="card-header">Student Detail</h5>
-                                  <ul class="list-group list-group-flush">
-                                      <li class="list-group-item studname"><strong>Student Name:</strong></li>
-                                      <li class="list-group-item fname"><strong>Father Name:</strong></li>
-                                      <li class="list-group-item mname"><strong>Mother Name:</strong></li>
-                                      <li class="list-group-item contactno contact-update-btn"><strong>Contact No:</strong>
-                                      </li>
-                                  </ul>
-                              </div>
+              <!--Student+Academic (with photo) / side "quick view" table — two-card row, same "neo" pattern as fees/feesubmitform-neo.html-->
+              <div class="fr-infogrid">
+                  <div class="fr-card fr-combocard">
+                      <div class="fr-combo-left">
+                          <div class="fr-combo-namerow">
+                              <span class="stu-avatar" id="studentAvatar"></span>
+                              <span class="studname"></span>
                           </div>
-
-                          <div class="col-sm-4">
-                              <div class="card border-success">
-                                  <h5 class="card-header">Academic Detail</h5>
-                                  <ul class="list-group list-group-flush">
-                                      <li class="list-group-item cmedium"><strong>Medium: </strong></li>
-                                      <li class="list-group-item cgrade"><strong>Class: </strong></li>
-                                      <li class="list-group-item csection"><strong>Section: </strong></li>
-                                      <li class="list-group-item csr"><strong>SR No: </strong></li>
-                                  </ul>
-                              </div>
+                          <div class="fr-combo-metaline">
+                              <span>Medium: <b class="cmedium"></b></span><span class="fr-msep">|</span><span>Class: <b class="cgrade"></b>-<b class="csection"></b></span><span class="fr-msep">|</span><span>SR No: <b class="csr"></b></span>
+                          </div>
+                          <div class="fr-combo-contact">
+                              <i class="bi bi-telephone-fill"></i><span>Contact No:</span> <b class="contactno"></b>
+                          </div>
+                          <div class="fr-combo-metaline fr-combo-parents">
+                              <span>Father Name: <b class="fname"></b></span><span class="fr-msep">|</span><span>Mother Name: <b class="mname"></b></span>
                           </div>
 
                           <input type="hidden" name="school_id" id="school_id" th:field="*{school.id}"/>
@@ -53,186 +147,50 @@
                           <input type="hidden" id="StudentId" value="" name="StudentId">
                           <input type="hidden" id="gradeId" value="" name="gradeId">
                       </div>
+                      <div class="fr-combo-photocol">
+                          <img id="studentPhoto" class="fr-combo-photo-img" style="display:none;" alt="Student photo">
+                          <div id="studentPhotoFallback" class="fr-combo-photo-fallback"><i class="bi bi-person"></i></div>
+                      </div>
                   </div>
 
+                  <!--Side quick-view table — same rows as the full "Fee Detail(s)" table below,
+                      just scrollable so the empty space beside the info card is put to use. The
+                      full table below stays as-is for now.-->
+                  <div class="fr-card fr-sidetable-card">
+                      <div class="fr-sidetable-scroll">
+                          <table class="table table-sm mb-0" id="feetableSide">
+                              <thead>
+                                  <tr>
+                                      <th>#</th>
+                                      <th>Date</th>
+                                      <th>Receipt#</th>
+                                      <th class="text-end">Total</th>
+                                      <th class="text-end">Paid</th>
+                                      <th class="text-end">Balance</th>
+                                      <th>Action</th>
+                                  </tr>
+                              </thead>
+                              <tbody class="table-group-divider">
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
               </div>
 
-
-              <div class="card-header fs-3">Fee Receipt <span class="studname1"></span></div>
-
-              <hr/>
-
-              <div class="fee-detail-box row">
-                  <!--Fees List-->
-                  <div class="col-md-12 text-bg-light feedetailslistbox">
-                      <div class="card-body">
-                          <h5 class="card-subtitle mb-2 text-muted">Fee Detail(s)</h5>
-                      </div>
-
-                      <table class="table table-bordered table-hover  table-sm" id="feetable">
-                          <thead>
-                              <tr>
-                                  <th>#</th>
-                                  <th>Submit Date</th>
-                                  <th>Receipt#</th>
-                                  <th>Total</th>
-                                  <th>Paid</th>
-                                  <th>Balance</th>
-                                  <th>Action</th>
-                              </tr>
-                          </thead>
-                          <tbody class="table-group-divider">
-
-                          </tbody>
-                      </table>
-
+              <!--Receipt Print-->
+              <div class="fr-section-label fr-label-success">
+                  <i class="bi bi-printer"></i> Receipt Print
+              </div>
+              <div class="fr-card fr-printcard">
+                  <div class="fr-actions d-flex gap-2" role="group" aria-label="Receipt actions">
+                      <button class="btn btn-success" id="printreceipt" title="Print" aria-label="Print"><i class="bi bi-printer-fill"></i></button>
+                      <button class="btn btn-outline-primary" id="downloadreceiptpdf" title="Download PDF" aria-label="Download PDF"><i class="bi bi-file-earmark-pdf"></i></button>
                   </div>
-                  <!--Fee Receipt-->
-                  <div class="col-md-12 text-bg-light feereceiptbox1">
-                      <div class="card-body">
-                          <h5 class="card-subtitle mb-2 text-muted">Receipt Print</h5>
-                      </div>
-                      <div>
-                          <div class="row">
-                              <div class="col-md-3">
-                                  <button class="btn btn-success" id="printreceipt" onclick="printDiv('contentToExport','receipt')" data-div-id="contentToExport"><i class="bi bi-printer-fill"></i> Print</button>
-                              </div>
-                              <div class="col-md-6">&nbsp;</div>
-                          </div>
-                          <div class="row">&nbsp;</div>
-                          <div class="row">
-
-                              <!--Page Content Here-->
-                              <div class="card">
-                                  <h5 class="card-header">Fee Receipt</h5>
-                                  <div id="disp-receipt"></div>
-                                  <!--<div class="card-body" id="contentToExport">
-                                      <input type="hidden" id="feeid" th:value="${feeSubmission.id}">
-                                      <div class="text-center"><strong>[[${school.getSchoolName().toUpperCase()}]]</strong></div>
-                                      <div class="text-center"><strong>[[${school.getAddress().toUpperCase()}]]</strong></div>
-                                      <div class="text-center"><strong>CONTACT NO: (+91) [[${school.getMobile1()}]]<span th:if="${school.getMobile2() != null}">, [[${school.getMobile2()}]]</span></strong></div>
-                                      <div class="text-center" th:if="${school.getEmail() != null}"><strong>Email: [[${school.getEmail()}]]</strong></div>
-                                      <hr/>
-                                      <div class="row">
-                                          <div class="col-md-6">
-                                              <label class="col-md-4 col-form-label"><strong>Academic Year: </strong></label>
-                                              <label class="col-md-5 col-form-label" th:text="${academicYear}"></label>
-                                          </div>
-                                          <div class="col-md-6">
-                                              <label class="col-md-2"></label>
-                                              <label class="col-md-4"><strong>Submission Date: </strong></label>
-                                              <label class="col-md-5" th:text="${#dates.format(feeSubmission.feeSubmissionDate,'dd-MMM-yyyy HH:mm:ss')}"><strong>Submission Date: </strong></label>
-                                          </div>
-                                          <div class="col-md-8">
-                                              <label class="col-md-3 col-form-label"><strong>Receipt No: </strong></label>
-                                              <label class="col-md-5 col-form-label" th:text="${feeSubmission.receiptNo}"></label>
-                                          </div>
-                                      </div>
-                                      <hr/>
-                                      <div class="row">
-                                          <div class="col-md-6">
-                                              <label class="col-md-4 col-form-label"><strong>Student Name: </strong></label>
-                                              <label class="col-md-5 col-form-label" th:text="${student.getStudent().studentName}"></label>
-                                          </div>
-                                          <div class="col-md-6">
-                                              <label class="col-md-3"></label>
-                                              <label class="col-md-4 col-form-label"><strong>Class: </strong></label>
-                                              <label class="col-md-4 col-form-label" th:text="${student.getGrade().gradeName}+'-'+${student.getSection().sectionName}"></label>
-                                          </div>
-                                          <div class="col-md-6">
-                                              <label class="col-md-4 col-form-label"><strong>Father Name: </strong></label>
-                                              <label class="col-md-5 col-form-label" th:text="${student.getStudent().fatherName}"></label>
-                                          </div>
-                                          <div class="col-md-6">
-                                              <label class="col-md-3"></label>
-                                              <label class="col-md-4 col-form-label"><strong>SR No: </strong></label>
-                                              <label class="col-md-4 col-form-label" th:text="${student.getClassSrNo()}"></label>
-                                          </div>
-                                          <div class="col-md-6">
-                                              <label class="col-md-4 col-form-label"><strong>Mother Name: </strong></label>
-                                              <label class="col-md-5 col-form-label" th:text="${student.getStudent().motherName}"></label>
-                                          </div>
-                                          <div class="col-md-6"></div>
-                                          <div class="col-md-6">
-                                              <label class="col-md-4 col-form-label"><strong>Contact No: </strong></label>
-                                              <label class="col-md-5 col-form-label" th:text="'(+91) '+${student.getStudent().mobile1}"></label>
-                                          </div>
-                                          <div class="col-md-6">
-                                          </div>
-                                      </div>
-                                      <hr/>
-                                      <div class="row fee-month-detail">
-                                          <div class="col-md-6" th:each="feelist,iterStat : ${feeSubmittedMonths}">
-                                              <strong><label class="col-md-3" th:text="${feelist.split('####')[0]}"></label></strong>
-                                              <label class="col-md-3" th:text="${feelist.split('####')[1]}"></label>
-                                              <span th:if="${feelist.contains('PAID')}">
-                                    <i><u><label class="col-md-5" th:text="${feelist.split('####')[2]}"></label></u></i>
-                                </span>
-                                          </div>
-                                      </div>
-                                      <hr/>
-                                      &lt;!&ndash;Fee Details&ndash;&gt;
-                                      <div class="row feedetails">
-                                          <div class="col-md-12">
-                                              <table class="table table-bordered table-striped">
-                                                  <thead>
-                                                  <tr>
-                                                      <th width="10%">SNo.</th>
-                                                      <th>Head Name</th>
-                                                      <th width="25%">Amount</th>
-                                                  </tr>
-                                                  </thead>
-                                                  <tbody class="table-group-divider">
-                                                  <tr th:each="fsub, iter: ${feesublist}">
-                                                      <td th:text="${iter.index + 1}+'.'"></td>
-                                                      <td th:text="${fsub.feehead.feeHeadName}"></td>
-                                                      <td class="text-end" th:text="${@money.rupees(fsub.amount)}"></td>
-                                                  </tr>
-                                                  </tbody>
-                                              </table>
-                                          </div>
-                                      </div>
-                                      <hr/>
-                                      &lt;!&ndash;Amount Details&ndash;&gt;
-                                      <div class="row amountdetails">
-                                          <div class="col-md-4"></div>
-                                          <div class="col-md-8"><strong>Fine Remark: </strong><span th:text="${feeSubmission.fineRemark}"></span></div>
-
-                                          <div class="col-md-4"></div>
-                                          <div class="col-md-4"><strong>Fine Amount: </strong></div>
-                                          <div class="col-md-4 text-end" th:text="${@money.rupees(feeSubmission.fineAmount)}"></div>
-                                      </div>
-                                      <hr/>
-                                      <div class="row" th:if="${feeSubmission.discounthead}">
-                                          <div class="col-md-4"></div>
-                                          <div class="col-md-8"><strong>Discount Remark: </strong><span th:text="${feeSubmission.discounthead.discountName}"></span></div>
-
-                                          <div class="col-md-4"></div>
-                                          <div class="col-md-4"><strong>Discount Amount: </strong></div>
-                                          <div class="col-md-4 text-end" th:text="${@money.rupees(feeSubmission.discountAmount)}"></div>
-                                      </div>
-                                      <hr/>
-                                      <div class="row">
-                                          <div class="col-md-4"></div>
-                                          <div class="col-md-4"><strong>Total Amount: </strong></div>
-                                          <div class="col-md-4 text-end" th:text="${@money.rupees(feeSubmission.totalAmount)}"></div>
-                                          <div class="col-md-4"></div>
-                                          <div class="col-md-4"><strong>Paid Amount: </strong></div>
-                                          <div class="col-md-4 text-end" th:text="${@money.rupees(feeSubmission.paidAmount)}"></div>
-                                          <div class="col-md-4"></div>
-                                          <div class="col-md-4"><strong>Balance Amount: </strong></div>
-                                          <div class="col-md-4 text-end" th:text="${@money.rupees(feeSubmission.balanceAmount)}"></div>
-                                      </div>
-                                      <br/><br/>
-                                      <div class="row mb-3"><div class="col-md-12 text-end">(Authorized Signatory)</div></div>
-
-
-                                  </div>-->
-                              </div>
-
-                          </div>
-                      </div>
+                  <div id="dispReceiptPlaceholder" class="fr-printcard-empty">
+                      <i class="bi bi-file-earmark-text"></i>
+                      Click the <i class="bi bi-printer-fill"></i> icon on a row above to preview a receipt here.
                   </div>
+                  <div id="disp-receipt"></div>
               </div>
 
           </div>
@@ -240,12 +198,27 @@
   </div>
 
 
+    <script th:src="@{/js/printThis.js}"></script>
+    <script th:src="@{/js/html2canvas.min.js}"></script>
+    <script th:src="@{/js/jspdf.umd.min.js}"></script>
+    <script th:src="@{/js/print-utils.js}"></script>
 
   <script type="text/javascript" th:inline="javascript">
       const contextPath = /*[[@{/}]]*/ '/';
-      
-      
 
+      // Escapes a value before it is interpolated into an .html()-built string.
+      // School/student/fee-head names, addresses, phone numbers, remarks, etc.
+      // below come straight from JSON responses with no server-side escaping,
+      // and were previously interpolated into .html()/template-literal-built
+      // markup unescaped - a stored-XSS gap (this receipt HTML is rendered for
+      // every staff member who looks up a fee submission, and re-rendered again
+      // when printed/exported). Same fix pattern already applied elsewhere in
+      // the Fees module this pass.
+      const escapeHtml = function (value) {
+          const div = document.createElement('div');
+          div.textContent = value !== undefined && value !== null ? value : '';
+          return div.innerHTML;
+      };
 
       function showWarningMsg(msgType, msg, headerValue){
               toastr.options = {
@@ -268,10 +241,42 @@
             toastr[msgType](msg,headerValue);
         }
 
+    // ── Avatar initials/color — same visual pattern as fee-submission "neo" ──
+    const _frAvatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+    const _frInitialsOf = (name) => (name || '').trim().split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+    const _frAvatarColorFor = (id) => _frAvatarColors[Math.abs(id || 0) % _frAvatarColors.length];
+
+    // Student photo — same fallback-on-missing/403/404 pattern as Fee
+    // Submission Neo's own student-photo box.
+    function _frShowStudentPhoto(pic){
+        const $img = $('#studentPhoto');
+        const $fallback = $('#studentPhotoFallback');
+        if(pic){
+            $img.attr('src', `${contextPath}student/images/${encodeURIComponent(pic)}`)
+                .off('error.frphoto').on('error.frphoto', function(){
+                    $(this).hide();
+                    $fallback.show();
+                })
+                .show();
+            $fallback.hide();
+        } else{
+            $img.hide().removeAttr('src');
+            $fallback.show();
+        }
+    }
+
+    // Set once a receipt is loaded into #disp-receipt, used as the Print/PDF title/filename.
+    let _frCurrentReceiptNo = 'receipt';
+
     let _frQuery = '', _frPage = 0, _frMore = false, _frLoading = false;
     const _frRow = (s) => {
-        let sr = s.classSrNo ? ' / ' + s.classSrNo : ' / -';
-        return `<a onclick="loadStudentData(${s.id})" href="#" class='list-group-item list-group-item-action'>${s.student.studentName} / ${s.student.fatherName} / ${s.grade.gradeName}-${s.section.sectionName}${sr}</a>`;
+        const sr = s.classSrNo ? ' / SR ' + escapeHtml(s.classSrNo) : '';
+        const color = _frAvatarColorFor(s.id);
+        return `<div class="da-result-row" onclick="loadStudentData(${s.id})">
+                    <div class="stu-avatar" style="background:${color}22;color:${color}">${escapeHtml(_frInitialsOf(s.student.studentName))}</div>
+                    <div><div class="da-result-name">${escapeHtml(s.student.studentName)}</div>
+                    <div class="da-result-sub">${escapeHtml(s.student.fatherName)} &middot; ${escapeHtml(s.grade.gradeName)}-${escapeHtml(s.section.sectionName)}${sr}</div></div>
+                </div>`;
     };
     const _frFetch = (query, page, append) => {
         if (_frLoading) return;
@@ -281,9 +286,13 @@
                 _frLoading = false;
                 _frMore = data.length === 10;
                 if (!append) {
-                    let html = `<div class='list-group' id='fr-list-group'>`;
-                    data.forEach(s => { html += _frRow(s); });
-                    $(".search-result").html(html + `</div>`).show();
+                    if (data.length === 0) {
+                        $(".search-result").html(`<div class="da-result-empty">No students found for "${escapeHtml(query)}"</div>`).show();
+                    } else {
+                        let html = `<div id='fr-list-group'>`;
+                        data.forEach(s => { html += _frRow(s); });
+                        $(".search-result").html(html + `</div>`).show();
+                    }
                 } else {
                     data.forEach(s => { $('#fr-list-group').append(_frRow(s)); });
                 }
@@ -306,10 +315,13 @@
         if(id>0){
             console.log("id::::"+id);
             $('#feetable > tbody').empty();
+            $('#feetableSide > tbody').empty();
             // Clear the printable receipt block too — it's only populated when the printer
             // icon on a specific row is clicked, so without this it kept showing whichever
             // previous student's receipt was last printed, even after switching students.
             $('#disp-receipt').empty();
+            $('#dispReceiptPlaceholder').show();
+            _frCurrentReceiptNo = 'receipt';
             let url = `${contextPath}getStudentFeeDetails/${id}`;
             fetch(url).then(response => {
                 return response.json();
@@ -324,28 +336,37 @@
                     } else{
                         if('feeSubmissions' in data){
                             if(data.student.status==='Active'){
-                                /*const msg = "Discount: "+ data.assignedDiscount.discounthead.discountName +" already assigned to this student."
-                                showWarningMsg("info", msg, "Message");
-                                $(".discountassigned").show();
-                                setDiscountData(data.assignedDiscount);*/
                                 setFeeRelatedData(data, 1);
                                 setFeeDetails(data.feeSubmissions);
                             }
                         }
-                        //setFeeRelatedData(data, 1);
                     }
                 }
             });
         }
     }
 
+      // Builds one <tr> and appends it to both the full table below and the
+      // scrollable "quick view" table beside the info card — same data, same
+      // Action handler either way, just two places to click it from.
       function setFeeDetails(data){
           for(let i=0;i<data.length;i++){
               let value = data[i];
               console.log("value-----"+value);
               let formatDateVal = formatDate(value.feeSubmissionDate);
-              //+value.academicStudent.id+'_'
-              $('#feetable > tbody').append('<tr><td>'+ (i+1) +'</td><td>'+ formatDateVal+'</td><td>'+ value.receiptNo +'</td><td>&#8377; '+value.totalAmount+'</td><td>&#8377; '+ value.paidAmount +'</td><td>&#8377; '+ value.balanceAmount +'</td><td><a onclick="loadStudentReceiptData('+value.id+')" href="#" class="btn btn-success"><i class="bi bi-printer-fill"></i></a></td></tr>');
+              let rowHtml =
+                  '<tr><td>'+ (i+1) +'</td>' +
+                  '<td>'+ formatDateVal +'</td>' +
+                  '<td><code>'+ escapeHtml(value.receiptNo) +'</code></td>' +
+                  '<td class="text-end">&#8377; '+value.totalAmount+'</td>' +
+                  '<td class="text-end">&#8377; '+ value.paidAmount +'</td>' +
+                  '<td class="text-end">&#8377; '+ value.balanceAmount +'</td>' +
+                  '<td class="text-center"><a onclick="loadStudentReceiptData(\''+value.encodedId+'\')" href="#" class="btn btn-sm btn-success" title="View receipt" aria-label="View receipt"><i class="bi bi-printer-fill"></i></a></td></tr>';
+              $('#feetable > tbody').append(rowHtml);
+              $('#feetableSide > tbody').append(rowHtml);
+          }
+          if(data.length === 0){
+              $('#feetableSide > tbody').append('<tr><td colspan="7" class="fr-sidetable-empty">No fee submissions yet.</td></tr>');
           }
       }
 
@@ -358,7 +379,7 @@
           return `${day}/${month}/${year}`;
       }
       const loadStudentReceiptData=(id)=>{
-          if(id>0){
+          if(id){
               let url = `${contextPath}student-receipt-print/${id}`;
               fetch(url).then(response => {
                   return response.json();
@@ -370,9 +391,11 @@
                       if('feeSubmissionError' in data){
                           showWarningMsg("warning", data.noFeeDate,"Message");
                       } else{
+                          _frCurrentReceiptNo = (data.feeSubmission && data.feeSubmission.receiptNo) ? data.feeSubmission.receiptNo : 'receipt';
                           const container = $('#disp-receipt');
                           container.empty();
                           container.append(createReceiptHTML(data));
+                          $('#dispReceiptPlaceholder').hide();
                       }
                   }
               });
@@ -381,30 +404,35 @@
 
       function setFeeRelatedData(data, flag){
           if(flag===1){
-              $(".studname").html(`<strong>Student Name: </strong> <span class="text-end">${data.student.student.studentName}</span>`);
-              $(".studname1").html(` - <strong> ${data.student.student.studentName}</strong>`);
-              $(".fname").html(`<strong>Father Name: </strong> ${data.student.student.fatherName}`);
-              $(".mname").html(`<strong>Mother Name: </strong> ${data.student.student.motherName}`);
-              $(".contactno").html(`<strong>Contact No: </strong> ${data.student.student.mobile1}`);
+              const avColor = _frAvatarColorFor(data.student.student.id);
+              $('#studentAvatar').text(_frInitialsOf(data.student.student.studentName)).css({background: avColor + '22', color: avColor});
+              $(".studname").html(`<b>${escapeHtml(data.student.student.studentName)}</b>`);
+              $(".studname1").html(`&middot; ${escapeHtml(data.student.student.studentName)}`);
+              $(".fname").html(`${escapeHtml(data.student.student.fatherName)}`);
+              $(".mname").html(`${escapeHtml(data.student.student.motherName)}`);
+              $(".contactno").html(`${escapeHtml(data.student.student.mobile1)}`);
 
-              $(".cmedium").html(`<strong>Medium: </strong> ${data.student.medium.mediumName}`);
-              $(".cgrade").html(`<strong>Class: </strong> ${data.student.grade.gradeName}`);
-              $(".csection").html(`<strong>Section: </strong> ${data.student.section.sectionName}`);
-              $(".csr").html(`<strong>SR No: </strong> ${data.student.classSrNo==null?"":data.student.classSrNo}`);
+              $(".cmedium").html(`${escapeHtml(data.student.medium.mediumName)}`);
+              $(".cgrade").html(`${escapeHtml(data.student.grade.gradeName)}`);
+              $(".csection").html(`${escapeHtml(data.student.section.sectionName)}`);
+              $(".csr").html(`${data.student.classSrNo==null?"-":escapeHtml(data.student.classSrNo)}`);
 
               $('#StudentId').val(`${data.student.student.id}`);
               $('#gradeId').val(`${data.student.grade.id}`);
+              _frShowStudentPhoto(data.student.student.pic);
           } else{
-              $(".studname").html(`<strong>Student Name:</strong>`);
+              $('#studentAvatar').text('').css({background:'', color:''});
+              _frShowStudentPhoto(null);
+              $(".studname").html(``);
               $(".studname1").html(``);
-              $(".fname").html(`<strong>Father Name:</strong> `);
-              $(".mname").html(`<strong>Mother Name:</strong> `);
-              $(".contactno").html(`<strong>Contact No:</strong> `);
+              $(".fname").html(``);
+              $(".mname").html(``);
+              $(".contactno").html(``);
 
-              $(".cmedium").html(`<strong>Medium: </strong> `);
-              $(".cgrade").html(`<strong>Class: </strong> `);
-              $(".csection").html(`<strong>Section:</strong> `);
-              $(".csr").html(`<strong>SR No:</strong> `);
+              $(".cmedium").html(``);
+              $(".cgrade").html(``);
+              $(".csection").html(``);
+              $(".csr").html(``);
               $('#gradeId').val('');
 
           }
@@ -413,17 +441,17 @@
       const createReceiptHTML = (data) =>{
           return `<div class="card-body" id="contentToExport">
                   <input type="hidden" id="feeid" th:value="${data.feeSubmission.id}">
-                  <div class="text-center"><strong>${data.school.schoolName.toUpperCase()}</strong></div>
-                  <div class="text-center"><strong>${data.school.address.toUpperCase()}</strong></div>
-                  <div class="text-center"><strong>CONTACT NO: (+91) ${data.school.mobile1}<span th:if="${data.school.mobile2 != null}">, ${data.school.mobile2}</span></strong></div>
-                  <div class="text-center" th:if="${data.school.email != null}"><strong>Email: ${data.school.email}</strong></div>
+                  <div class="text-center"><strong>${escapeHtml(data.school.schoolName.toUpperCase())}</strong></div>
+                  <div class="text-center"><strong>${escapeHtml(data.school.address.toUpperCase())}</strong></div>
+                  <div class="text-center"><strong>CONTACT NO: (+91) ${escapeHtml(data.school.mobile1)}<span th:if="${data.school.mobile2 != null}">, ${escapeHtml(data.school.mobile2)}</span></strong></div>
+                  <div class="text-center" th:if="${data.school.email != null}"><strong>Email: ${escapeHtml(data.school.email)}</strong></div>
                   <hr/>
                   <div class="text-center"><strong>(DUPLICATE COPY)</strong></div>
                   <hr/>
                   <div class="row">
                       <div class="col-md-6">
                           <label class="col-md-4 col-form-label"><strong>Academic Year: </strong></label>
-                          <label class="col-md-5 col-form-label">${data.academicYear}</label>
+                          <label class="col-md-5 col-form-label">${escapeHtml(data.academicYear)}</label>
                       </div>
                       <div class="col-md-6">
                           <label class="col-md-2"></label>
@@ -432,42 +460,42 @@
                       </div>
                       <div class="col-md-6">
                           <label class="col-md-4 col-form-label"><strong>Receipt No: </strong></label>
-                          <label class="col-md-5 col-form-label">${data.feeSubmission.receiptNo}</label>
+                          <label class="col-md-5 col-form-label">${escapeHtml(data.feeSubmission.receiptNo)}</label>
                       </div>
                       <div class="col-md-6">
                             <label class="col-md-2"></label>
                             <label class="col-md-4 col-form-label"><strong>Payment: </strong></label>
-                            <label class="col-md-5 col-form-label" ${data.feeSubmission.paymentDisplay && String(data.feeSubmission.paymentDisplay).indexOf('+') !== -1 ? 'style="font-size:0.78rem;"' : ''}>${data.feeSubmission.paymentDisplay!=null?data.feeSubmission.paymentDisplay:"--"}</label>
+                            <label class="col-md-5 col-form-label" ${data.feeSubmission.paymentDisplay && String(data.feeSubmission.paymentDisplay).indexOf('+') !== -1 ? 'style="font-size:0.78rem;"' : ''}>${data.feeSubmission.paymentDisplay!=null?escapeHtml(data.feeSubmission.paymentDisplay):"--"}</label>
                         </div>
                   </div>
                   <hr/>
                   <div class="row">
                       <div class="col-md-6">
                           <label class="col-md-4 col-form-label"><strong>Student Name: </strong></label>
-                          <label class="col-md-5 col-form-label">${data.student.student.studentName}</label>
+                          <label class="col-md-5 col-form-label">${escapeHtml(data.student.student.studentName)}</label>
                       </div>
                       <div class="col-md-6">
                           <label class="col-md-3"></label>
                           <label class="col-md-4 col-form-label"><strong>Class: </strong></label>
-                          <label class="col-md-4 col-form-label">${data.student.grade.gradeName} - ${data.student.section.sectionName}</label>
+                          <label class="col-md-4 col-form-label">${escapeHtml(data.student.grade.gradeName)} - ${escapeHtml(data.student.section.sectionName)}</label>
                       </div>
                       <div class="col-md-6">
                           <label class="col-md-4 col-form-label"><strong>Father Name: </strong></label>
-                          <label class="col-md-5 col-form-label">${data.student.student.fatherName}</label>
+                          <label class="col-md-5 col-form-label">${escapeHtml(data.student.student.fatherName)}</label>
                       </div>
                       <div class="col-md-6">
                           <label class="col-md-3"></label>
                           <label class="col-md-4 col-form-label"><strong>SR No: </strong></label>
-                          <label class="col-md-4 col-form-label">${data.student.classSrNo==null?"":data.student.classSrNo}</label>
+                          <label class="col-md-4 col-form-label">${data.student.classSrNo==null?"":escapeHtml(data.student.classSrNo)}</label>
                       </div>
                       <div class="col-md-6">
                           <label class="col-md-4 col-form-label"><strong>Mother Name: </strong></label>
-                          <label class="col-md-5 col-form-label">${data.student.student.motherName}</label>
+                          <label class="col-md-5 col-form-label">${escapeHtml(data.student.student.motherName)}</label>
                       </div>
                       <div class="col-md-6">
                           <label class="col-md-3"></label>
                           <label class="col-md-4 col-form-label"><strong>Contact No: </strong></label>
-                          <label class="col-md-4 col-form-label">(+91) ${data.student.student.mobile1}</label>
+                          <label class="col-md-4 col-form-label">(+91) ${escapeHtml(data.student.student.mobile1)}</label>
                       </div>
 
                   </div>
@@ -498,7 +526,7 @@
                    <hr/>
                    <div class="row amountdetails">
                         <div class="col-md-4"></div>
-                        <div class="col-md-8"><strong>Fine Remark: </strong><span>${data.feeSubmission.fineRemark!=null?data.feeSubmission.fineRemark:""}</span></div>
+                        <div class="col-md-8"><strong>Fine Remark: </strong><span>${data.feeSubmission.fineRemark!=null?escapeHtml(data.feeSubmission.fineRemark):""}</span></div>
 
                         <div class="col-md-4"></div>
                         <div class="col-md-4"><strong>Fine Amount: </strong></div>
@@ -508,7 +536,7 @@
                     ${data.feeSubmission.discounthead ? `
                         <div class="row">
                             <div class="col-md-4"></div>
-                            <div class="col-md-8"><strong>Discount Remark: </strong><span>${data.feeSubmission.discounthead.discountName}</span></div>
+                            <div class="col-md-8"><strong>Discount Remark: </strong><span>${escapeHtml(data.feeSubmission.discounthead.discountName)}</span></div>
 
                             <div class="col-md-4"></div>
                             <div class="col-md-4"><strong>Discount Amount: </strong></div>
@@ -555,9 +583,9 @@
 
               feeMonthHTML += `
                 <div class="col-md-6">
-                    <strong><label class="col-md-3">${month}</label></strong>
-                    <label class="col-md-3">${amount}</label>
-                    ${status.includes('PAID') ? `<span><i><u><label class="col-md-5">${status}</label></u></i></span>` : ''}
+                    <strong><label class="col-md-3">${escapeHtml(month)}</label></strong>
+                    <label class="col-md-3">${escapeHtml(amount)}</label>
+                    ${status.includes('PAID') ? `<span><i><u><label class="col-md-5">${escapeHtml(status)}</label></u></i></span>` : ''}
                 </div>`;
           });
           return feeMonthHTML;
@@ -575,8 +603,8 @@
               feeMonthHTML += `
                 <tr>
                     <td>${index}</td>
-                    <td>${headName}</td>
-                    <td>${unit}</td>
+                    <td>${escapeHtml(headName)}</td>
+                    <td>${escapeHtml(unit)}</td>
                     <td class="text-end">₹ ${formatINR(amount)}</td>
                 </tr>
                 `;
@@ -584,30 +612,25 @@
           return feeMonthHTML;
       };
 
-      function printDiv(divId, title) {
-          let mywindow = window.open('', 'PRINT', 'height=650,width=900,top=100,left=150');
-
-          // Check if the window opened successfully
-          if (!mywindow) {
-              alert('Popup blocked! Please allow popups for this site.');
+      // Print and PDF-export both go through SmsPrintUtils (see
+      // /js/print-utils.js) instead of the old printDiv() window.open()+
+      // hardcoded-CDN approach: they reuse this app's own local CSS as-is, so
+      // the output always matches the on-screen design and never depends on
+      // an external CDN being reachable.
+      document.getElementById('printreceipt').addEventListener('click', function () {
+          if (!document.getElementById('contentToExport')) {
+              showWarningMsg('warning', 'Click the printer icon on a receipt row first.', 'Message');
               return;
           }
-          //<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
-          mywindow.document.write('<html><head><title>' + title + '</title>');
-          mywindow.document.write('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous"/>');
-          mywindow.document.write('</head><body >');
-          mywindow.document.write(document.getElementById(divId).innerHTML);
-          mywindow.document.write('</body></html>');
-
-          mywindow.document.close(); // necessary for IE >= 10
-          mywindow.focus(); // necessary for IE >= 10
-
-          // Add a delay before calling print to ensure content is fully loaded
-          setTimeout(function() {
-              mywindow.print();
-              mywindow.close();
-          }, 1000); // Adjust the delay as needed
-      }
+          SmsPrintUtils.printElement('contentToExport', 'Fee Receipt - ' + _frCurrentReceiptNo);
+      });
+      document.getElementById('downloadreceiptpdf').addEventListener('click', function () {
+          if (!document.getElementById('contentToExport')) {
+              showWarningMsg('warning', 'Click the printer icon on a receipt row first.', 'Message');
+              return;
+          }
+          SmsPrintUtils.downloadElementAsPdf('contentToExport', 'Receipt-' + _frCurrentReceiptNo + '.pdf');
+      });
 
   </script>
 

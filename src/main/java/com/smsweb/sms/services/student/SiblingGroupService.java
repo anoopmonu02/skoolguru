@@ -63,7 +63,17 @@ public class SiblingGroupService {
                         if(key.equalsIgnoreCase("groupname")){
                             groupName = value;
                         } else if(key.equalsIgnoreCase("academicstudent")){
-                            AcademicStudent academicStudent = academicStudentRepository.findById(Long.parseLong(value)).get();
+                            // Deliberately NOT restricted to the current school/year:
+                            // Sibling Group is an intentionally cross-branch feature -
+                            // "Add Manually" searches ALL active students across every
+                            // branch (see FeeSubmissionRestController#searchStudentForSiblingPage),
+                            // so a family with children at two different branches can
+                            // still be grouped together here. Only requires the id to
+                            // resolve to a real AcademicStudent at all.
+                            AcademicStudent academicStudent = academicStudentRepository.findById(Long.parseLong(value)).orElse(null);
+                            if (academicStudent == null) {
+                                throw new RuntimeException("One of the selected students could not be found.");
+                            }
                             academicStudentList.add(academicStudent);
                         }
                     }
@@ -176,16 +186,29 @@ public class SiblingGroupService {
     }
 
 
-    public Optional<SiblingGroup> getSiblingGroupDetail(Long id){
-        return siblingGroupRepository.findById(id);
+    public Optional<SiblingGroup> getSiblingGroupDetail(Long id, Long schoolId){
+        // School-scoped - without this, any admin could view another school's
+        // sibling group (and the students in it) just by knowing/guessing its id.
+        Optional<SiblingGroup> group = siblingGroupRepository.findById(id);
+        if (group.isPresent() && (group.get().getSchool() == null
+                || schoolId == null || !schoolId.equals(group.get().getSchool().getId()))) {
+            return Optional.empty();
+        }
+        return group;
     }
 
     @Transactional
-    public String deleteSiblingGroup(Long id){
+    public String deleteSiblingGroup(Long id, Long schoolId){
         log.info("Inside deleteSiblingGroup");
         String msg = "";
         try{
             SiblingGroup siblingGroup = siblingGroupRepository.findById(id).orElse(null);
+            // School-scoped - without this, any admin could delete another
+            // school's sibling group just by knowing/guessing its id.
+            if (siblingGroup == null || siblingGroup.getSchool() == null
+                    || schoolId == null || !schoolId.equals(siblingGroup.getSchool().getId())) {
+                return "Error: Sibling group not found in your current school.";
+            }
             siblingGroupRepository.delete(siblingGroup);
 
             //siblingGroupRepository.deleteById(id);

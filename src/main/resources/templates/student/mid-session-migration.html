@@ -7,6 +7,68 @@
 </head>
 <body>
 <section>
+
+    <!-- Page-local, scoped look - same ".aa-card" shell already used on
+         Update Aadhar / Update Student Details / Sibling Group, reused here
+         for visual consistency. The search box + results dropdown below is
+         the same ".da-search-wrap"/".da-search-results" pattern used on
+         Sibling Group's student search (student/add-siblinggroup.html),
+         reused verbatim rather than re-invented. None of this touches the
+         id-based selectors (#destSchool, #saveBtn, #academicStudentId, ...)
+         the script at the bottom binds to. -->
+    <style>
+        .aa-card {
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xs); padding: 20px 22px; margin-bottom: 18px;
+        }
+        .aa-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+        .aa-card-head h2 { font-size: 14.5px; font-weight: 800; margin: 0; color: var(--text-primary); }
+        .aa-icon { width: 30px; height: 30px; border-radius: 9px; background: var(--accent-light); color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+        .aa-sub { font-size: 12px; color: var(--text-muted); margin: 2px 0 16px; }
+
+        .aa-btn-primary {
+            background: var(--accent); border: 1px solid var(--accent); color: #fff; padding: 8px 18px;
+            border-radius: var(--radius-md); font-size: 13.5px; font-weight: 700; display: inline-flex;
+            align-items: center; justify-content: center; gap: 7px; cursor: pointer; box-shadow: var(--shadow-sm);
+            transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
+        }
+        .aa-btn-primary:hover { background: var(--brand-600); border-color: var(--brand-600); color: #fff; box-shadow: var(--shadow-md); }
+        .aa-btn-primary:active { transform: translateY(1px); }
+        .aa-btn-primary:disabled { opacity: .75; cursor: default; transform: none; }
+
+        /* Search box + results dropdown - same pattern as Sibling Group /
+           Discount Assign's student search, reused verbatim here. */
+        .da-search-wrap { position: relative; max-width: 480px; }
+        .da-search-wrap input { padding-left: 38px; }
+        .da-search-wrap .bi-search { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+        .da-search-results { position: absolute; z-index: 20; width: 100%; max-height: 320px; overflow-y: auto; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-xs); margin-top: 4px; display: none; }
+        .da-result-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border-color); }
+        .da-result-row:last-child { border-bottom: none; }
+        .da-result-row:hover { background: var(--accent-light); }
+        .da-result-name { font-weight: 600; color: var(--text-primary); }
+        .da-result-sub { font-size: .72rem; color: var(--text-muted); }
+        .da-result-empty { padding: 14px; color: var(--text-muted); font-size: .85rem; text-align: center; }
+
+        /* Student Detail / Current Academic Detail cards - label/value rows
+           instead of the plain Bootstrap list-group used before. The JS
+           below only ever writes into the ".msm-detail-value" spans with
+           .text(), never .html(), so these fields can never become an
+           innerHTML-injection point regardless of what a name/father/mother
+           value contains. */
+        .msm-detail-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border-color); font-size: 13.5px; }
+        .msm-detail-row:last-child { border-bottom: none; }
+        .msm-detail-label { color: var(--text-muted); font-weight: 600; }
+        .msm-detail-value { color: var(--text-primary); font-weight: 600; text-align: right; }
+
+        /* Confirmation modal review box */
+        .msm-review-box { border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--body-bg); padding: 14px 16px; }
+        .msm-review-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 0; }
+        .msm-review-label { color: var(--text-muted); font-size: 13px; display: flex; align-items: center; gap: 7px; }
+        .msm-review-value { font-weight: 700; color: var(--text-primary); text-align: right; font-size: 13.5px; }
+        .msm-review-value-lg { font-size: 15px; color: var(--accent); }
+        .modal-header .bi-exclamation-triangle-fill { color: #d97706; }
+    </style>
+
     <div class="container-fluid px-3">
         <div class="row mt-2">
             <div class="col-md-12">
@@ -23,36 +85,36 @@
             </div>
 
             <div class="col-12" th:if="${!noOtherSchools}">
-                <p class="text-muted mb-2">Search the student who is moving to a different branch/school mid-session. Selecting them will fill in their current details below.</p>
-                <div class="search-container my-3">
-                    <input onkeyup="searchStuName()" type="text" class="form-control" id="search-input" placeholder="Search student name">
-                    <div class="search-result" style="max-height:300px; overflow-y:auto; border:1px solid #dee2e6; border-radius:4px; display:none;">
+
+                <div class="aa-card">
+                    <div class="aa-card-head"><span class="aa-icon"><i class="bi bi-search"></i></span><h2>Find Student</h2></div>
+                    <div class="aa-sub">Search the student who is moving to a different branch/school mid-session. Selecting them fills in their current details below.</div>
+                    <div class="da-search-wrap">
+                        <i class="bi bi-search"></i>
+                        <input onkeyup="searchStuName()" type="text" class="form-control" id="search-input" placeholder="Search student name" autocomplete="off">
+                        <div class="da-search-results search-result"></div>
                     </div>
                 </div>
 
                 <!--Student Details-->
                 <div class="student-detail mb-3">
-                    <div class="row">
-                        <div class="col-sm-4">
-                            <div class="card border-success">
-                                <h5 class="card-header">Student Detail</h5>
-                                <ul class="list-group list-group-flush">
-                                    <li class="list-group-item studname"><strong>Student Name:</strong></li>
-                                    <li class="list-group-item fname"><strong>Father Name:</strong></li>
-                                    <li class="list-group-item mname"><strong>Mother Name:</strong></li>
-                                    <li class="list-group-item contactno"><strong>Contact No:</strong></li>
-                                </ul>
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <div class="aa-card mb-0 h-100">
+                                <div class="aa-card-head"><span class="aa-icon"><i class="bi bi-person-badge-fill"></i></span><h2>Student Detail</h2></div>
+                                <div class="msm-detail-row"><span class="msm-detail-label">Student Name</span><span class="msm-detail-value studname">&mdash;</span></div>
+                                <div class="msm-detail-row"><span class="msm-detail-label">Father Name</span><span class="msm-detail-value fname">&mdash;</span></div>
+                                <div class="msm-detail-row"><span class="msm-detail-label">Mother Name</span><span class="msm-detail-value mname">&mdash;</span></div>
+                                <div class="msm-detail-row"><span class="msm-detail-label">Contact No</span><span class="msm-detail-value contactno">&mdash;</span></div>
                             </div>
                         </div>
-                        <div class="col-sm-4">
-                            <div class="card border-success">
-                                <h5 class="card-header">Current Academic Detail</h5>
-                                <ul class="list-group list-group-flush">
-                                    <li class="list-group-item cmedium"><strong>Medium: </strong></li>
-                                    <li class="list-group-item cgrade"><strong>Class: </strong></li>
-                                    <li class="list-group-item csection"><strong>Section: </strong></li>
-                                    <li class="list-group-item csr"><strong>SR No: </strong></li>
-                                </ul>
+                        <div class="col-sm-6">
+                            <div class="aa-card mb-0 h-100">
+                                <div class="aa-card-head"><span class="aa-icon"><i class="bi bi-mortarboard-fill"></i></span><h2>Current Academic Detail</h2></div>
+                                <div class="msm-detail-row"><span class="msm-detail-label">Medium</span><span class="msm-detail-value cmedium">&mdash;</span></div>
+                                <div class="msm-detail-row"><span class="msm-detail-label">Class</span><span class="msm-detail-value cgrade">&mdash;</span></div>
+                                <div class="msm-detail-row"><span class="msm-detail-label">Section</span><span class="msm-detail-value csection">&mdash;</span></div>
+                                <div class="msm-detail-row"><span class="msm-detail-label">SR No</span><span class="msm-detail-value csr">&mdash;</span></div>
                             </div>
                         </div>
                     </div>
@@ -60,57 +122,56 @@
                     <input type="hidden" id="currentSchoolId" th:value="${currentSchoolId}">
                 </div>
 
-                <hr/>
-                <h5 class="mb-0">Destintion: Migrate Student</h5>
-                <hr/>
-                <div class="col-12 mt-2 mb-3">&nbsp;</div>
-
-                <div class="d-flex flex-wrap align-items-end gap-3 mb-3">
-                    <div>
-                        <label for="destSchool" class="form-label">School *</label>
-                        <select id="destSchool" class="form-select" style="width:220px;">
-                            <option value="">Select School</option>
-                            <option th:each="sch : ${schools}" th:value="${sch.id}" th:text="${sch.schoolName}">School</option>
-                        </select>
+                <div class="aa-card">
+                    <div class="aa-card-head"><span class="aa-icon"><i class="bi bi-signpost-split-fill"></i></span><h2>Destination &mdash; Migrate Student</h2></div>
+                    <div class="aa-sub">Choose the branch, session, and class this student is moving to.</div>
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label for="destSchool" class="form-label">School *</label>
+                            <select id="destSchool" class="form-select">
+                                <option value="">Select School</option>
+                                <option th:each="sch : ${schools}" th:value="${sch.id}" th:text="${sch.schoolName}">School</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="destSession" class="form-label">Academic Year</label>
+                            <select id="destSession" class="form-select">
+                                <option value="">Select school first</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="destMedium" class="form-label">Medium *</label>
+                            <select id="destMedium" class="form-select">
+                                <option value="">Select Medium</option>
+                                <option th:each="med : ${mediums}" th:value="${med.id}" th:text="${med.mediumName}">Medium</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="destGrade" class="form-label">Grade *</label>
+                            <select id="destGrade" class="form-select">
+                                <option value="">Select Grade</option>
+                                <option th:each="grade : ${grades}" th:value="${grade.id}" th:text="${grade.gradeName}">Grade</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="destSection" class="form-label">Section *</label>
+                            <select id="destSection" class="form-select">
+                                <option value="">Select Section</option>
+                                <option th:each="section : ${sections}" th:value="${section.id}" th:text="${section.sectionName}">Section</option>
+                            </select>
+                        </div>
                     </div>
-                    <div>
-                        <label for="destSession" class="form-label">Academic Year</label>
-                        <select id="destSession" class="form-select" style="width:200px;">
-                            <option value="">Select school first</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="destMedium" class="form-label">Medium *</label>
-                        <select id="destMedium" class="form-select" style="width:200px;">
-                            <option value="">Select Medium</option>
-                            <option th:each="med : ${mediums}" th:value="${med.id}" th:text="${med.mediumName}">Medium</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="destGrade" class="form-label">Grade *</label>
-                        <select id="destGrade" class="form-select" style="width:200px;">
-                            <option value="">Select Grade</option>
-                            <option th:each="grade : ${grades}" th:value="${grade.id}" th:text="${grade.gradeName}">Grade</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="destSection" class="form-label">Section *</label>
-                        <select id="destSection" class="form-select" style="width:200px;">
-                            <option value="">Select Section</option>
-                            <option th:each="section : ${sections}" th:value="${section.id}" th:text="${section.sectionName}">Section</option>
-                        </select>
-                    </div>
-                    <div>
-                        <button type="button" class="btn btn-success" id="saveBtn">
+                    <div class="mt-3 text-md-end">
+                        <button type="button" class="aa-btn-primary" id="saveBtn">
                             <span class="normal-state"><i class="bi bi-check-lg"></i> Save</span>
                             <span class="loading-state d-none">
                                 <span class="spinner-border spinner-border-sm me-2"></span>Saving&hellip;
                             </span>
                         </button>
                     </div>
-                </div>
-                <div class="col-12" id="destSessionError" style="display:none;">
-                    <div class="alert alert-danger py-2 small" id="destSessionErrorText"></div>
+                    <div class="col-12 mt-3" id="destSessionError" style="display:none;">
+                        <div class="alert alert-danger py-2 small mb-0" id="destSessionErrorText"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -120,33 +181,33 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="migrateConfirmModalLabel"><i class="bi bi-exclamation-triangle-fill text-warning me-1"></i> Confirm Mid Session Migration</h5>
+                    <h5 class="modal-title" id="migrateConfirmModalLabel"><i class="bi bi-exclamation-triangle-fill me-1"></i> Confirm Mid Session Migration</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <p class="text-muted mb-3">Please review before continuing:</p>
-                    <div class="border rounded p-3 bg-light mb-3">
-                        <div class="d-flex justify-content-between align-items-center py-1">
-                            <span class="text-muted">Student</span>
-                            <span class="fw-bold fs-5 text-primary" id="migrateConfirmName">-</span>
+                    <div class="msm-review-box mb-3">
+                        <div class="msm-review-row">
+                            <span class="msm-review-label"><i class="bi bi-person-fill"></i> Student</span>
+                            <span class="msm-review-value msm-review-value-lg" id="migrateConfirmName">-</span>
                         </div>
                         <hr class="my-1"/>
-                        <div class="d-flex justify-content-between align-items-center py-1">
-                            <span class="text-muted">Destination School</span>
-                            <span class="fw-bold text-end" id="migrateConfirmSchool">-</span>
+                        <div class="msm-review-row">
+                            <span class="msm-review-label"><i class="bi bi-building"></i> Destination School</span>
+                            <span class="msm-review-value" id="migrateConfirmSchool">-</span>
                         </div>
-                        <div class="d-flex justify-content-between align-items-center py-1">
-                            <span class="text-muted">Academic Year</span>
-                            <span class="fw-bold" id="migrateConfirmYear">-</span>
+                        <div class="msm-review-row">
+                            <span class="msm-review-label"><i class="bi bi-calendar3"></i> Academic Year</span>
+                            <span class="msm-review-value" id="migrateConfirmYear">-</span>
                         </div>
-                        <div class="d-flex justify-content-between align-items-center py-1">
-                            <span class="text-muted">Medium / Grade / Section</span>
-                            <span class="fw-bold text-end" id="migrateConfirmClass">-</span>
+                        <div class="msm-review-row">
+                            <span class="msm-review-label"><i class="bi bi-mortarboard-fill"></i> Medium / Grade / Section</span>
+                            <span class="msm-review-value" id="migrateConfirmClass">-</span>
                         </div>
                         <hr class="my-1"/>
-                        <div class="d-flex justify-content-between align-items-center py-1">
-                            <span class="text-muted">Pending Dues Carried Forward</span>
-                            <span class="fw-bold" id="migrateConfirmPending">Calculating&hellip;</span>
+                        <div class="msm-review-row">
+                            <span class="msm-review-label"><i class="bi bi-cash-coin"></i> Pending Dues Carried Forward</span>
+                            <span class="msm-review-value msm-review-value-lg" id="migrateConfirmPending">Calculating&hellip;</span>
                         </div>
                     </div>
                     <div class="alert alert-danger py-2 mb-0 small d-flex align-items-start">
@@ -176,8 +237,6 @@
         let _searchLoading = false;
         let selectedStudentName = '';
 
-        
-
         function escapeHtml(value){
             const div = document.createElement('div');
             div.textContent = value !== undefined && value !== null ? value : '';
@@ -191,12 +250,24 @@
             btn.querySelector('.loading-state').classList.toggle('d-none', !isLoading);
         }
 
+        // Avatar-initials chip for the search-results dropdown - same small
+        // helper already used on Sibling Group / Student List, reused here
+        // for a consistent look across every "pick a student" search.
+        const avatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+        const initialsOf = (name) => (name || '').trim().split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+        const avatarColorFor = (id) => avatarColors[Math.abs(id || 0) % avatarColors.length];
+
         const renderStudentRow = (as) => {
-            const srval = as.classSrNo != null && as.classSrNo !== '' ? ' / ' + as.classSrNo : '';
+            const srval = as.classSrNo != null && as.classSrNo !== '' ? ' &middot; SR ' + escapeHtml(as.classSrNo) : '';
             const grade = as.grade ? as.grade.gradeName : '';
             const section = as.section ? as.section.sectionName : '';
             const stu = as.student || {};
-            return `<a onclick="loadStudentData(${as.id})" href="#" class='list-group-item list-group-item-action'>${escapeHtml(stu.studentName)} / ${escapeHtml(stu.fatherName)} / ${escapeHtml(grade)}-${escapeHtml(section)}${srval}</a>`;
+            const color = avatarColorFor(stu.id || as.id);
+            return `<div class="da-result-row" onclick="loadStudentData(${as.id})">` +
+                `<div class="stu-avatar" style="background:${color}22;color:${color}">${escapeHtml(initialsOf(stu.studentName))}</div>` +
+                `<div><div class="da-result-name">${escapeHtml(stu.studentName)}</div>` +
+                `<div class="da-result-sub">${escapeHtml(stu.fatherName)} &middot; ${escapeHtml(grade)}-${escapeHtml(section)}${srval}</div></div>` +
+                `</div>`;
         };
 
         const fetchStudents = (query, page, append) => {
@@ -207,10 +278,14 @@
                 _searchLoading = false;
                 _searchMore = Array.isArray(students) && students.length === 10;
                 if (!append) {
-                    let html = `<div class='list-group' id='student-list-group'>`;
-                    (students || []).forEach(s => { html += renderStudentRow(s); });
-                    html += `</div>`;
-                    $(".search-result").html(html).show();
+                    if (!students || students.length === 0) {
+                        $(".search-result").html(`<div class="da-result-empty">No students found.</div>`).show();
+                    } else {
+                        let html = `<div id='student-list-group'>`;
+                        students.forEach(s => { html += renderStudentRow(s); });
+                        html += `</div>`;
+                        $(".search-result").html(html).show();
+                    }
                 } else {
                     (students || []).forEach(s => { $('#student-list-group').append(renderStudentRow(s)); });
                 }
@@ -245,19 +320,20 @@
             $('#academicStudentId').val(id);
             // Reuses the existing getStudentDetailForFee endpoint (already scoped to the
             // admin's current school/session) purely to fetch the card display fields -
-            // no new endpoint needed for this.
+            // no new endpoint needed for this. Every field below is written with .text(),
+            // not .html(), so this can never become an innerHTML-injection point even if
+            // one of these values ever contained markup-like characters.
             fetch(`${contextPath}getStudentDetailForFee/${id}`).then(r => r.json()).then(data => {
                 if (data && data.student) {
                     selectedStudentName = data.student.studentName || '';
-                    $(".studname").html(`<strong>Student Name: </strong> ${escapeHtml(data.student.studentName)}`);
-                    $(".fname").html(`<strong>Father Name: </strong> ${escapeHtml(data.student.fatherName)}`);
-                    $(".mname").html(`<strong>Mother Name: </strong> ${escapeHtml(data.student.motherName)}`);
-                    $(".contactno").html(`<strong>Contact No: </strong> ${escapeHtml(data.student.mobile1)}`);
-                    $(".cmedium").html(`<strong>Medium: </strong> ${escapeHtml(data.student.medium)}`);
-                    $(".cgrade").html(`<strong>Class: </strong> ${escapeHtml(data.student.grade)}`);
-                    $(".csection").html(`<strong>Section: </strong> ${escapeHtml(data.student.section)}`);
-                    $(".csr").html(`<strong>SR No: </strong> ${data.student.classSrNo == null ? '' : escapeHtml(data.student.classSrNo)}`);
-                    $(".cschool").html(`<strong>School: </strong> Current Branch`);
+                    $(".studname").text(data.student.studentName || '—');
+                    $(".fname").text(data.student.fatherName || '—');
+                    $(".mname").text(data.student.motherName || '—');
+                    $(".contactno").text(data.student.mobile1 || '—');
+                    $(".cmedium").text(data.student.medium || '—');
+                    $(".cgrade").text(data.student.grade || '—');
+                    $(".csection").text(data.student.section || '—');
+                    $(".csr").text(data.student.classSrNo || '—');
                 }
             });
         };
@@ -330,7 +406,9 @@
                 document.getElementById('migrateConfirmSchool').textContent = destSchoolText;
                 document.getElementById('migrateConfirmYear').textContent = destSessionText;
                 document.getElementById('migrateConfirmClass').textContent = `${destMediumText} / ${destGradeText} / ${destSectionText}`;
-                document.getElementById('migrateConfirmPending').textContent = 'Calculating…';
+                const pendingEl = document.getElementById('migrateConfirmPending');
+                pendingEl.textContent = 'Calculating…';
+                pendingEl.classList.remove('text-danger', 'text-success');
 
                 if(!migrateConfirmModalInstance){
                     migrateConfirmModalInstance = new bootstrap.Modal(document.getElementById('migrateConfirmModal'));
@@ -345,10 +423,12 @@
                 .then(r => r.json())
                 .then(data => {
                     const amt = (data && data.pendingDue != null) ? Number(data.pendingDue) : 0;
-                    document.getElementById('migrateConfirmPending').textContent = '₹' + amt.toFixed(2);
+                    pendingEl.textContent = '₹' + amt.toFixed(2);
+                    pendingEl.classList.toggle('text-danger', amt > 0);
+                    pendingEl.classList.toggle('text-success', amt <= 0);
                 })
                 .catch(() => {
-                    document.getElementById('migrateConfirmPending').textContent = 'Unable to calculate';
+                    pendingEl.textContent = 'Unable to calculate';
                 });
             };
         }
@@ -397,15 +477,7 @@
             $('#academicStudentId').val('');
             $('#search-input').val('');
             $(".search-result").hide();
-            $(".studname").html('<strong>Student Name:</strong>');
-            $(".fname").html('<strong>Father Name:</strong>');
-            $(".mname").html('<strong>Mother Name:</strong>');
-            $(".contactno").html('<strong>Contact No:</strong>');
-            $(".cschool").html('<strong>School: </strong>');
-            $(".cmedium").html('<strong>Medium: </strong>');
-            $(".cgrade").html('<strong>Class: </strong>');
-            $(".csection").html('<strong>Section: </strong>');
-            $(".csr").html('<strong>SR No: </strong>');
+            $(".studname, .fname, .mname, .contactno, .cmedium, .cgrade, .csection, .csr").text('—');
             $('#destSchool').val('');
             $('#destSession').html('<option value="">Select school first</option>');
             $('#destMedium').val('');

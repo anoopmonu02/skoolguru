@@ -8,82 +8,162 @@
 <body>
 <section>
 
+    <style>
+        /* Student cell: avatar-initials badge (same .stu-avatar pattern as
+           Student List / Sibling Group Detail) + name on top, with
+           "Grade-Section | SR: <no>" as a smaller muted line stacked
+           directly beneath the name (aligned with it, not the badge). */
+        .sd-name-cell { display: flex; align-items: center; gap: 10px; }
+        .sd-name-cell .sd-name-text { display: flex; flex-direction: column; gap: 2px; }
+        .sd-name-cell .sd-name { font-weight: 600; color: var(--text-primary); }
+        .sd-name-cell .sd-grade { font-size: .72rem; color: var(--text-muted); }
+    </style>
+
   <div class="container-fluid px-3">
     <div class="row mt-2 ">
       <div class="col-md-12">
-        <div class="page-header page-header-row">
-          <h1 class="page-header-title">Student Discount List</h1>
-          <div class="page-header-actions">
-            <a sms:access="STUDENT_DISCOUNT_ASSIGN:CREATE" class="btn btn-success btn-sm" th:href="@{/student/assign-discount/add}"><i class="bi bi-plus-lg"></i> Assign Discount</a>
+
+        <div th:replace="~{components/ui :: list-page-header('Student Discount List', null, ~{::discountListActions})}"></div>
+        <div style="display:none">
+          <div th:fragment="discountListActions">
+            <a class="btn-cta" sms:access="STUDENT_DISCOUNT_ASSIGN:CREATE" th:href="@{/student/assign-discount/add}"><i class="bi bi-plus-lg"></i> Assign Discount</a>
           </div>
         </div>
 
-        <table id="student-discount-list" class="table table-bordered table-striped table-hover table-sm" th:if="${hasDiscounts}">
-          <thead>
-          <tr>
-            <th>#</th>
-            <th>Discount Name</th>
-            <th>Student Name</th>
-            <th>Grade</th>
-            <th>SR</th>
-            <th>Father Name</th>
-            <th>Mother Name</th>
-            <th>Contact#</th>
-            <th>Description</th>
-            <th>Assigned By</th>
-            <th>Actions</th>
-          </tr>
-          </thead>
-          <tbody class="table-group-divider">
+        <div class="list-table-card">
+            <div class="config-list-toolbar list-page-toolbar">
+                <div class="config-search-wrap">
+                    <i class="bi bi-search"></i>
+                    <input type="text" class="form-control form-control-sm" id="discountSearchInput"
+                           placeholder="Search discounts…">
+                </div>
+                <div id="discountExportSlot" class="list-export-slot"></div>
+            </div>
 
-          <tr th:each="student,iterStat : ${studentDiscounts}">
-            <td th:text="${iterStat.index + 1}"></td>
-            <td th:text="${student.discounthead.discountName}"></td>
-            <td th:text="${student.academicStudent.student.studentName}"></td>
-            <td th:text="${student.academicStudent.grade.gradeName+'-'+student.academicStudent.section.sectionName}"></td>
-            <td th:text="${student.academicStudent.classSrNo}"></td>
-            <td th:text="${student.academicStudent.student.fatherName}"></td>
-            <td th:text="${student.academicStudent.student.motherName}"></td>
-            <td th:text="${student.academicStudent.student.mobile1}"></td>
-            <td th:text="${student.description}"></td>
-            <td th:text="${student.createdBy != null ? student.createdBy.displayName : ''}"></td>
-            <td style="white-space: nowrap" class="text-center">
-              <!--<a class="btn btn-primary" th:href="@{/student/assign-discount/edit/{id}(id=${student.id})}" data-bs-toggle="tooltip" data-bs-title="Default tooltip">
-                <i class="bi bi-pencil-square"></i> </a>-->
-              <a sms:access="STUDENT_DISCOUNT_DELETE:DELETE" class="btn btn-danger" th:href="@{/student/assign-discount/delete/{id}(id=${student.id})}" onclick="return confirm('Are you sure? its not recoverable.')" data-bs-toggle="tooltip" data-bs-placement="top"
-                 data-bs-custom-class="custom-tooltip"
-                 data-bs-title="Delete the customer record">
-                <i class="bi bi-trash3-fill"></i> </a>
-            </td>
-          </tr>
-          </tbody>
-        </table>
-        <div th:if="${!hasDiscounts}">
-          <div th:replace="~{components/ui :: empty-state('No Student-Discount found.', 'bi-inbox')}"></div>
+            <table id="student-discount-list" class="table table-sm list-table" th:if="${hasDiscounts}">
+              <thead>
+              <tr>
+                <th>Discount Name</th>
+                <th>Student</th>
+                <th>Father Name</th>
+                <th>Mother Name</th>
+                <th>Contact#</th>
+                <th>Description</th>
+                <th>Assigned By</th>
+                <th class="text-center">Action</th>
+              </tr>
+              </thead>
+              <tbody>
+
+              <tr th:each="student : ${studentDiscounts}">
+                <td th:text="${student.discounthead.discountName}"></td>
+                <td>
+                  <div class="sd-name-cell">
+                    <div class="stu-avatar"
+                         th:style="'background:' + ${T(com.smsweb.sms.helper.DisplayFormatUtils).avatarColor(student.academicStudent.student.id)} + '22;color:' + ${T(com.smsweb.sms.helper.DisplayFormatUtils).avatarColor(student.academicStudent.student.id)}"
+                         th:text="${T(com.smsweb.sms.helper.DisplayFormatUtils).initials(student.academicStudent.student.studentName)}">PG</div>
+                    <div class="sd-name-text">
+                      <span class="sd-name" th:text="${student.academicStudent.student.studentName}">Student Name</span>
+                      <span class="sd-grade" th:text="${student.academicStudent.grade.gradeName}+'-'+${student.academicStudent.section.sectionName}+' | SR: '+${student.academicStudent.classSrNo}">Grade-Section | SR: 0</span>
+                    </div>
+                  </div>
+                </td>
+                <td th:text="${student.academicStudent.student.fatherName}"></td>
+                <td th:text="${student.academicStudent.student.motherName}"></td>
+                <td th:text="${student.academicStudent.student.mobile1}"></td>
+                <td th:text="${student.description}"></td>
+                <td th:text="${student.createdBy != null ? student.createdBy.displayName : ''}"></td>
+                <td class="text-nowrap text-center">
+                  <div class="row-actions">
+                    <button type="button" sms:access="STUDENT_DISCOUNT_DELETE:DELETE" class="config-icon-btn danger delete-btn" title="Remove"
+                            th:data-id="${student.id}"
+                            th:data-discountname="${student.discounthead.discountName}"
+                            th:data-studentname="${student.academicStudent.student.studentName}"
+                            data-bs-toggle="modal" data-bs-target="#deleteConfirmationModal">
+                      <i class="bi bi-trash3"></i></button>
+                  </div>
+                </td>
+              </tr>
+              </tbody>
+            </table>
+
+            <div th:if="${!hasDiscounts}" class="p-3">
+              <div th:replace="~{components/ui :: empty-state('No Student-Discount found.', 'bi-inbox')}"></div>
+            </div>
+
+            <!-- Custom footer: rows-per-page + "Showing X-Y of Z" + page-number
+                 pagination — built by the shared initListDataTable() helper
+                 (static/js/list-table-init.js), same as every other list page. -->
+            <div class="list-table-footer" th:if="${hasDiscounts}">
+                <div class="list-footer-left">
+                    <label class="list-length-label">Rows per page
+                        <select id="discountPageLength" class="list-length-select">
+                            <option value="5">5</option>
+                            <option value="10" selected>10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </label>
+                    <span id="discountPageInfo" class="list-page-info">Showing 0 of 0 discounts</span>
+                </div>
+                <div class="list-pagination" id="discountPagination"></div>
+            </div>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- Remove-discount confirmation modal - replaces the old native
+       confirm('Are you sure? its not recoverable.') dialog. -->
+  <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+          <div class="modal-content">
+              <div class="modal-header bg-danger-subtle">
+                  <h5 class="modal-title text-danger-emphasis" id="deleteConfirmationModalLabel">
+                      <i class="bi bi-exclamation-triangle-fill me-2"></i>Remove Discount
+                  </h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                  <p class="mb-2">You're about to remove the following discount assignment:</p>
+                  <div class="border rounded p-3 bg-light">
+                      <small class="text-muted d-block">Discount</small>
+                      <span class="fw-semibold" id="deleteDiscountName">-</span>
+                      <small class="text-muted d-block mt-2">Student</small>
+                      <span class="fw-semibold" id="deleteDiscountStudentName">-</span>
+                  </div>
+                  <div class="alert alert-warning d-flex align-items-start mb-0 mt-3" role="alert">
+                      <i class="bi bi-info-circle-fill me-2 mt-1"></i>
+                      <div>This cannot be undone — the student will lose this discount.</div>
+                  </div>
+              </div>
+              <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancel</button>
+                  <button type="button" class="btn btn-danger" id="confirmDeleteDiscountButton"><i class="bi bi-trash3-fill"></i> Remove Discount</button>
+              </div>
+          </div>
+      </div>
+  </div>
+
+  <!-- Real POST form the confirm button submits - a state-changing action
+       needs to go through POST so Spring Security's CSRF check actually
+       covers it (the old GET-mapped /assign-discount/delete/{id} link was
+       CSRF-exempt by design, same class of issue already fixed on
+       Academic-Year List and Sibling Group List's delete). Thymeleaf
+       auto-injects the _csrf hidden field for any th:action form. -->
+  <form id="deleteDiscountForm" method="post" th:action="@{/student/assign-discount/delete/0}" style="display:none"></form>
+
   <script type="text/javascript" th:inline="javascript">
-    $(document).ready(function () {
-      $('#student-discount-list').DataTable({
-        layout: {
-          bottomEnd: {
-            paging: {
-              firstLast: false
-            }
-          }
-        },
-        lengthMenu: [
-          [5, 10, 25, 50, 100, -1],
-          [5, 10, 25, 50, 100, 'All']
-        ],
-        pageLength: 10,
-        columnDefs: [
-          { "orderable": false, "targets": [0,10] } // Disable sorting on the first and last columns
-        ]
-      });
-    });
+    const contextPath = /*[[@{/}]]*/ '/';
+
+    // Flash-attribute success/error banner after redirects (both "Assign
+    // Discount" save and this page's own delete already set these
+    // server-side - this page previously never displayed them, so a save
+    // or a delete could succeed or fail with no visible feedback).
+    const discountSuccessMessage = [[${success}]];
+    const discountErrorMessage   = [[${error}]];
+
     toastr.options = {
       "closeButton": true,
       "debug": false,
@@ -102,9 +182,53 @@
       "hideMethod": "fadeOut"
     }
 
+    $(document).ready(function () {
+      if (discountSuccessMessage) showMsg("success", discountSuccessMessage, "Success");
+      if (discountErrorMessage)   showMsg("error", discountErrorMessage, "Error");
 
-    
+      // Delete confirmation modal wiring - bound before the DataTable init
+      // below (see the Sibling Group List fix earlier this session: an
+      // uncaught DataTable init failure would otherwise silently take
+      // this out with it).
+      let deleteDiscountId = null;
+      $(document).on('click', '.delete-btn', function () {
+        const btn = $(this);
+        deleteDiscountId = btn.attr('data-id');
+        $('#deleteDiscountName').text(btn.attr('data-discountname') || btn.closest('tr').find('td').eq(0).text().trim() || '-');
+        $('#deleteDiscountStudentName').text(btn.attr('data-studentname') || '-');
+      });
 
+      $('#confirmDeleteDiscountButton').on('click', function () {
+        if (deleteDiscountId) {
+          const $form = $('#deleteDiscountForm');
+          $form.attr('action', contextPath + 'student/assign-discount/delete/' + deleteDiscountId);
+          $form.trigger('submit');
+        }
+      });
+
+      if ($('#student-discount-list').length) {
+        try {
+          initListDataTable({
+            tableSelector: '#student-discount-list',
+            searchInputSelector: '#discountSearchInput',
+            exportSlotSelector: '#discountExportSlot',
+            lengthSelectSelector: '#discountPageLength',
+            pageInfoSelector: '#discountPageInfo',
+            paginationSelector: '#discountPagination',
+            itemLabel: 'discounts',
+            exportTitle: 'Student Discount Data export',
+            exportColumns: [0, 1, 2, 3, 4, 5, 6],
+            printHeaderText: 'Student Discounts',
+            dtOptions: {
+              pageLength: 10,
+              columnDefs: [{ orderable: false, targets: [7] }]
+            }
+          });
+        } catch (e) {
+          console.error('Student Discount list: DataTable init failed', e);
+        }
+      }
+    });
 
   </script>
 

@@ -222,6 +222,19 @@
 
     <script type="text/javascript" th:inline="javascript">
         const contextPath = /*[[@{/}]]*/ '/';
+
+        // Escapes a value before it is interpolated into an .html()-built
+        // string. Several tables on this page render raw uploaded-spreadsheet
+        // cell values and DB-sourced student/exam data with no server-side
+        // escaping - a stored-XSS gap (a malicious cell value in an uploaded
+        // Excel/CSV file, or a name/remark containing markup, would otherwise
+        // execute when the review/preview table renders it). Same fix pattern
+        // already applied elsewhere in this pass.
+        const escapeHtml = function (value) {
+            const div = document.createElement('div');
+            div.textContent = value !== undefined && value !== null ? value : '';
+            return div.innerHTML;
+        };
         
         
         
@@ -401,23 +414,23 @@
             reviewRows.forEach(r => {
                 rowsHtml += `<tr class="${r.status !== 'READY' ? 'table-danger' : ''}">
                     <td>${r.rowIndex ?? ''}</td>
-                    <td>${r.studentName ?? ''}</td>
-                    <td class="text-muted" style="font-size:11px;">${r.idNo ?? ''}</td>
-                    <td>${r.psrn ?? ''}</td>
-                    <td>${r.fatherName ?? ''}</td>
-                    <td>${r.motherName ?? ''}</td>
-                    <td>${r.mobile ?? ''}</td>
-                    <td>${r.sr ?? ''}</td>
-                    <td>${r.examName ?? ''}</td>
-                    <td>${r.examResultDate ?? ''}</td>
-                    <td>${r.totalMarks ?? ''}</td>
-                    <td>${r.obtainedMarks ?? ''}</td>
-                    <td>${r.percentage ?? ''}</td>
-                    <td>${r.division ?? ''}</td>
-                    <td>${r.result ?? ''}</td>
-                    <td class="er-wrap-col">${r.remark ?? ''}</td>
+                    <td>${escapeHtml(r.studentName)}</td>
+                    <td class="text-muted" style="font-size:11px;">${escapeHtml(r.idNo)}</td>
+                    <td>${escapeHtml(r.psrn)}</td>
+                    <td>${escapeHtml(r.fatherName)}</td>
+                    <td>${escapeHtml(r.motherName)}</td>
+                    <td>${escapeHtml(r.mobile)}</td>
+                    <td>${escapeHtml(r.sr)}</td>
+                    <td>${escapeHtml(r.examName)}</td>
+                    <td>${escapeHtml(r.examResultDate)}</td>
+                    <td>${escapeHtml(r.totalMarks)}</td>
+                    <td>${escapeHtml(r.obtainedMarks)}</td>
+                    <td>${escapeHtml(r.percentage)}</td>
+                    <td>${escapeHtml(r.division)}</td>
+                    <td>${escapeHtml(r.result)}</td>
+                    <td class="er-wrap-col">${escapeHtml(r.remark)}</td>
                     <td>${statusBadge(r.status)}</td>
-                    <td class="er-wrap-col" style="font-size:12px;">${r.reason ?? ''}</td>
+                    <td class="er-wrap-col" style="font-size:12px;">${escapeHtml(r.reason)}</td>
                 </tr>`;
             });
 
@@ -610,22 +623,22 @@
 
             let rowsHtml = '';
             bulkCorrectRows.forEach(r => {
-                const oldTO = (r.oldTotalMarks ?? r.oldObtainedMarks) ? `${r.oldObtainedMarks ?? ''} / ${r.oldTotalMarks ?? ''}` : '—';
-                const newTO = `${r.obtainedMarks ?? ''} / ${r.totalMarks ?? ''}`;
-                const oldDR = (r.oldDivision || r.oldResult) ? `${r.oldDivision ?? ''} / ${r.oldResult ?? ''}` : '—';
-                const newDR = `${r.division ?? ''} / ${r.result ?? ''}`;
+                const oldTO = (r.oldTotalMarks ?? r.oldObtainedMarks) ? `${escapeHtml(r.oldObtainedMarks ?? '')} / ${escapeHtml(r.oldTotalMarks ?? '')}` : '—';
+                const newTO = `${escapeHtml(r.obtainedMarks ?? '')} / ${escapeHtml(r.totalMarks ?? '')}`;
+                const oldDR = (r.oldDivision || r.oldResult) ? `${escapeHtml(r.oldDivision ?? '')} / ${escapeHtml(r.oldResult ?? '')}` : '—';
+                const newDR = `${escapeHtml(r.division ?? '')} / ${escapeHtml(r.result ?? '')}`;
                 rowsHtml += `<tr class="${r.status === 'UPDATE' ? 'table-warning' : (r.status !== 'NEW' && r.status !== 'UNCHANGED' ? 'table-danger' : '')}">
                     <td>${r.rowIndex ?? ''}</td>
-                    <td>${r.studentName ?? ''}</td>
-                    <td class="text-muted" style="font-size:11px;">${r.idNo ?? ''}</td>
-                    <td>${r.psrn ?? ''}</td>
-                    <td>${r.examResultDate ?? ''}</td>
+                    <td>${escapeHtml(r.studentName)}</td>
+                    <td class="text-muted" style="font-size:11px;">${escapeHtml(r.idNo)}</td>
+                    <td>${escapeHtml(r.psrn)}</td>
+                    <td>${escapeHtml(r.examResultDate)}</td>
                     <td>${oldTO}</td>
                     <td>${newTO}</td>
                     <td>${oldDR}</td>
                     <td>${newDR}</td>
                     <td>${bulkCorrectStatusBadge(r.status)}</td>
-                    <td class="er-wrap-col" style="font-size:12px;">${r.reason ?? ''}</td>
+                    <td class="er-wrap-col" style="font-size:12px;">${escapeHtml(r.reason)}</td>
                 </tr>`;
             });
 
@@ -798,19 +811,19 @@
                 let remark = examSummary.remarks ? examSummary.remarks?.trim() : '';
                 tbl += `<tr>
                       <td>${++rowCount}</td>
-                      <td>${examSummary.academicStudent.student.studentName}</td>
-                      <td>${examSummary.academicStudent.student.fatherName}</td>
-                      <td>${examSummary.academicStudent.student.motherName}</td>
-                      <td>${examSummary.academicStudent.student.mobile1}</td>
-                      <td>${srno}</td>
-                      <td>${examSummary.examDetails.examination.examinationName}</td>
+                      <td>${escapeHtml(examSummary.academicStudent.student.studentName)}</td>
+                      <td>${escapeHtml(examSummary.academicStudent.student.fatherName)}</td>
+                      <td>${escapeHtml(examSummary.academicStudent.student.motherName)}</td>
+                      <td>${escapeHtml(examSummary.academicStudent.student.mobile1)}</td>
+                      <td>${escapeHtml(srno)}</td>
+                      <td>${escapeHtml(examSummary.examDetails.examination.examinationName)}</td>
                       <td>${formatDateManual(examSummary.examResultDate)}</td>
                       <td>${examSummary.totalMarks}</td>
                       <td>${examSummary.obtainedMarks}</td>
                       <td>${examSummary.percentageMarks}</td>
-                      <td>${examSummary.division}</td>
-                      <td>${examSummary.result}</td>
-                      <td>${remark}</td>
+                      <td>${escapeHtml(examSummary.division)}</td>
+                      <td>${escapeHtml(examSummary.result)}</td>
+                      <td>${escapeHtml(remark)}</td>
                    </tr>`;
             });
             tbl += '</tbody></table>';

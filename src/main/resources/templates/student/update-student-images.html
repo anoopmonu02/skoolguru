@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="~{base::Layout(~{::section})}">
+<head>
+  <meta charset="UTF-8">
+  <title>UAIC - Student</title>
+</head>
+<body>
+<section>
+
+  <style>
+    /* ============================================================
+       Update Student Images (Group-wise) — filter card + per-row
+       photo upload table, styled 1:1 off Update Student Details /
+       Student Health Report (.aa-card / #usi-table conventions) so
+       the same visual language means the same thing everywhere.
+       ============================================================ */
+    .aa-card {
+      background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-xs); padding: 20px 22px; margin-bottom: 18px;
+    }
+    .aa-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+    .aa-card-head h2 { font-size: 14.5px; font-weight: 800; margin: 0; color: var(--text-primary); }
+    .aa-icon { width: 30px; height: 30px; border-radius: 9px; background: rgba(124,58,237,.12); color: #7c3aed; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+    .aa-sub { font-size: 12px; color: var(--text-muted); margin: 2px 0 16px; }
+
+    .aa-btn-primary {
+      background: var(--accent); border: 1px solid var(--accent); color: #fff; padding: 8px 18px;
+      border-radius: var(--radius-md); font-size: 13.5px; font-weight: 700; display: inline-flex;
+      align-items: center; gap: 7px; cursor: pointer; box-shadow: var(--shadow-sm);
+      transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
+    }
+    .aa-btn-primary:hover { background: var(--brand-600); border-color: var(--brand-600); color: #fff; box-shadow: var(--shadow-md); }
+    .aa-btn-primary:active { transform: translateY(1px); }
+    .aa-btn-primary:disabled { opacity: .65; cursor: default; }
+
+    .aa-btn-outline {
+      background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 18px;
+      border-radius: var(--radius-md); font-size: 13.5px; font-weight: 700; display: inline-flex;
+      align-items: center; gap: 7px; cursor: pointer; text-decoration: none;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    .aa-btn-outline:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+
+    .aa-count-badge {
+      display: inline-flex; align-items: center; gap: 6px; background: var(--accent-light); color: var(--accent);
+      border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 700; margin-left: auto;
+    }
+
+    #usi-table.table { border: none; width: 100%; }
+    #usi-table, #usi-table th, #usi-table td { font-size: 0.82rem; }
+    #usi-table thead th {
+      text-align: left; padding: 10px 14px; color: var(--text-muted); font-weight: 700;
+      font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; background: var(--card-bg) !important;
+      white-space: nowrap; border-top: none !important; border-bottom: 1px solid var(--border-color) !important;
+    }
+    #usi-table tbody td {
+      padding: 9px 14px; vertical-align: middle; border-top: none !important; border-left: none !important;
+      border-right: none !important; border-bottom: 1px solid var(--border-color) !important; background-color: transparent !important;
+    }
+    #usi-table tbody tr:hover td { background-color: var(--body-bg) !important; }
+    #usi-table tbody tr:last-child td { border-bottom: none !important; }
+    .usi-table-scroll { overflow-x: auto; }
+
+    .aa-name-block { display: flex; flex-direction: column; line-height: 1.3; }
+    .stu-cell { display: flex; align-items: center; gap: 8px; }
+    .stu-avatar {
+      width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+      color: #fff; font-size: .68rem; font-weight: 700; flex-shrink: 0;
+    }
+    .stu-name-text { color: var(--text-primary); font-weight: 600; }
+    .aa-sr-sub { font-size: 11px; color: var(--text-muted); font-weight: 500; margin-left: 36px; }
+
+    .usi-photo-cell { display: flex; align-items: center; gap: 10px; }
+    .usi-photo-thumb, .usi-photo-preview {
+      width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border-color); flex-shrink: 0;
+    }
+    .usi-photo-placeholder {
+      width: 40px; height: 40px; border-radius: 50%; border: 1px dashed var(--border-color);
+      display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 15px; flex-shrink: 0;
+    }
+    .usi-file-input { max-width: 200px; }
+
+    .aa-empty { text-align: center; color: var(--text-muted); font-size: 13.5px; padding: 34px 10px; }
+    .aa-empty i { font-size: 26px; display: block; margin-bottom: 8px; color: var(--border-color); }
+
+    .usi-row-save-btn .spinner-border { width: .85rem; height: .85rem; }
+  </style>
+
+  <div class="container-fluid px-3">
+    <div class="row mt-2 ">
+      <div class="col-md-12 ">
+        <div th:replace="~{components/ui :: page-header('Update Student Images (Group-wise)')}"></div>
+      </div>
+
+      <div class="col-12">
+        <div class="aa-card">
+          <div class="aa-card-head"><span class="aa-icon"><i class="bi bi-images"></i></span><h2>Filter Students</h2></div>
+          <div class="aa-sub">Pick Medium / Grade / Section, then upload each student's photo one at a time — every row saves on its own.</div>
+          <div class="row g-3">
+            <div class="col-md-2">
+              <label for="medium" class="form-label">Medium</label>
+              <select name="medium" id="medium" class="form-select">
+                <option value="">Select</option>
+                <option th:each="med : ${mediums}" th:value="${med.id}" th:text="${med.mediumName}">Medium</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label for="grade" class="form-label">Grade</label>
+              <select name="grade" id="grade" class="form-select">
+                <option value="">Select</option>
+                <option th:each="grade : ${grades}" th:value="${grade.id}" th:text="${grade.gradeName}">Grade</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label for="section" class="form-label">Section</label>
+              <select name="section" id="section" class="form-select">
+                <option value="">Select</option>
+                <option th:each="section : ${sections}" th:value="${section.id}" th:text="${section.sectionName}">Section</option>
+              </select>
+            </div>
+            <div class="col-md-3 align-self-end">
+              <button type="button" id="getListBtn" class="aa-btn-primary"><i class="bi bi-search"></i> Get Student List</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12">
+        <div class="aa-card">
+          <div class="aa-card-head">
+            <span class="aa-icon"><i class="bi bi-person-bounding-box"></i></span><h2>Student Photos</h2>
+            <span class="aa-count-badge d-none" id="usiCountBadge"><i class="bi bi-person-check"></i> <span id="usiCountNum">0</span> students</span>
+          </div>
+          <div id="student-image-container">
+            <div class="aa-empty"><i class="bi bi-search"></i>Pick Medium / Grade / Section above, then click "Get Student List".</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 mb-3">
+        <a th:href="@{'/student/update-student-details'}" class="aa-btn-outline">
+          <i class="bi bi-arrow-left-circle me-1"></i>Update Student Details
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script type="text/javascript" th:inline="javascript">
+    const contextPath = /*[[@{/}]]*/ '/';
+
+    function showMsg(msgType, msg, headerValue) {
+      toastr.options = {
+        "closeButton": true, "debug": false, "newestOnTop": false, "progressBar": false,
+        "positionClass": "toast-top-right", "preventDuplicates": false, "onclick": null,
+        "showDuration": "600", "hideDuration": "1000", "timeOut": "5000", "extendedTimeOut": "1000",
+        "showEasing": "swing", "hideEasing": "linear", "showMethod": "fadeIn", "hideMethod": "fadeOut"
+      };
+      toastr[msgType](msg, headerValue);
+    }
+
+    function escapeHtml(value) {
+      if (value === null || value === undefined) return '';
+      return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+    }
+
+    const avatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+    const initialsOf = function (name) {
+      return (name || '').trim().split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+    };
+
+    function photoUrl(pic) {
+      return pic ? (contextPath + 'student/images/' + encodeURIComponent(pic) + '?v=' + Date.now()) : '';
+    }
+
+    function validateMandatoryFilters() {
+      const medium = $('#medium').val();
+      const grade = $('#grade').val();
+      const section = $('#section').val();
+      if (!medium || !grade || !section) {
+        showMsg('error', 'Medium, Grade and Section are all mandatory', 'Warning');
+        return false;
+      }
+      return true;
+    }
+
+    function renderTable(rows) {
+      let html = `<div class="usi-table-scroll"><table class="table table-sm" id="usi-table"><thead><tr>` +
+        '<th>Student Name</th><th>Father Name</th><th>Mother Name</th><th>PSRN</th>' +
+        '<th>Photo</th><th>New Photo</th><th></th></tr></thead><tbody>';
+
+      rows.forEach((row, idx) => {
+        const color = avatarColors[idx % avatarColors.length];
+        const initials = initialsOf(row.studentName);
+        const url = photoUrl(row.pic);
+        const currentPhotoHtml = url
+          ? `<img src="${url}" alt="" class="usi-photo-thumb" data-thumb-uuid="${row.uuid}" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'usi-photo-placeholder', innerHTML:'<i class=\\'bi bi-person\\'></i>'}))">`
+          : `<span class="usi-photo-placeholder" data-thumb-uuid="${row.uuid}"><i class="bi bi-person"></i></span>`;
+
+        html += `<tr data-uuid="${row.uuid}">`;
+        html += `<td><div class="aa-name-block"><div class="stu-cell"><span class="stu-avatar" style="background:${color}">${escapeHtml(initials)}</span><span class="stu-name-text">${escapeHtml(row.studentName)}</span></div>${row.psrn ? `<span class="aa-sr-sub">PSRN: ${escapeHtml(row.psrn)}</span>` : ''}</div></td>`;
+        html += `<td>${escapeHtml(row.fatherName)}</td><td>${escapeHtml(row.motherName)}</td><td>${escapeHtml(row.psrn)}</td>`;
+        html += `<td><span class="usi-current-photo-slot" data-slot-uuid="${row.uuid}">${currentPhotoHtml}</span></td>`;
+        html += `<td>
+                    <div class="usi-photo-cell">
+                      <span class="usi-preview-slot" data-preview-uuid="${row.uuid}"></span>
+                      <input type="file" accept="image/*" class="form-control form-control-sm usi-file-input image-file-input" data-uuid="${row.uuid}">
+                    </div>
+                  </td>`;
+        html += `<td>
+                    <button type="button" class="aa-btn-primary usi-row-save-btn" data-uuid="${row.uuid}">
+                      <span class="usi-btn-normal"><i class="bi bi-upload"></i> Save</span>
+                      <span class="usi-btn-loading d-none"><span class="spinner-border" role="status"></span> Saving...</span>
+                    </button>
+                  </td>`;
+        html += '</tr>';
+      });
+
+      html += '</tbody></table></div>';
+      $('#student-image-container').html(html);
+      $('#usiCountNum').text(rows.length);
+      $('#usiCountBadge').removeClass('d-none');
+    }
+
+    $('#getListBtn').on('click', function () {
+      if (!validateMandatoryFilters()) return;
+      const requestData = { mediumId: $('#medium').val(), gradeId: $('#grade').val(), sectionId: $('#section').val() };
+      fetch(`${contextPath}getStudentsForImageUpload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestData)
+      })
+        .then(response => {
+          if (!response.ok) return response.text().then(t => { throw new Error(t || 'Network response was not ok'); });
+          return response.json();
+        })
+        .then(rows => {
+          if (!Array.isArray(rows) || rows.length === 0) {
+            $('#student-image-container').html('<div class="aa-empty"><i class="bi bi-emoji-frown"></i>No students found for this Medium / Grade / Section.</div>');
+            $('#usiCountBadge').addClass('d-none');
+            showMsg('warning', 'No students found for the given criteria.', 'No Data');
+            return;
+          }
+          renderTable(rows);
+        })
+        .catch(err => {
+          console.error(err);
+          showMsg('error', 'An error occurred while fetching students', 'Error');
+        });
+    });
+
+    // Live preview as soon as a file is chosen (event delegation — rows are
+    // rendered dynamically).
+    $(document).on('change', '.image-file-input', function () {
+      const file = this.files && this.files[0];
+      const uuid = $(this).data('uuid');
+      const $slot = $(`.usi-preview-slot[data-preview-uuid="${uuid}"]`);
+      if (!file) { $slot.empty(); return; }
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        $slot.html(`<img src="${e.target.result}" alt="" class="usi-photo-preview">`);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    function setRowSaveLoading($btn, isLoading) {
+      $btn.prop('disabled', isLoading);
+      $btn.find('.usi-btn-normal').toggleClass('d-none', isLoading);
+      $btn.find('.usi-btn-loading').toggleClass('d-none', !isLoading);
+    }
+
+    // Each row saves independently — row-wise, no page-wide "Save Changes" step.
+    $(document).on('click', '.usi-row-save-btn', function () {
+      const $btn = $(this);
+      const uuid = $btn.data('uuid');
+      const $row = $btn.closest('tr');
+      const $fileInput = $row.find('.image-file-input');
+      const file = $fileInput[0].files && $fileInput[0].files[0];
+      if (!file) {
+        showMsg('error', 'Please choose a photo to upload first.', 'Nothing to Save');
+        return;
+      }
+
+      const studentName = $row.find('.stu-name-text').first().text().trim();
+      const formData = new FormData();
+      formData.append('uuid', uuid);
+      formData.append('file', file);
+
+      setRowSaveLoading($btn, true);
+      fetch(`${contextPath}saveStudentImage`, { method: 'POST', body: formData })
+        .then(response => response.json())
+        .then(data => {
+          if (data && data.success) {
+            showMsg('success', studentName ? ('Photo saved for ' + studentName) : (data.message || 'Photo saved'), 'Saved');
+            const $thumbSlot = $(`.usi-current-photo-slot[data-slot-uuid="${uuid}"]`);
+            const url = photoUrl(data.fileName);
+            $thumbSlot.html(`<img src="${url}" alt="" class="usi-photo-thumb" data-thumb-uuid="${uuid}">`);
+            $(`.usi-preview-slot[data-preview-uuid="${uuid}"]`).empty();
+            $fileInput.val('');
+          } else {
+            showMsg('error', (data && data.message) ? data.message : 'Failed to save the photo.', 'Error');
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          showMsg('error', 'An error occurred while saving. Please try again.', 'Error');
+        })
+        .finally(() => setRowSaveLoading($btn, false));
+    });
+  </script>
+</section>
+</body>
+</html>

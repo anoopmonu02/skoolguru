@@ -138,6 +138,16 @@
   <script type="text/javascript" th:inline="javascript">
     const contextPath = /*[[@{/}]]*/ '/';
 
+    // Escapes a value before it is interpolated into an .html()-built string.
+    // Student names/SR/PSRN below come straight from a JSON response with no
+    // server-side escaping - a stored-XSS gap. Same fix pattern already
+    // applied elsewhere in this pass.
+    const escapeHtml = function (value) {
+        const div = document.createElement('div');
+        div.textContent = value !== undefined && value !== null ? value : '';
+        return div.innerHTML;
+    };
+
     
 
     document.getElementById("getReport").onclick = function(){
@@ -203,7 +213,7 @@
       tbl += `<th>Total</th></tr></thead><tbody class="table-group-divider">`;
 
       students.forEach((s, idx) => {
-        tbl += `<tr><td>${idx + 1}</td><td>${s.studentName || ''}</td><td>${s.srNo || ''}</td><td>${s.psrn || ''}</td>`;
+        tbl += `<tr><td>${idx + 1}</td><td>${escapeHtml(s.studentName)}</td><td>${escapeHtml(s.srNo)}</td><td>${escapeHtml(s.psrn)}</td>`;
         (s.months || []).forEach(mc => {
           tbl += `<td class="text-center">${mc.present}/${mc.totalDays}</td>`;
         });

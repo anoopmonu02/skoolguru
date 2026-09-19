@@ -48,6 +48,13 @@ public class SiblingGroupController extends BaseController {
         List<SiblingGroup> siblingGroupList = siblingGroupService.getAllSiblingGroups(school.getId(), academicYear.getId());
         model.addAttribute("siblingGroups", siblingGroupList);
         model.addAttribute("hasSiblingGroup", !siblingGroupList.isEmpty());
+        // Loads the DataTables/Buttons/list-table-init.js script bundle for this
+        // page (see base.html's th:if="${page == 'datatable'}" block) — without
+        // this, initListDataTable() is never defined and the page's own script
+        // throws "ReferenceError: initListDataTable is not defined", which is
+        // exactly the bug this line fixes. Same convention as every other
+        // DataTables list page (e.g. GlobalController#academciyear).
+        model.addAttribute("page", "datatable");
         return "student/siblinggrouplist";
     }
 
@@ -99,7 +106,8 @@ public class SiblingGroupController extends BaseController {
     @GetMapping("/sibling-group/show/{id}")
     public String showgroupdetail(@PathVariable("id")Long id, Model model, RedirectAttributes redirectAttributes){
         log.info("Inside showgroupdetail");
-        SiblingGroup group = siblingGroupService.getSiblingGroupDetail(id).orElse(null);
+        School school = (School)model.getAttribute("school");
+        SiblingGroup group = siblingGroupService.getSiblingGroupDetail(id, school.getId()).orElse(null);
         if(group!=null){
             model.addAttribute("siblinggroup", group);
         } else{
@@ -109,15 +117,20 @@ public class SiblingGroupController extends BaseController {
         return "student/show-siblinggroup";
     }
 
+    // POST, not GET — a state-changing action needs to go through a method
+    // Spring Security's CSRF filter actually covers (GET requests are exempt
+    // from CSRF by design). The confirm-delete modal on siblinggrouplist.html
+    // submits a real POST form for this, carrying the auto-injected _csrf
+    // token, the same fix already applied to Academic-Year List's delete.
     @CheckAccess(screen = "SIBLING_DELETE", type = AccessType.DELETE)
-    @GetMapping("/sibling-group/delete/{id}")
+    @PostMapping("/sibling-group/delete/{id}")
     public String deletegroup(@PathVariable("id")String id, Model model, RedirectAttributes redirectAttributes){
         log.info("Inside deletegroup");
-        String msg = siblingGroupService.deleteSiblingGroup(Long.valueOf(id));
+        School school = (School)model.getAttribute("school");
+        String msg = siblingGroupService.deleteSiblingGroup(Long.valueOf(id), school.getId());
         if(msg.contains("success")){
             redirectAttributes.addFlashAttribute("success","Sibling-group deleted successfully.");
         } else if(msg.contains("Error")){
-            School school = (School)model.getAttribute("school");
             AcademicYear academicYear = (AcademicYear)model.getAttribute("academicYear");
             List<SiblingGroup> siblingGroupList = siblingGroupService.getAllSiblingGroups(school.getId(), academicYear.getId());
             model.addAttribute("siblingGroups", siblingGroupList);

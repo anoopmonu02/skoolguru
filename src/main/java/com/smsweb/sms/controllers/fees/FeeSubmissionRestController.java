@@ -3,6 +3,7 @@ package com.smsweb.sms.controllers.fees;
 import com.smsweb.sms.config.permission.CheckAccess;
 import com.smsweb.sms.models.permission.AccessType;
 import com.smsweb.sms.controllers.BaseController;
+import com.smsweb.sms.helper.ReceiptIdCodec;
 import com.smsweb.sms.models.admin.*;
 import com.smsweb.sms.models.fees.FeeSubmission;
 import com.smsweb.sms.models.fees.FeeSubmissionMonths;
@@ -61,6 +62,7 @@ public class FeeSubmissionRestController extends BaseController {
     private final MonthmappingService mmService;
     private final SiblingGroupService siblingGroupService;
     private final UserService userService;
+    private final ReceiptIdCodec receiptIdCodec;
 
     @Autowired
     private TemplateEngine templateEngine;
@@ -69,7 +71,7 @@ public class FeeSubmissionRestController extends BaseController {
     public FeeSubmissionRestController(StudentService studentService, AcademicyearService academicyearService, AcademicStudentService academicStudentService,
                                        FeeSubmissionService feeSubmissionService, FeedateService feedateService, StudentDiscountService studentDiscountService,
                                        FineService fineService, MonthmappingService monthmappingService, FeeReceiptService receiptService,
-                                       MonthmappingService mmService, SiblingGroupService siblingGroupService, UserService userService) {
+                                       MonthmappingService mmService, SiblingGroupService siblingGroupService, UserService userService, ReceiptIdCodec receiptIdCodec) {
         this.studentService = studentService;
         this.academicyearService = academicyearService;
         this.academicStudentService = academicStudentService;
@@ -82,6 +84,7 @@ public class FeeSubmissionRestController extends BaseController {
         this.mmService = mmService;
         this.siblingGroupService = siblingGroupService;
         this.userService = userService;
+        this.receiptIdCodec = receiptIdCodec;
     }
 
     @CheckAccess(screen = "FEE_SUBMIT", type = AccessType.VIEW)
@@ -108,6 +111,11 @@ public class FeeSubmissionRestController extends BaseController {
      * regardless of school or academic year. Returns each student's latest active enrollment
      * so the display shows their current branch, grade and section.
      */
+    // Screen-gated (not just relying on being logged in) - this searches
+    // active students across every school in the app, so it needs the same
+    // SIBLING_ADD:CREATE permission as the add-siblinggroup page it backs,
+    // rather than being reachable by any authenticated user.
+    @CheckAccess(screen = "SIBLING_ADD", type = AccessType.CREATE)
     @GetMapping("/searchStudentForSiblingPage/{query}")
     public ResponseEntity<?> searchStudentForSiblingPage(
             @PathVariable("query") String query,
@@ -126,6 +134,9 @@ public class FeeSubmissionRestController extends BaseController {
      * Cross-school individual fetch — kept for backward compatibility.
      * New flow uses /checkSiblingEligibility + cached data instead.
      */
+    // Same reasoning as searchStudentForSiblingPage above - cross-branch lookup,
+    // gated behind the add-siblinggroup screen's own permission.
+    @CheckAccess(screen = "SIBLING_ADD", type = AccessType.CREATE)
     @GetMapping("/searchStudentIndividualGlobal/{id}")
     public ResponseEntity<?> searchStudentIndividualGlobal(@PathVariable("id") Long id, Model model) {
         log.info("Inside searchStudentIndividualGlobal");
@@ -152,6 +163,9 @@ public class FeeSubmissionRestController extends BaseController {
      *
      * Returns: {eligible: true} OR {blocked: true, groupName, schoolName}
      */
+    // Same reasoning as searchStudentForSiblingPage above - cross-branch lookup,
+    // gated behind the add-siblinggroup screen's own permission.
+    @CheckAccess(screen = "SIBLING_ADD", type = AccessType.CREATE)
     @GetMapping("/checkSiblingEligibility/{studentId}")
     public ResponseEntity<?> checkSiblingEligibility(@PathVariable("studentId") Long studentId) {
         log.info("Inside checkSiblingEligibility - studentId={}", studentId);
@@ -287,6 +301,7 @@ public class FeeSubmissionRestController extends BaseController {
                     studentMap.put("status",          student.getStatus());
                     studentMap.put("address",         student.getAddress());
                     studentMap.put("aadharNo",        student.getAadharNo());
+                    studentMap.put("pic",             student.getPic());
 
                     // from AcademicStudent
                     studentMap.put("academicId", academicStudent.getId());
@@ -341,6 +356,30 @@ public class FeeSubmissionRestController extends BaseController {
                     result.put("todayDate",       new Date());
                     result.put("countStu",        countStu);
                     result.put("previousBalance", previousBalance);
+
+                    // Discount currently assigned to this student (e.g. Sibling Discount),
+                    // same lookup/scoping already used by getStudentDetailForDiscount() above -
+                    // no new query pattern, just reusing studentDiscountService here too.
+                    StudentDiscount studentDiscount = studentDiscountService
+                            .getStudentDiscountForStudent(school.getId(), academicYear.getId(), academicStudent.getId())
+                            .orElse(null);
+                    String discountName = "No Discount";
+                    if (studentDiscount != null && studentDiscount.getDiscounthead() != null
+                            && "Active".equalsIgnoreCase(studentDiscount.getStatus())) {
+                        String dn = studentDiscount.getDiscounthead().getDiscountName();
+                        discountName = (dn != null && !dn.isBlank()) ? dn : "No Discount";
+                    }
+                    result.put("discountName", discountName);
+
+                    // Last submission info - reuses the SAME feeSubmission object already
+                    // fetched above for previousBalance, no extra query.
+                    if (feeSubmission != null) {
+                        result.put("lastSubmitDate", feeSubmission.getFeeSubmissionDate());
+                        result.put("lastReceiptNo",  feeSubmission.getReceiptNo());
+                    } else {
+                        result.put("lastSubmitDate", null);
+                        result.put("lastReceiptNo",  null);
+                    }
 
                 } else {
                     result.put("noFeeDate", "No Fee-Date found, Please add fee-date first.");
@@ -440,6 +479,13 @@ public class FeeSubmissionRestController extends BaseController {
                     Map<String, Object> discountMap = new HashMap<>();
                     discountMap.put("id", studentDiscount.getId());
                     discountMap.put("status", studentDiscount.getStatus() != null ? studentDiscount.getStatus() : "");
+                    // Was missing entirely - the Discount Assign page's JS reads
+                    // data.description to show it in the "Discount Already
+                    // Assigned" preview card, and got the literal string
+                    // "undefined" (a JS template-literal artifact of reading a
+                    // property that was never in this response) instead of the
+                    // actual saved description or a blank.
+                    discountMap.put("description", studentDiscount.getDescription() != null ? studentDiscount.getDescription() : "");
                     if (studentDiscount.getDiscounthead() != null) {
                         discountMap.put("discounthead", Map.of(
                             "id", studentDiscount.getDiscounthead().getId(),
@@ -745,6 +791,11 @@ public class FeeSubmissionRestController extends BaseController {
                     for (FeeSubmission fs : feeSubmissionList) {
                         Map<String, Object> fsMap = new HashMap<>();
                         fsMap.put("id", fs.getId());
+                        // Used by the receipt-print icon in fee-receipt.html/feecancel.html to
+                        // build the /fees/student-receipt-print/{encodedId} URL without exposing
+                        // the raw, guessable FeeSubmission id there. "id" above is left as-is for
+                        // anything else already depending on this JSON shape.
+                        fsMap.put("encodedId", receiptIdCodec.encode(fs.getId()));
                         fsMap.put("feeSubmissionDate", fs.getFeeSubmissionDate());
                         fsMap.put("receiptNo", fs.getReceiptNo() != null ? fs.getReceiptNo() : "");
                         fsMap.put("totalAmount", fs.getTotalAmount());
@@ -771,11 +822,20 @@ public class FeeSubmissionRestController extends BaseController {
     }
 
     @CheckAccess(screen = "FEE_RECEIPT_PRINT", type = AccessType.VIEW)
-    @GetMapping("/student-receipt-print/{id}")
-    public ResponseEntity<?> getFeeReceipt(@PathVariable("id")Long id, Model model){
+    @GetMapping("/student-receipt-print/{encodedId}")
+    public ResponseEntity<?> getFeeReceipt(@PathVariable("encodedId") String encodedId, Model model){
         log.info("Inside getFeeReceipt");
         School school = (School) model.getAttribute("school");
         AcademicYear academicYear = (AcademicYear) model.getAttribute("academicYear");
+
+        Long id = receiptIdCodec.decode(encodedId);
+        if (id == null) {
+            // Malformed/tampered/foreign-salt id - same "not found" shape the
+            // page already handles, not a distinct error.
+            Map<String, Object> notFound = new HashMap<>();
+            notFound.put("studentError", "Academic Student not found!");
+            return ResponseEntity.ok(notFound);
+        }
 
         Map<String, Object> receiptData = feeSubmissionService.getFeeReceiptData(id, school, academicYear);
         if(receiptData==null || receiptData.isEmpty()){

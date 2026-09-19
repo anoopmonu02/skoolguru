@@ -9,74 +9,191 @@
 </head>
 <body>
 <section>
+  <!--
+      Student Attendance — restyled on the same "Neo" design system used
+      elsewhere in the fees/students pages: a page-header-sub title, a
+      filter card (Select Criteria) instead of a bare row of selects, a
+      small stat-chip row for Total/Present/Absent (replacing the old
+      Bootstrap-3-era "badge-info/badge-success/badge-important" classes,
+      which aren't valid Bootstrap 5 classes to begin with), and a properly
+      styled attendance table (sticky header, row hover, cleaner checkbox
+      and remark-input styling) - the table restyle was the specific ask.
+      Every id/name the inline script depends on is unchanged: medium,
+      grade, section, getstu, badgePDiv, badgedDiv, student-grade-data,
+      btn-classes, badgedDivBottom, save-sr-from-table, attendance-table-data,
+      selectAllCbx, studentcheckbox/stu_attendance[], stu_remark[]/rem_<uuid>.
+      Added: a confirm-before-save modal (saveAttendanceModal/saConfirmYes) -
+      clicking Save now opens it with a Total/Present/Absent summary instead
+      of posting immediately; saveAttendance() itself (the actual fetch to
+      /saveStudentAttendance) only runs once the user confirms.
+      The table's columns are addressed by position in selectAll()/
+      updateBatches()/saveAttendance() (td:eq/td:nth-child), so the column
+      count/order there must stay in sync with the <thead> below: #,
+      Student Name (now merged with SR No, avatar-initials style, per
+      request), Father Name, Mother Name, checkbox, Remark — 6 columns,
+      checkbox at index 4 / nth-child(5), remark at index 5 / nth-child(6).
+      New classes are prefixed "sa-" to avoid clashing with other pages.
+
+      Also fixed while touching this file ("check security also"):
+      renderStudentData() interpolated student name/father/mother/SR
+      straight into an .html()-built string with no escaping (stored-XSS,
+      same class already fixed on several other pages this session) - now
+      routed through escapeHtml(). The remark field additionally
+      interpolated a user-editable value into a double-quoted HTML
+      attribute (value="${remark}"); escapeHtml() alone doesn't neutralise
+      a literal `"` in that context, so remark is now set via jQuery
+      .val() after the row is in the DOM, which assigns it as a DOM
+      property rather than parsed HTML/attribute text - safe regardless
+      of its content.
+  -->
+  <style>
+    .sa-card{ background:var(--card-bg); border:1px solid var(--border-color); border-radius:var(--radius-lg); box-shadow:var(--shadow-xs); }
+    .sa-filtercard{ margin-bottom:20px; }
+    .sa-icard-hd{ display:flex; align-items:center; gap:9px; padding:14px 18px; border-bottom:1px solid var(--border-color); }
+    .sa-icard-hd i{ color:var(--accent); font-size:1rem; }
+    .sa-icard-hd b{ font-size:.88rem; font-family:"Outfit", sans-serif; color:var(--text-primary); }
+    .sa-filterbody{ padding:16px 18px 18px; }
+    .sa-fields{ display:grid; grid-template-columns:repeat(3,1fr) auto; gap:14px; align-items:end; }
+    @media (max-width:900px){ .sa-fields{ grid-template-columns:1fr 1fr; } }
+    @media (max-width:560px){ .sa-fields{ grid-template-columns:1fr; } }
+    .sa-label{ font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); margin-bottom:6px; display:block; }
+    .sa-field select.form-select{ border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:9px 12px; font-size:.88rem; }
+    .btn.sa-getbtn{ border-radius:10px; padding:9px 22px; font-size:.86rem; font-weight:600; white-space:nowrap; }
+
+    .sa-statrow{ display:flex; gap:12px; margin-bottom:18px; flex-wrap:wrap; }
+    .sa-stat{ display:flex; align-items:center; gap:10px; background:var(--card-bg); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:10px 18px; box-shadow:var(--shadow-xs); }
+    .sa-stat-icon{ width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1rem; flex:none; }
+    .sa-stat-total .sa-stat-icon{ background:var(--accent-light); color:var(--accent); }
+    .sa-stat-present .sa-stat-icon{ background:#dcfce7; color:#16a34a; }
+    .sa-stat-absent .sa-stat-icon{ background:#fee2e2; color:#dc2626; }
+    .sa-stat-value{ font-size:1.05rem; font-weight:700; font-family:"Outfit", sans-serif; color:var(--text-primary); line-height:1.1; }
+    .sa-stat-label{ font-size:.72rem; color:var(--text-muted); }
+
+    .sa-actionsrow{ display:flex; justify-content:space-between; align-items:center; gap:16px; margin:24px 0 32px; flex-wrap:wrap; }
+    .btn.sa-savebtn{ border-radius:10px; padding:10px 26px; font-size:.86rem; font-weight:600; }
+
+    /* ── Attendance table — the main restyle ask ── */
+    .sa-table-card{ background:var(--card-bg); border:1px solid var(--border-color); border-radius:var(--radius-lg); box-shadow:var(--shadow-xs); overflow:hidden; margin-top:4px; }
+    .sa-table-card .table-responsive{ margin:0; max-height:560px; overflow-y:auto; }
+    .sa-table-card table{ width:100%; margin:0; font-size:.85rem; }
+    .sa-table-card thead th{ position:sticky; top:0; background:var(--card-bg); color:var(--text-muted); font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:12px 16px; border:none; border-bottom:1px solid var(--border-color); white-space:nowrap; z-index:1; }
+    .sa-table-card td{ padding:10px 16px; border-top:1px solid var(--border-color); vertical-align:middle; }
+    .sa-table-card tbody tr:hover{ background:var(--accent-light); }
+    .sa-table-card .sa-idx{ color:var(--text-muted); font-weight:600; width:40px; }
+    .sa-table-card th.sa-chkcol, .sa-table-card td.sa-chkcol{ text-align:center; width:70px; }
+    .sa-namecell{ display:flex; align-items:center; gap:10px; }
+    .sa-namecell .stu-avatar{ width:30px; height:30px; font-size:.68rem; flex:none; }
+    .sa-namecell-name{ font-weight:600; color:var(--text-primary); }
+    .sa-namecell-sep{ color:var(--border-color); margin:0 2px; }
+    .sa-namecell-sr{ color:var(--text-muted); font-size:.8rem; }
+    .sa-table-card input[type="checkbox"]{ width:17px; height:17px; cursor:pointer; }
+    .sa-table-card input.sa-remark-input{ border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:6px 10px; font-size:.82rem; width:100%; min-width:140px; }
+    .sa-table-card input.sa-remark-input:focus{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-light); outline:none; }
+    .sa-table-empty{ text-align:center; color:var(--text-muted); padding:56px 20px; }
+    .sa-table-empty i{ font-size:2.1rem; display:block; margin-bottom:12px; color:var(--border-color); }
+
+    /* Save confirmation modal */
+    .sa-modal-icon{ width:52px; height:52px; border-radius:50%; background:var(--accent-light); color:var(--accent); display:flex; align-items:center; justify-content:center; font-size:1.5rem; margin:4px auto 14px; }
+    .sa-modal-title{ text-align:center; font-family:"Outfit", sans-serif; font-size:1.05rem; color:var(--text-primary); }
+    .sa-modal-text{ text-align:center; color:var(--text-muted); font-size:.86rem; margin-top:6px; }
+    .sa-modal-stats{ display:flex; justify-content:center; gap:10px; margin-top:16px; flex-wrap:wrap; }
+  </style>
 
     <div class="container-fluid px-3">
         <div class="row mt-2 ">
             <div class="col-md-12">
-                <div class="card-header fs-3">Attendance: <span th:text="${todayDate}"></span></div>
-                <hr/>
-                <div class="row mt-3">
-                    <div class="col-md-2">
-                        <label for="medium" class="form-label">Medium</label>
+                <div th:replace="~{components/ui :: page-header-sub('Student Attendance', ${todayDate})}"></div>
+
+                <div class="sa-card sa-filtercard">
+                  <div class="sa-icard-hd"><i class="bi bi-funnel"></i><b>Select Criteria</b></div>
+                  <div class="sa-filterbody">
+                    <div class="sa-fields">
+                      <div class="sa-field">
+                        <label for="medium" class="sa-label">Medium</label>
                         <select name="medium" id="medium" class="form-select">
                             <option value="">Select Medium</option>
                             <option th:each="med : ${mediums}" th:value="${med.id}" th:text="${med.mediumName}">Medium</option>
                         </select>
-                    </div>
-                    <div class="col-md-2">
-                        <label for="grade" class="form-label">Grade</label>
+                      </div>
+                      <div class="sa-field">
+                        <label for="grade" class="sa-label">Grade</label>
                         <select name="grade" id="grade" class="form-select">
                             <option value="">Select Grade</option>
                             <option th:each="grade : ${grades}" th:value="${grade.id}" th:text="${grade.gradeName}">Grade</option>
                         </select>
-                    </div>
-                    <div class="col-md-2">
-                        <label for="section" class="form-label">Section</label>
+                      </div>
+                      <div class="sa-field">
+                        <label for="section" class="sa-label">Section</label>
                         <select name="section" id="section" class="form-select">
                             <option value="">Select Section</option>
                             <option th:each="section : ${sections}" th:value="${section.id}" th:text="${section.sectionName}">Section</option>
                         </select>
+                      </div>
+                      <div class="sa-field">
+                        <button name="getstu" id="getstu" class="btn btn-primary sa-getbtn"><i class="bi bi-search"></i> Get Student List</button>
+                      </div>
                     </div>
-                    <div class="col-md-4 align-self-end">
-                        <div class="col-sm-6">
-                            <button name="getstu" id="getstu" class="btn btn-primary"><i class="bi bi-search"></i> Get Student List </button>
-                        </div>
-                    </div>
+                  </div>
                 </div>
-                <hr/>
-                <div id="badgePDiv" class="col-md-12 text-end" style="display: none;">
-                    <span id="badgedDiv" align="right" class="align-self-end">
-                        <button type="button" class="btn btn-primary disabled">Total Student <span class="badge badge-info">0</span></button>
-                        <button type="button" class="btn btn-success disabled">Present <span class="badge badge-success">0</span></button>
-                        <button type="button" class="btn btn-danger disabled">Absent <span class="badge badge-important">0</span></button>
-                    </span>
+
+                <div id="badgePDiv" class="sa-statrow" style="display: none;">
+                    <div id="badgedDiv" class="sa-statrow" style="margin-bottom:0;"></div>
                 </div>
+
                 <div class="col-12" id="student-grade-data">
 
                 </div>
-                <div id="btn-classes" style="display: none;" class="row">
-                    <div class="col-md-5 pt-5">
-                        <span id="badgedDivBottom" align="right" class="align-self-end"></span>
-                    </div>
-                    <div class="col-md-6 mb-5 pt-5">
-                        <button sms:access="STUDENT_ATTENDANCE_MARK:CREATE" type="button" class="btn btn-primary" id="save-sr-from-table" onclick="saveAttendance()"><i class="bi bi-save2-fill"></i> Save </button>
-                    </div>
+                <div id="btn-classes" style="display: none;" class="sa-actionsrow">
+                    <div id="badgedDivBottom" class="sa-statrow" style="margin-bottom:0;"></div>
+                    <button sms:access="STUDENT_ATTENDANCE_MARK:CREATE" type="button" class="btn btn-primary sa-savebtn" id="save-sr-from-table" onclick="confirmSaveAttendance()"><i class="bi bi-save2-fill"></i> Save</button>
                 </div>
 
             </div>
         </div>
     </div>
 
+    <div class="modal fade" id="saveAttendanceModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header border-0 pb-0">
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body pt-0">
+            <div class="sa-modal-icon"><i class="bi bi-clipboard-check"></i></div>
+            <h5 class="sa-modal-title">Save this attendance?</h5>
+            <div class="sa-modal-text">
+              You're about to save attendance for <span id="saModalTotal">0</span> student(s) for <span th:text="${todayDate}"></span>.
+            </div>
+            <div class="sa-modal-stats" id="saModalStats"></div>
+          </div>
+          <div class="modal-footer border-0 justify-content-center pt-0">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Go back</button>
+            <button type="button" id="saConfirmYes" class="btn btn-primary"><i class="bi bi-save2-fill"></i> Yes, save attendance</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
 
   <script type="text/javascript" th:inline="javascript">
       const contextPath = /*[[@{/}]]*/ '/';
 
+      // Escapes a value before it is interpolated into an .html()-built
+      // string. Student/father/mother names and SR numbers below come
+      // straight from a JSON response with no server-side escaping - same
+      // stored-XSS fix pattern already applied to several other pages
+      // this session.
+      const escapeHtml = function (value) {
+          const div = document.createElement('div');
+          div.textContent = value !== undefined && value !== null ? value : '';
+          return div.innerHTML;
+      };
 
-      
-
-
-
-      
+      // Avatar initials/colour — same visual pattern as the other "Neo"
+      // pages this session (fees/feesubmitform-neo.html etc.).
+      const _saAvatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+      const _saInitialsOf = (name) => (name || '').trim().split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+      const _saAvatarColorFor = (id) => _saAvatarColors[Math.abs(id || 0) % _saAvatarColors.length];
 
       let medium, grade, section;
 
@@ -135,52 +252,67 @@
       const renderStudentData=(studentData)=> {
           let divTabId = $("#student-grade-data");
           let btndiv = $("#btn-classes");
+          let badgediv = $("#badgePDiv");
           btndiv.hide();
+          badgediv.hide();
           divTabId.html('');
           let rowCount = 0;
           let stuAtt = Array.isArray(studentData.attendances) && studentData.attendances.length > 0
               ? studentData.attendances
               : [];
-          let tbl = '<table class="table table-bordered table-sm" id="attendance-table-data"><thead><th>#</th><th>Student Name</th><th>Father Name</th><th>Mother Name</th><th>SR</th><th class=""><input type="checkbox" class="form-check form-check-input" id="selectAllCbx" name="selectAllCbx" onclick="selectAll(this)"></th><th>Remark</th></thead><tbody class="table-group-divider">'
-          stuAtt.forEach(function(att){
-              console.log("--->>>>>"+att.academicStudent.id);
-              console.log("--->>>>>"+att.isPresent);
-              console.log("--->>>>>"+att.attendanceDate);
-              console.log("--->>>>>"+att.uuid);
-          });
+
+          if (!Array.isArray(studentData.academicStudents) || studentData.academicStudents.length === 0) {
+              divTabId.html('<div class="sa-card sa-table-empty"><i class="bi bi-people"></i>No students found for the selected medium/grade/section.</div>');
+              return;
+          }
+
+          // remarkByUuid is filled after the row skeletons are in the DOM, then
+          // applied via jQuery .val() - assigning the DOM value property, not
+          // parsed as HTML/attribute text, so a remark containing a `"` or
+          // `<` can't break out of the input or inject markup.
+          let remarkByUuid = {};
+
+          let tbl = '<div class="sa-table-card"><div class="table-responsive"><table class="table table-sm mb-0" id="attendance-table-data"><thead><tr><th class="sa-idx">#</th><th>Student Name</th><th>Father Name</th><th>Mother Name</th><th class="sa-chkcol"><input type="checkbox" id="selectAllCbx" name="selectAllCbx" onclick="selectAll(this)"></th><th>Remark</th></tr></thead><tbody class="table-group-divider">'
           studentData.academicStudents.forEach(function(student) {
               let srno = student.classSrNo ? student.classSrNo.trim() : '';
               let studentAttendance = stuAtt.find(att => att.academicStudent.id === student.id);
-              console.log("student.id::::"+student.id);
-              console.log("stuAtt::::"+stuAtt);
-              //console.log("studentAttendance::::"+studentAttendance.remark);
               let isPresent = studentAttendance && studentAttendance.isPresent? 'checked': '';
               let remark = studentAttendance ? studentAttendance.remark: '';
-              //let isChecked = studentAttendance ? 'checked' : '';
+              remarkByUuid[student.uuid] = remark || '';
+              let avColor = _saAvatarColorFor(student.id);
+              let srPart = srno ? `<span class="sa-namecell-sep">|</span><span class="sa-namecell-sr">SR No: ${escapeHtml(srno)}</span>` : '';
               tbl += `<tr>
-                      <td>${++rowCount}</td>
-                      <td>${student.student.studentName}</td>
-                      <td>${student.student.fatherName}</td>
-                      <td>${student.student.motherName}</td>
-                      <td>${srno}</td>
+                      <td class="sa-idx">${++rowCount}</td>
                       <td>
-                            <input type="checkbox" class="form-check form-check-input studentcheckbox" ${isPresent} id="${student.uuid}" name="stu_attendance[]" onclick="updateBatches()"/>
+                            <div class="sa-namecell">
+                                <span class="stu-avatar" style="background:${avColor}22;color:${avColor}">${escapeHtml(_saInitialsOf(student.student.studentName))}</span>
+                                <span class="sa-namecell-name">${escapeHtml(student.student.studentName)}</span>
+                                ${srPart}
+                            </div>
+                      </td>
+                      <td>${escapeHtml(student.student.fatherName)}</td>
+                      <td>${escapeHtml(student.student.motherName)}</td>
+                      <td class="sa-chkcol">
+                            <input type="checkbox" class="studentcheckbox" ${isPresent} id="${student.uuid}" name="stu_attendance[]" onclick="updateBatches()"/>
                       </td>
                       <td>
-                            <input type="text" class="form-control" name="stu_remark[]" id="rem_${student.uuid}" value="${remark}"/>
+                            <input type="text" class="form-control sa-remark-input" name="stu_remark[]" id="rem_${student.uuid}"/>
                       </td>
                       </tr>`;
-              //<input type="text" id="sr_${student.uuid}" name="sr_${student.uuid}" value="${student.classSrNo}" class="form-control"/>
           });
-          tbl+='</tbody></table>';
+          tbl+='</tbody></table></div></div>';
           divTabId.html(tbl);
+          Object.keys(remarkByUuid).forEach(function(uuid){
+              $('#rem_' + uuid).val(remarkByUuid[uuid]);
+          });
           btndiv.show();
+          updateBatches();
       }
 
       function selectAll(obj){
           let checkedStatus = obj.checked;
           // alert("status :");
-          $('#attendance-table-data tbody tr').find('td:eq(5) :checkbox').each(function () {
+          $('#attendance-table-data tbody tr').find('td:eq(4) :checkbox').each(function () {
               $(this).prop('checked', checkedStatus);
           });
           updateBatches();
@@ -191,7 +323,7 @@
           let presentStudent = 0;
           let absentStudent = 0;
           let totalStudent = 0;
-          $('#attendance-table-data tbody tr').find('td:eq(5) :checkbox').each(function () {
+          $('#attendance-table-data tbody tr').find('td:eq(4) :checkbox').each(function () {
               totalStudent++;
               let chkbx = this;
               if(chkbx.checked){
@@ -201,11 +333,40 @@
                   absentStudent++;
               }
           });
-          let str = "<button type='button' class='btn btn-primary disabled'>Total Student <span class='badge rounded-pill text-bg-info'>"+totalStudent+"</span></button>&nbsp;<button type='button' class='btn btn-success disabled'>Present <span class='badge rounded-pill text-bg-light'>"+presentStudent+"</span></button>&nbsp;<button type='button' class='btn btn-danger disabled'>Absent <span class='badge rounded-pill text-bg-warning'>"+absentStudent+"</span></button><br/><br/>"
+          let str = '<div class="sa-stat sa-stat-total"><span class="sa-stat-icon"><i class="bi bi-people"></i></span><span><span class="sa-stat-value">'+totalStudent+'</span><span class="sa-stat-label"> Total Student</span></span></div>'
+                  + '<div class="sa-stat sa-stat-present"><span class="sa-stat-icon"><i class="bi bi-check-lg"></i></span><span><span class="sa-stat-value">'+presentStudent+'</span><span class="sa-stat-label"> Present</span></span></div>'
+                  + '<div class="sa-stat sa-stat-absent"><span class="sa-stat-icon"><i class="bi bi-x-lg"></i></span><span><span class="sa-stat-value">'+absentStudent+'</span><span class="sa-stat-label"> Absent</span></span></div>';
           $("#badgedDiv").html(str);
           $("#badgedDivBottom").html(str);
           $("#badgePDiv").show();
       }
+
+      // Opens the confirm-before-save modal with a live Total/Present/Absent
+      // summary. saveAttendance() (the actual POST) only runs once the user
+      // clicks "Yes, save attendance" in the modal - see wiring below.
+      const confirmSaveAttendance=()=>{
+          let rowCount = $('#attendance-table-data tbody tr').length;
+          if(rowCount===0){
+              showMsg("warning","No attendance data found","Message");
+              return;
+          }
+          let presentStudent = 0;
+          let absentStudent = 0;
+          $('#attendance-table-data tbody tr').find('td:eq(4) :checkbox').each(function () {
+              if(this.checked){ presentStudent++; } else { absentStudent++; }
+          });
+          $('#saModalTotal').text(rowCount);
+          $('#saModalStats').html(
+              '<div class="sa-stat sa-stat-present"><span class="sa-stat-icon"><i class="bi bi-check-lg"></i></span><span><span class="sa-stat-value">'+presentStudent+'</span><span class="sa-stat-label"> Present</span></span></div>'
+              + '<div class="sa-stat sa-stat-absent"><span class="sa-stat-icon"><i class="bi bi-x-lg"></i></span><span><span class="sa-stat-value">'+absentStudent+'</span><span class="sa-stat-label"> Absent</span></span></div>'
+          );
+          $('#saveAttendanceModal').modal('show');
+      }
+
+      $('#saConfirmYes').click(function () {
+          $('#saveAttendanceModal').modal('hide');
+          saveAttendance();
+      });
 
       const saveAttendance=()=>{
           const tableId = $("#attendance-table-data");
@@ -215,15 +376,14 @@
               $("#attendance-table-data tbody tr").each(function () {
                   let row = $(this);
                   let rowData = {
-                      /*studentName: row.find("td:nth-child(2)").text().trim(),
+                      /*studentName/SR now live together in td:nth-child(2)'s .sa-namecell,
                       fatherName: row.find("td:nth-child(3)").text().trim(),
-                      motherName: row.find("td:nth-child(4)").text().trim(),
-                      sr: row.find("td:nth-child(5)").text().trim(),*/
-                      isChecked: row.find("td:nth-child(6) input[type='checkbox']").is(":checked"),
-                      remark: row.find("td:nth-child(7) input[type='text']").val().trim(),
-                      id: row.find("td:nth-child(6) input[type='checkbox']").attr('id')
+                      motherName: row.find("td:nth-child(4)").text().trim(),*/
+                      isChecked: row.find("td:nth-child(5) input[type='checkbox']").is(":checked"),
+                      remark: row.find("td:nth-child(6) input[type='text']").val().trim(),
+                      id: row.find("td:nth-child(5) input[type='checkbox']").attr('id')
                   };
-                  //console.log("=========Data::::::: "+row.find("td:nth-child(6) input[type='checkbox']").attr('id'));
+                  //console.log("=========Data::::::: "+row.find("td:nth-child(5) input[type='checkbox']").attr('id'));
                   tableData.push(rowData);
               });
               fetch(`${contextPath}saveStudentAttendance`, {

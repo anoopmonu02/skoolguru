@@ -212,6 +212,7 @@ public class StudentController extends BaseController {
         model.addAttribute("bloodGroups", dropdownService.getBloodGroups());
         model.addAttribute("religions", dropdownService.getReligions());
         model.addAttribute("bodyTypes", dropdownService.getBodyTypes());
+        model.addAttribute("qualifications", dropdownService.getQualifications());
         model.addAttribute("studentPhotoMaxSizeKb", getStudentPhotoMaxSizeKb());
         return model;
     }
@@ -257,6 +258,15 @@ public class StudentController extends BaseController {
 
         }catch(Exception e){
             existingStudent = null;
+        }
+        // If an id was submitted but didn't resolve to a student in this school
+        // (a stale form, or a tampered id aimed at another school's record), this
+        // must be treated as a brand-new student rather than letting a non-null id
+        // reach studentService.saveStudent() below - JPA's repository.save() merges
+        // when the id is non-null, which would otherwise silently overwrite whatever
+        // row already has that id, even one belonging to a different school.
+        if(existingStudent==null){
+            student.setId(null);
         }
         if(result.hasErrors()){
             model = getAllGlobalModels(model);
@@ -453,6 +463,23 @@ public class StudentController extends BaseController {
             //School school = schoolService.getSchoolById(3L).get();
             student.setAcademicYear(academicYear);
             student.setSchool(school);
+
+            // Same Normal->force-off / Disability->require-one rule as the bulk-update
+            // page's HEALTH_EYE_ISSUE group: this page already carries bodyType and the
+            // health/eye fields together, so it gets the same enforcement.
+            String bodyType = student.getBodyType();
+            boolean isNormal = "NORMAL".equals(bodyType);
+            boolean isDisability = "PERSON WITH A DISABILITY".equals(bodyType);
+            if (isNormal) {
+                haveHealthIssues = false;
+                haveEyeIssue = false;
+            } else if (isDisability && !Boolean.TRUE.equals(haveHealthIssues) && !Boolean.TRUE.equals(haveEyeIssue)) {
+                model = getAllGlobalModels(model);
+                reapplyHealthInfoOnError(model, haveHealthIssues, haveEyeIssue, healthIssueDescription);
+                model.addAttribute("error", "For 'Person With A Disability', please select Have Health Issue or Have Eye Issue (or both).");
+                return "student/edit-student";
+            }
+
             Student existingStudent = studentService.editStudentDetails(student, customerPic, fileNameOrSchoolCode,
                     haveHealthIssues, haveEyeIssue, healthIssueDescription);
             String msg = "Student " + student.getStudentName() + " updated successfully";
@@ -490,10 +517,16 @@ public class StudentController extends BaseController {
     @GetMapping("/assign-sr")
     public String assignSRForm(Model model){
         log.info("Inside assignSRForm");
-        log.info("Inside assignSRForm");
         model.addAttribute("mediums", dropdownService.getMediums());
         model.addAttribute("grades", dropdownService.getGrades());
         model.addAttribute("sections", dropdownService.getSections());
+        // Without this, base.html never loads the DataTables/jQuery bundle
+        // for this page (th:if="${page == 'datatable'}") and the rebuilt
+        // table below throws "initListDataTable/DataTable is not defined" -
+        // same root cause already found and fixed for Sibling Group List
+        // and Update Aadhar (which already had this line) earlier this
+        // engagement.
+        model.addAttribute("page", "datatable");
         return "student/assign-srno";
     }
 
@@ -551,7 +584,8 @@ public class StudentController extends BaseController {
     public String deleteStudent(@PathVariable("deleteId")String id, Model model, RedirectAttributes redirectAttributes){
         log.info("Inside deleteStudent");
         log.info("Inside deleteStudent");
-        String msg = studentService.deleteStudent(Long.valueOf(id));
+        School school = (School)model.getAttribute("school");
+        String msg = studentService.deleteStudent(Long.valueOf(id), school.getId());
         if(msg.contains("success")){
             redirectAttributes.addFlashAttribute("success",msg.split("#####")[1]);
         } else {
@@ -564,7 +598,6 @@ public class StudentController extends BaseController {
             // (a redirect: return ignores Model, only RedirectAttributes
             // survives it) - left as-is since removing them is out of scope
             // here and they're harmless.
-            School school = (School)model.getAttribute("school");
             List<Student> studentList = studentService.getAllActiveStudentsOfSchool(school.getId());
             model.addAttribute("students", studentList);
             model.addAttribute("hasStudent", !studentList.isEmpty());
@@ -574,16 +607,24 @@ public class StudentController extends BaseController {
         return "redirect:/student/student";
     }
 
+    // Was a @GetMapping: a state-changing action reachable by a plain GET is not
+    // covered by Spring Security's CSRF check (CSRF only guards POST/PUT/PATCH/
+    // DELETE), so any page an authenticated admin visited could silently trigger
+    // this via e.g. an <img src="...activate-student/5"> tag. Switched to POST -
+    // the confirmation modal's JS now submits a real form instead of doing
+    // window.location.href, so the browser sends the CSRF token like every other
+    // POST form in this app already does. Same fix already applied to
+    // #deleteStudent above.
     @CheckAccess(screen = "STUDENT_ACTIVATE", type = AccessType.CREATE)
-    @GetMapping("/activate-student/{studentIdForUpdate}")
+    @PostMapping("/activate-student/{studentIdForUpdate}")
     public String activateStudent(@PathVariable("studentIdForUpdate")String id, Model model, RedirectAttributes redirectAttributes){
         log.info("Inside activateStudent");
         log.info("Inside activateStudent");
-        String msg = studentService.activateStudent(Long.valueOf(id));
+        School school = (School)model.getAttribute("school");
+        String msg = studentService.activateStudent(Long.valueOf(id), school.getId());
         if(msg.contains("success")){
             redirectAttributes.addFlashAttribute("success",msg.split("#####")[1]);
         } else if(msg.contains("Error")){
-            School school = (School)model.getAttribute("school");
             List<Student> studentList = studentService.getAllActiveStudentsOfSchool(school.getId());
             model.addAttribute("students", studentList);
             model.addAttribute("hasStudent", !studentList.isEmpty());

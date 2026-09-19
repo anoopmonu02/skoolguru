@@ -722,13 +722,26 @@ public class GlobalController extends BaseController {
                 // at another school's existing FeeClassMap - without this check,
                 // setSchool()/setGrade()/setMedium() below would silently hijack
                 // that row into the caller's own school and overwrite its amount.
-                if (fee.getId() != null) {
+                if (fee.getId() != null && fee.getId() > 0) {
                     FeeClassMap existingRow = feeclassmapService.getFeeClassMapById(fee.getId()).orElse(null);
                     if (existingRow == null || existingRow.getSchool() == null
                             || !existingRow.getSchool().getId().equals(school.getId())) {
                         redirectAttributes.addFlashAttribute("error", "You do not have access to one of the selected fee heads.");
                         return "redirect:/admin/fee-class";
                     }
+                }
+                if (fee.getId() != null && fee.getId() <= 0) {
+                    // Sentinel id (-1, or any other non-positive placeholder) from the
+                    // Add-matrix frontend means "no existing row yet" - it deliberately
+                    // isn't null so the ownership check above still runs, but it also
+                    // isn't a real database id. JpaRepository.save() decides INSERT vs.
+                    // UPDATE purely by whether the entity's id is null: a non-null id
+                    // routes through EntityManager.merge(), which tries to UPDATE a row
+                    // with that id, and since no row with this sentinel id exists,
+                    // Hibernate throws "Row was already updated or deleted by another
+                    // transaction" (StaleStateException). Clear it here so save()
+                    // correctly INSERTs a new row instead.
+                    fee.setId(null);
                 }
                 fee.setAcademicYear(academicYear);
                 fee.setSchool(school);
@@ -937,13 +950,26 @@ public class GlobalController extends BaseController {
             Feehead feehead = feeMonthMaps.get(0).getFeehead();
             for (FeeMonthMap fee : feeMonthMaps) {
                 // Same tampered-hidden-id hijack risk as saveFeeClassMappings above.
-                if (fee.getId() != null) {
+                if (fee.getId() != null && fee.getId() > 0) {
                     FeeMonthMap existingRow = feemonthmapService.getFeeMonthMapById(fee.getId()).orElse(null);
                     if (existingRow == null || existingRow.getSchool() == null
                             || !existingRow.getSchool().getId().equals(school.getId())) {
                         redirectAttributes.addFlashAttribute("error", "You do not have access to one of the selected months.");
                         return "redirect:/admin/fee-month";
                     }
+                }
+                if (fee.getId() != null && fee.getId() <= 0) {
+                    // Sentinel id (-1, or any other non-positive placeholder) from the
+                    // Add-matrix frontend means "no existing row yet" - it deliberately
+                    // isn't null so the ownership check above still runs, but it also
+                    // isn't a real database id. JpaRepository.save() decides INSERT vs.
+                    // UPDATE purely by whether the entity's id is null: a non-null id
+                    // routes through EntityManager.merge(), which tries to UPDATE a row
+                    // with that id, and since no row with this sentinel id exists,
+                    // Hibernate throws "Row was already updated or deleted by another
+                    // transaction" (StaleStateException). Clear it here so save()
+                    // correctly INSERTs a new row instead.
+                    fee.setId(null);
                 }
                 fee.setAcademicYear(academicYear);
                 fee.setSchool(school);
@@ -1140,13 +1166,26 @@ public class GlobalController extends BaseController {
                 // at another school's existing Discount-Class mapping - without
                 // this check, setSchool()/setGrade()/setMedium() below would
                 // silently hijack that row into the caller's own school.
-                if (fee.getId() != null) {
+                if (fee.getId() != null && fee.getId() > 0) {
                     DiscountClassMap existingRow = discountclassmapService.getDiscountClassMapById(fee.getId()).orElse(null);
                     if (existingRow == null || existingRow.getSchool() == null
                             || !existingRow.getSchool().getId().equals(school.getId())) {
                         redirectAttributes.addFlashAttribute("error", "You do not have access to one of the selected discount heads.");
                         return "redirect:/admin/discount-class";
                     }
+                }
+                if (fee.getId() != null && fee.getId() <= 0) {
+                    // Sentinel id (-1, or any other non-positive placeholder) from the
+                    // Add-matrix frontend means "no existing row yet" - it deliberately
+                    // isn't null so the ownership check above still runs, but it also
+                    // isn't a real database id. JpaRepository.save() decides INSERT vs.
+                    // UPDATE purely by whether the entity's id is null: a non-null id
+                    // routes through EntityManager.merge(), which tries to UPDATE a row
+                    // with that id, and since no row with this sentinel id exists,
+                    // Hibernate throws "Row was already updated or deleted by another
+                    // transaction" (StaleStateException). Clear it here so save()
+                    // correctly INSERTs a new row instead.
+                    fee.setId(null);
                 }
                 fee.setAcademicYear(academicYear);
                 fee.setSchool(school);
@@ -1353,13 +1392,26 @@ public class GlobalController extends BaseController {
             for (DiscountMonthMap fee : discountMonthMaps) {
                 // Same tampered-hidden-id hijack risk as the Fee-Class/Fee-Month/
                 // Discount-Class Add-matrix flows above.
-                if (fee.getId() != null) {
+                if (fee.getId() != null && fee.getId() > 0) {
                     DiscountMonthMap existingRow = discountmonthmapService.getDiscountMonthMapById(fee.getId()).orElse(null);
                     if (existingRow == null || existingRow.getSchool() == null
                             || !existingRow.getSchool().getId().equals(school.getId())) {
                         redirectAttributes.addFlashAttribute("error", "You do not have access to one of the selected months.");
                         return "redirect:/admin/discount-month";
                     }
+                }
+                if (fee.getId() != null && fee.getId() <= 0) {
+                    // Sentinel id (-1, or any other non-positive placeholder) from the
+                    // Add-matrix frontend means "no existing row yet" - it deliberately
+                    // isn't null so the ownership check above still runs, but it also
+                    // isn't a real database id. JpaRepository.save() decides INSERT vs.
+                    // UPDATE purely by whether the entity's id is null: a non-null id
+                    // routes through EntityManager.merge(), which tries to UPDATE a row
+                    // with that id, and since no row with this sentinel id exists,
+                    // Hibernate throws "Row was already updated or deleted by another
+                    // transaction" (StaleStateException). Clear it here so save()
+                    // correctly INSERTs a new row instead.
+                    fee.setId(null);
                 }
                 fee.setAcademicYear(academicYear);
                 fee.setSchool(school);

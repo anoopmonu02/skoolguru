@@ -142,7 +142,7 @@
               <a class="es-c-emerald" href="#es4"><i class="bi bi-geo-alt"></i> Contact</a>
               <a class="es-c-indigo" href="#es5"><i class="bi bi-telephone"></i> Emergency</a>
               <a class="es-c-amber" href="#es6"><i class="bi bi-mortarboard"></i> Academic</a>
-              <a class="es-c-pink" href="#es7"><i class="bi bi-shield-lock"></i> Bank &amp; Aadhar</a>
+              <a class="es-c-pink" href="#es7"><i class="bi bi-shield-lock"></i> Bank &amp; Government IDs</a>
             </div>
           </div>
 
@@ -179,7 +179,10 @@
                 </div>
                 <div class="col-md-3">
                   <label for="fatherQualification" class="form-label">Father Qualification</label>
-                  <input type="text" id="fatherQualification" class="form-control" th:field="*{fatherQualification}">
+                  <select id="fatherQualification" class="form-control" th:field="*{fatherQualification}">
+                    <option value="">Select</option>
+                    <option th:each="entry : ${qualifications}" th:value="${entry.value}" th:text="${entry.key}"></option>
+                  </select>
                   <p class="text-danger" th:if="${#fields.hasErrors('fatherQualification')}" th:errors="*{fatherQualification}">m name Error</p>
                 </div>
 
@@ -196,7 +199,10 @@
                 </div>
                 <div class="col-md-3">
                   <label for="motherQualification" class="form-label">Mother Qualification</label>
-                  <input type="text" id="motherQualification" class="form-control" th:field="*{motherQualification}">
+                  <select id="motherQualification" class="form-control" th:field="*{motherQualification}">
+                    <option value="">Select</option>
+                    <option th:each="entry : ${qualifications}" th:value="${entry.value}" th:text="${entry.key}"></option>
+                  </select>
                   <p class="text-danger" th:if="${#fields.hasErrors('motherQualification')}" th:errors="*{motherQualification}">m name Error</p>
                 </div>
 
@@ -217,9 +223,9 @@
                 <div class="col-md-3">
                   <label for="gender" class="form-label">Gender</label>
                   <select id="gender" class="form-control" th:field="*{gender}">
-                    <option value="Male" th:selected="Male == ${student.gender}">Male</option>
-                    <option value="Female" th:selected="Female == ${student.gender}">Female</option>
-                    <option value="No_Preference" th:selected="No_Preference == ${student.gender}">No Preference</option>
+                    <option value="MALE" th:selected="${#strings.equalsIgnoreCase(student.gender, 'MALE')}">Male</option>
+                    <option value="FEMALE" th:selected="${#strings.equalsIgnoreCase(student.gender, 'FEMALE')}">Female</option>
+                    <option value="NO_PREFERENCE" th:selected="${#strings.equalsIgnoreCase(student.gender, 'NO_PREFERENCE')}">No Preference</option>
                   </select>
                   <p class="text-danger" th:if="${#fields.hasErrors('gender')}" th:errors="*{gender}">m name Error</p>
                 </div>
@@ -428,14 +434,24 @@
               </div>
             </div>
 
-            <!-- ============ BANK & AADHAR ============ -->
+            <!-- ============ BANK & GOVERNMENT IDS ============ -->
             <div class="es-section es-c-pink" id="es7">
-              <h4><span class="es-h-icon"><i class="bi bi-shield-lock"></i></span> Bank &amp; Aadhar Details</h4>
+              <h4><span class="es-h-icon"><i class="bi bi-shield-lock"></i></span> Bank &amp; Government IDs</h4>
               <div class="row g-3">
                 <div class="col-md-4">
                   <label for="aadharNo" class="form-label">Aadhar Number</label>
                   <input type="text" id="aadharNo" class="form-control" th:field="*{aadharNo}">
                   <p class="text-danger" th:if="${#fields.hasErrors('aadharNo')}" th:errors="*{aadharNo}">aadharNo Error</p>
+                </div>
+                <div class="col-md-4">
+                  <label for="apaarId" class="form-label">Apaar ID</label>
+                  <input type="text" id="apaarId" class="form-control" th:field="*{apaarId}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('apaarId')}" th:errors="*{apaarId}">apaarId Error</p>
+                </div>
+                <div class="col-md-4">
+                  <label for="penNo" class="form-label">PEN Number</label>
+                  <input type="text" id="penNo" class="form-control" th:field="*{penNo}">
+                  <p class="text-danger" th:if="${#fields.hasErrors('penNo')}" th:errors="*{penNo}">PEN No Error</p>
                 </div>
               </div>
             </div>
@@ -502,6 +518,48 @@
         this.value = this.value.replace(/[^0-9]/g, '');
       });
 
+      // ===================== Body Type <-> Health/Eye Issue rule =====================
+      // Same rule as the bulk-update page's HEALTH_EYE_ISSUE group: Normal forces
+      // both checkboxes off and disabled; Person With A Disability requires at
+      // least one of them checked. StudentController.editStudentDetails()
+      // re-enforces this server-side so it can't be bypassed.
+      function setBodyTypeHealthDisabledState() {
+        const disabled = $('#bodyType').val() === 'NORMAL';
+        $('#haveHealthIssues').prop('disabled', disabled);
+        $('#haveEyeIssue').prop('disabled', disabled);
+      }
+
+      function applyBodyTypeHealthRule() {
+        const bodyType = $('#bodyType').val();
+        const $health = $('#haveHealthIssues');
+        const $eye = $('#haveEyeIssue');
+        $health.removeClass('is-invalid');
+        $eye.removeClass('is-invalid');
+        if (bodyType === 'NORMAL') {
+          $health.prop('disabled', true).prop('checked', false);
+          $eye.prop('disabled', true).prop('checked', false);
+          return null;
+        }
+        $health.prop('disabled', false);
+        $eye.prop('disabled', false);
+        if (bodyType === 'PERSON WITH A DISABILITY' && !$health.is(':checked') && !$eye.is(':checked')) {
+          $health.addClass('is-invalid');
+          $eye.addClass('is-invalid');
+          return "For 'Person With A Disability', please select Have Health Issue or Have Eye Issue (or both).";
+        }
+        return null;
+      }
+
+      $('#bodyType, #haveHealthIssues, #haveEyeIssue').on('change', function () {
+        const error = applyBodyTypeHealthRule();
+        if (error) showMsg('error', error, 'Validation');
+      });
+
+      // Light pass on load only: mirrors stored Body Type by disabling the
+      // checkboxes, but does NOT force-uncheck or flag invalid, so loading the
+      // page never silently mutates pre-existing legacy data nobody has touched.
+      setBodyTypeHealthDisabledState();
+
       // ===================== Student photo: preview + size cap =====================
       // Size limit is configurable server-side (system_config key
       // STUDENT_PHOTO_MAX_SIZE_KB, default 500) and re-validated server-side on
@@ -548,6 +606,13 @@
           e.preventDefault();
           showMsg('error', 'Please choose a photo under ' + studentPhotoMaxSizeKb + 'KB, or clear the selection.', 'Error');
           document.getElementById('es1').scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+        const healthRuleError = applyBodyTypeHealthRule();
+        if (healthRuleError) {
+          e.preventDefault();
+          showMsg('error', healthRuleError, 'Validation');
+          document.getElementById('es3').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       });
 

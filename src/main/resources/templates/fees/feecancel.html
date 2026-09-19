@@ -7,6 +7,82 @@
 </head>
 <body>
 <section>
+  <!--
+      Fee Cancellation — restyled on the same "Neo" design system used by
+      fee-receipt.html / feereminder.html / pendingbalanceform.html: Neo
+      cards with icon+label headers, label/value rows (fc-irow) instead of
+      plain Bootstrap list-group items, a da-search-wrap styled search box,
+      and a restyled confirm modal that now names the student/receipt being
+      cancelled (this is a destructive action, so surfacing what is about to
+      be cancelled is a real safety improvement, not just cosmetics).
+      Every id/name the backend and inline script depend on is unchanged:
+      search-input, school_id, academic_id, feesubmission_id, StudentId,
+      gradeId, feeSubmitBtn, confirmModal, confirmYes. The value-holding
+      spans keep their original classes (studname, fname, mname, contactno,
+      cmedium, cgrade, csection, csr, tamt, pamt, famt, damt) — only the
+      static "<label>:" text that used to be baked into the JS-built HTML
+      string is now in the template, with the script injecting just the
+      (escaped) value, matching the cb-irow / fr- pattern used elsewhere.
+      New classes are prefixed "fc-" to avoid clashing with other pages.
+
+      Also fixed while touching this file ("check security also"):
+      setFeeDetails() built #feetable rows via unescaped string
+      concatenation (same stored-XSS class already fixed in
+      fee-receipt.html and setFeeRelatedData() in this same file) — now
+      routed through the existing escapeHtml() helper. That table/function
+      is currently unreachable dead code (no #feetable element exists in
+      this page and loadStudentData() is never called), left in place
+      rather than removed to avoid unrelated behavior changes, but hardened
+      regardless in case it's ever wired back up.
+  -->
+  <style>
+    /* Search box — same da- pattern used on other Neo pages */
+    .da-search-wrap { position: relative; margin-bottom: 18px; max-width: 460px; }
+    .da-search-wrap input { padding-left: 38px; }
+    .da-search-wrap .bi-search { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+    .da-search-results { position: absolute; z-index: 20; width: 100%; max-height: 320px; overflow-y: auto; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-xs); margin-top: 4px; display: none; }
+
+    .fc-infogrid{ display:grid; grid-template-columns:1.7fr 1fr; gap:14px; margin-bottom:20px; }
+    @media (max-width:900px){ .fc-infogrid{ grid-template-columns:1fr; } }
+
+    .fc-card{ background:var(--card-bg); border:1px solid var(--border-color); border-radius:var(--radius-lg); box-shadow:var(--shadow-xs); }
+
+    /* ── Student+Academic — merged combo card, same pattern as feesubmitform-neo.html / pendingbalanceform.html ── */
+    .fc-combocard{ padding:18px 20px; display:flex; gap:16px; }
+    .fc-combo-left{ flex:1; min-width:0; }
+    .fc-combo-namerow{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+    .fc-combo-namerow .studname{ font-size:1rem; font-family:"Outfit", sans-serif; color:var(--text-primary); }
+    .fc-combo-namerow .stu-avatar{ width:36px; height:36px; font-size:.78rem; background:var(--accent-light); color:var(--accent); }
+    .fc-combo-metaline{ font-size:.8rem; color:var(--text-muted); margin-bottom:10px; }
+    .fc-combo-metaline b{ color:var(--text-primary); font-weight:600; }
+    .fc-msep{ color:var(--border-color); margin:0 8px; }
+    .fc-combo-contact{ font-size:.84rem; color:var(--text-muted); display:flex; align-items:center; gap:7px; margin-bottom:10px; }
+    .fc-combo-contact i{ color:var(--accent); }
+    .fc-combo-contact b{ color:var(--text-primary); font-weight:600; }
+    .fc-combo-parents{ margin-bottom:0; }
+    .fc-combo-photocol{ flex:none; display:flex; align-items:flex-start; }
+    .fc-combo-photo-img, .fc-combo-photo-fallback{ width:84px; height:96px; border-radius:10px; border:1px solid var(--border-color); }
+    .fc-combo-photo-img{ object-fit:cover; }
+    .fc-combo-photo-fallback{ background:var(--body-bg); color:var(--text-muted); display:flex; align-items:center; justify-content:center; font-size:1.9rem; }
+    .fc-icard-hd{ display:flex; align-items:center; gap:9px; padding:14px 18px; border-bottom:1px solid var(--border-color); }
+    .fc-icard-hd i{ color:var(--accent); font-size:1rem; }
+    .fc-icard-hd b{ font-size:.88rem; font-family:"Outfit", sans-serif; color:var(--text-primary); }
+    .fc-icard-body{ padding:2px 18px 6px; }
+    .fc-irow{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border-color); font-size:.84rem; }
+    .fc-irow:last-child{ border-bottom:none; }
+    .fc-irow > span:first-child{ color:var(--text-muted); }
+    .fc-irow > span:last-child{ font-weight:600; color:var(--text-primary); text-align:right; }
+
+    .fc-actionsrow{ display:flex; justify-content:flex-end; align-items:center; padding-top:10px; margin-bottom:28px; }
+    .btn.fc-cancelbtn{ border-radius:10px; padding:10px 26px; font-size:.86rem; font-weight:600; display:inline-flex; align-items:center; gap:8px; }
+
+    /* Confirm modal */
+    .fc-modal-icon{ width:52px; height:52px; border-radius:50%; background:#fee2e2; color:#dc2626; display:flex; align-items:center; justify-content:center; font-size:1.5rem; margin:4px auto 14px; }
+    .fc-modal-title{ text-align:center; font-family:"Outfit", sans-serif; font-size:1.05rem; color:var(--text-primary); }
+    .fc-modal-text{ text-align:center; color:var(--text-muted); font-size:.86rem; margin-top:6px; }
+    .fc-modal-target{ display:block; margin-top:10px; font-weight:700; color:var(--text-primary); font-size:.9rem; }
+  </style>
+
 
   <div class="container-fluid px-3">
     <div class="row mt-2 ">
@@ -14,71 +90,61 @@
         <div th:replace="~{components/ui :: page-header('Fee Cancellation')}"></div>
 
         <!--Search box-->
-        <div class="search-container my-3">
+        <div class="da-search-wrap my-3">
+          <i class="bi bi-search"></i>
           <input class="form-control" id="search-input" onkeyup="searchreceiptNo()" placeholder="Search receipt no" type="text">
-          <div class="search-result">
-
-          </div>
+          <div class="da-search-results search-result"></div>
         </div>
 
         <hr/>
         <div class="student-detail mb-3">
           <div class="academic-student-block">
-            <div class="row">
-              <div class="col-sm-4">
-                <div class="card border-warning" >
-                  <h5 class="card-header">Student Detail</h5>
-                  <ul class="list-group list-group-flush">
-                    <li class="list-group-item studname"><strong>Student Name:</strong></li>
-                    <li class="list-group-item fname"><strong>Father Name:</strong></li>
-                    <li class="list-group-item mname"><strong>Mother Name:</strong></li>
-                    <li class="list-group-item contactno contact-update-btn"><strong>Contact No:</strong>
-                    </li>
-                  </ul>
+
+            <div class="fc-infogrid">
+              <div class="fc-card fc-combocard">
+                <div class="fc-combo-left">
+                  <div class="fc-combo-namerow">
+                    <span class="stu-avatar" id="studentAvatar"></span>
+                    <span class="studname">&mdash;</span>
+                  </div>
+                  <div class="fc-combo-metaline">
+                    <span>Medium: <b class="cmedium">&mdash;</b></span><span class="fc-msep">|</span><span>Class: <b class="cgrade">&mdash;</b>-<b class="csection">&mdash;</b></span><span class="fc-msep">|</span><span>SR No: <b class="csr">&mdash;</b></span>
+                  </div>
+                  <div class="fc-combo-contact">
+                    <i class="bi bi-telephone-fill"></i><span>Contact No:</span> <b class="contactno contact-update-btn">&mdash;</b>
+                  </div>
+                  <div class="fc-combo-metaline fc-combo-parents">
+                    <span>Father Name: <b class="fname">&mdash;</b></span><span class="fc-msep">|</span><span>Mother Name: <b class="mname">&mdash;</b></span>
+                  </div>
+                </div>
+                <div class="fc-combo-photocol">
+                  <img id="studentPhoto" class="fc-combo-photo-img" style="display:none;" alt="Student photo">
+                  <div id="studentPhotoFallback" class="fc-combo-photo-fallback"><i class="bi bi-person"></i></div>
                 </div>
               </div>
 
-              <div class="col-sm-4">
-                <div class="card border-warning">
-                  <h5 class="card-header">Academic Detail</h5>
-                  <ul class="list-group list-group-flush">
-                    <li class="list-group-item cmedium"><strong>Medium: </strong></li>
-                    <li class="list-group-item cgrade"><strong>Class: </strong></li>
-                    <li class="list-group-item csection"><strong>Section: </strong></li>
-                    <li class="list-group-item csr"><strong>SR No: </strong></li>
-                  </ul>
+              <div class="fc-card">
+                <div class="fc-icard-hd"><i class="bi bi-cash-stack"></i><b>Fee Detail</b></div>
+                <div class="fc-icard-body">
+                  <div class="fc-irow"><span>Total Amount</span><span class="tamt">&mdash;</span></div>
+                  <div class="fc-irow"><span>Paid Amount</span><span class="pamt">&mdash;</span></div>
+                  <div class="fc-irow"><span>Fine Amount</span><span class="famt">&mdash;</span></div>
+                  <div class="fc-irow"><span>Discount Amount</span><span class="damt">&mdash;</span></div>
                 </div>
               </div>
-
-              <div class="col-sm-4">
-                <div class="card border-warning">
-                  <h5 class="card-header">Fee Detail</h5>
-                  <ul class="list-group list-group-flush">
-                    <li class="list-group-item tamt"><strong>Total Amount: </strong></li>
-                    <li class="list-group-item pamt"><strong>Paid Amount: </strong></li>
-                    <li class="list-group-item famt"><strong>Fine Amount: </strong></li>
-                    <li class="list-group-item damt"><strong>Discount Amount: </strong></li>
-                  </ul>
-                </div>
-              </div>
-
-              <input type="hidden" name="school_id" id="school_id" th:field="*{school.id}"/>
-              <input type="hidden" name="academic_id" id="academic_id" th:field="*{academicYear.id}"/>
-              <input type="hidden" name="feesubmission_id" id="feesubmission_id" value=""/>
-              <input type="hidden" id="StudentId" value="" name="StudentId">
-              <input type="hidden" id="gradeId" value="" name="gradeId">
             </div>
+
+            <input type="hidden" name="school_id" id="school_id" th:field="*{school.id}"/>
+            <input type="hidden" name="academic_id" id="academic_id" th:field="*{academicYear.id}"/>
+            <input type="hidden" name="feesubmission_id" id="feesubmission_id" value=""/>
+            <input type="hidden" id="StudentId" value="" name="StudentId">
+            <input type="hidden" id="gradeId" value="" name="gradeId">
           </div>
 
         </div>
 
-        <div class="row">
-          <div class="col-md-5">
-            <!--<a class="btn btn-outline-secondary btn-sm" href="/student/student"><i class="bi bi-arrow-left"></i> Back to List</a>-->
-          </div>
-          <div class="col-md-6 mb-5">
-            <button sms:access="FEE_CANCEL:DELETE" onclick="checkMonths()" class="btn btn-danger" id="feeSubmitBtn"><i class="bi bi-journal-x"></i> Cancel Fee</button>
-          </div>
+        <div class="fc-actionsrow">
+          <button sms:access="FEE_CANCEL:DELETE" class="btn btn-danger fc-cancelbtn" id="feeSubmitBtn"><i class="bi bi-journal-x"></i> Cancel Fee</button>
         </div>
 
       </div>
@@ -88,15 +154,20 @@
   <div class="modal fade" id="confirmModal" tabindex="-1">
     <div class="modal-dialog">
       <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Confirm Action</h5>
+        <div class="modal-header border-0 pb-0">
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        <div class="modal-body">
-          Are you sure you want to proceed?
+        <div class="modal-body pt-0">
+          <div class="fc-modal-icon"><i class="bi bi-exclamation-triangle"></i></div>
+          <h5 class="fc-modal-title">Cancel this fee?</h5>
+          <div class="fc-modal-text">
+            This will permanently cancel the fee record below. This action cannot be undone.
+            <span class="fc-modal-target" id="fcModalTarget"></span>
+          </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" id="confirmYes" class="btn btn-danger">Yes</button>
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <div class="modal-footer border-0 justify-content-center pt-0">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Keep it</button>
+          <button type="button" id="confirmYes" class="btn btn-danger">Yes, cancel fee</button>
         </div>
       </div>
     </div>
@@ -105,8 +176,48 @@
 
   <script type="text/javascript" th:inline="javascript">
     const contextPath = /*[[@{/}]]*/ '/';
-    
-    
+
+    // Escapes a value before it is interpolated into an .html()-built string.
+    // Student/father/mother names, mobile numbers, grade/section/medium labels
+    // below come straight from a JSON response with no server-side escaping,
+    // and were previously interpolated into .html() unescaped - a stored-XSS
+    // gap. Same fix pattern already applied to feesubmitform.html /
+    // feesubmitform-new.html moments earlier.
+    const escapeHtml = function (value) {
+        const div = document.createElement('div');
+        div.textContent = value !== undefined && value !== null ? value : '';
+        return div.innerHTML;
+    };
+
+    // Plain-text (unescaped-safe, not HTML) label describing the currently
+    // loaded fee record, shown in the cancel confirmation modal so the user
+    // can see exactly what they are about to cancel before confirming.
+    let fcCurrentStudentLabel = '';
+
+    // ── Avatar initials/color + student photo — same visual pattern as
+    // fees/feesubmitform-neo.html and fees/pendingbalanceform.html ──
+    const _fcAvatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+    const _fcInitialsOf = (name) => (name || '').trim().split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+    const _fcAvatarColorFor = (id) => _fcAvatarColors[Math.abs(id || 0) % _fcAvatarColors.length];
+
+    // Student photo — same lookup as fee-receipt.html / pendingbalanceform.html:
+    // pic is just a filename, served via GET /student/images/{filename}.
+    // Falls back to the person icon if there's no pic or the file fails to load.
+    const _fcShowStudentPhoto = (pic) => {
+        const img = document.getElementById('studentPhoto');
+        const fallback = document.getElementById('studentPhotoFallback');
+        if (pic) {
+            img.onerror = () => { img.style.display = 'none'; fallback.style.display = 'flex'; };
+            img.src = `${contextPath}student/images/${encodeURIComponent(pic)}`;
+            img.style.display = '';
+            fallback.style.display = 'none';
+        } else {
+            img.onerror = null;
+            img.removeAttribute('src');
+            img.style.display = 'none';
+            fallback.style.display = 'flex';
+        }
+    };
 
 
     function showWarningMsg(msgType, msg, headerValue){
@@ -142,7 +253,12 @@
           return response.json();
         }).then((data)=>{
           console.log(data);
-          setFeeRelatedData(data, 1);
+          if('error' in data){
+            showWarningMsg('warning', data.error, 'Message');
+            setFeeRelatedData(data, 0);
+          } else{
+            setFeeRelatedData(data, 1);
+          }
         });
 
 
@@ -190,7 +306,7 @@
         console.log("value-----"+value);
         let formatDateVal = formatDate(value.feeSubmissionDate);
         //+value.academicStudent.id+'_'
-        $('#feetable > tbody').append('<tr><td>'+ (i+1) +'</td><td>'+ formatDateVal+'</td><td>'+ value.receiptNo +'</td><td>'+value.totalAmount+'</td><td>'+ value.paidAmount +'</td><td>'+ value.balanceAmount +'</td><td><a onclick="loadStudentReceiptData('+value.id+')" href="#" class="btn btn-success"><i class="bi bi-printer-fill"></i></a></td></tr>');
+        $('#feetable > tbody').append('<tr><td>'+ (i+1) +'</td><td>'+ escapeHtml(formatDateVal) +'</td><td>'+ escapeHtml(value.receiptNo) +'</td><td>'+ escapeHtml(value.totalAmount) +'</td><td>'+ escapeHtml(value.paidAmount) +'</td><td>'+ escapeHtml(value.balanceAmount) +'</td><td><a onclick="loadStudentReceiptData(\''+value.encodedId+'\')" href="#" class="btn btn-success"><i class="bi bi-printer-fill"></i></a></td></tr>');
       }
     }
 
@@ -203,7 +319,7 @@
       return `${day}/${month}/${year}`;
     }
     const loadStudentReceiptData=(id)=>{
-      if(id>0){
+      if(id){
         let url = `${contextPath}student-receipt-print/${id}`;
         fetch(url).then(response => {
           return response.json();
@@ -229,42 +345,53 @@
         console.log("DATA----"+data);
         console.log("-------"+data.academicStudent);
         console.log("-------"+data.feeSubmission.id);
-        $(".studname").html(`<strong>Student Name: </strong> <span class="text-end">${data.feeSubmission.academicStudent.student.studentName}</span>`);
-        //$(".studname1").html(` - <strong> ${data.feeSubmission.academicStudent.student.studentName}</strong>`);
-        $(".fname").html(`<strong>Father Name: </strong> ${data.feeSubmission.academicStudent.student.fatherName}`);
-        $(".mname").html(`<strong>Mother Name: </strong> ${data.feeSubmission.academicStudent.student.motherName}`);
-        $(".contactno").html(`<strong>Contact No: </strong> ${data.feeSubmission.academicStudent.student.mobile1}`);
+        $(".studname").html(`${escapeHtml(data.feeSubmission.academicStudent.student.studentName)}`);
+        $(".fname").html(`${escapeHtml(data.feeSubmission.academicStudent.student.fatherName)}`);
+        $(".mname").html(`${escapeHtml(data.feeSubmission.academicStudent.student.motherName)}`);
+        $(".contactno").html(`${escapeHtml(data.feeSubmission.academicStudent.student.mobile1)}`);
 
-        $(".cmedium").html(`<strong>Medium: </strong> ${data.feeSubmission.academicStudent.medium.mediumName}`);
-        $(".cgrade").html(`<strong>Class: </strong> ${data.feeSubmission.academicStudent.grade.gradeName}`);
-        $(".csection").html(`<strong>Section: </strong> ${data.feeSubmission.academicStudent.section.sectionName}`);
-        $(".csr").html(`<strong>SR No: </strong> ${data.feeSubmission.academicStudent.classSrNo==null?"":data.feeSubmission.academicStudent.classSrNo}`);
+        $(".cmedium").html(`${escapeHtml(data.feeSubmission.academicStudent.medium.mediumName)}`);
+        $(".cgrade").html(`${escapeHtml(data.feeSubmission.academicStudent.grade.gradeName)}`);
+        $(".csection").html(`${escapeHtml(data.feeSubmission.academicStudent.section.sectionName)}`);
+        $(".csr").html(`${data.feeSubmission.academicStudent.classSrNo==null?"&mdash;":escapeHtml(data.feeSubmission.academicStudent.classSrNo)}`);
 
-        $(".tamt").html(`<strong>Total Amount: </strong> ₹ ${formatINR(data.feeSubmission.totalAmount)}`);
-        $(".pamt").html(`<strong>Paid Amount: </strong> ₹ ${formatINR(data.feeSubmission.paidAmount)}`);
-        $(".famt").html(`<strong>Fine Amount: </strong> ₹ ${formatINR(data.feeSubmission.fineAmount)}`);
-        $(".damt").html(`<strong>Discount Amount: </strong> ₹ ${formatINR(data.feeSubmission.discountAmount)}`);
+        $(".tamt").html(`₹ ${formatINR(data.feeSubmission.totalAmount)}`);
+        $(".pamt").html(`₹ ${formatINR(data.feeSubmission.paidAmount)}`);
+        $(".famt").html(`₹ ${formatINR(data.feeSubmission.fineAmount)}`);
+        $(".damt").html(`₹ ${formatINR(data.feeSubmission.discountAmount)}`);
 
         $('#StudentId').val(`${data.feeSubmission.academicStudent.student.id}`);
         $('#gradeId').val(`${data.feeSubmission.academicStudent.grade.id}`);
         $('#feesubmission_id').val(`${data.feeSubmission.id}`);
+
+        const _fcStu = data.feeSubmission.academicStudent.student;
+        const _fcAvColor = _fcAvatarColorFor(data.feeSubmission.academicStudent.id);
+        $('#studentAvatar').text(_fcInitialsOf(_fcStu.studentName)).css({ background: _fcAvColor + '22', color: _fcAvColor });
+        _fcShowStudentPhoto(_fcStu.pic);
+
+        // Plain text (no markup) for the confirm-modal summary line.
+        fcCurrentStudentLabel = data.feeSubmission.academicStudent.student.studentName
+          + (data.feeSubmission.receiptNo ? ' — Receipt No: ' + data.feeSubmission.receiptNo : '');
       } else{
-        $(".studname").html(`<strong>Student Name:</strong>`);
-        //$(".studname1").html(``);
-        $(".fname").html(`<strong>Father Name:</strong> `);
-        $(".mname").html(`<strong>Mother Name:</strong> `);
-        $(".contactno").html(`<strong>Contact No:</strong> `);
+        $(".studname").html(`&mdash;`);
+        $(".fname").html(`&mdash;`);
+        $(".mname").html(`&mdash;`);
+        $(".contactno").html(`&mdash;`);
 
-        $(".cmedium").html(`<strong>Medium: </strong> `);
-        $(".cgrade").html(`<strong>Class: </strong> `);
-        $(".csection").html(`<strong>Section:</strong> `);
-        $(".csr").html(`<strong>SR No:</strong> `);
+        $(".cmedium").html(`&mdash;`);
+        $(".cgrade").html(`&mdash;`);
+        $(".csection").html(`&mdash;`);
+        $(".csr").html(`&mdash;`);
 
-        $(".tamt").html(`<strong>Total Amount: </strong> `);
-        $(".pamt").html(`<strong>Paid Amount: </strong> `);
-        $(".famt").html(`<strong>Fine Amount: </strong> `);
-        $(".damt").html(`<strong>Discount Amount: </strong> `);
+        $(".tamt").html(`&mdash;`);
+        $(".pamt").html(`&mdash;`);
+        $(".famt").html(`&mdash;`);
+        $(".damt").html(`&mdash;`);
 
+        fcCurrentStudentLabel = '';
+        $('#studentAvatar').text('').css({ background: '', color: '' });
+        _fcShowStudentPhoto(null);
+        $('#StudentId').val('');
         $('#gradeId').val('');
         $('#feesubmission_id').val('');
       }
@@ -322,6 +449,13 @@
     }
 
     $("#feeSubmitBtn").click(function () {
+      const stuId = $('#StudentId').val();
+      const feeSubId = $('#feesubmission_id').val();
+      if(stuId === '' || feeSubId === ''){
+        showWarningMsg('error', 'Student/Fee Details all are mandatory', 'Warning');
+        return;
+      }
+      $('#fcModalTarget').text(fcCurrentStudentLabel);
       $("#confirmModal").modal("show");
     });
 
