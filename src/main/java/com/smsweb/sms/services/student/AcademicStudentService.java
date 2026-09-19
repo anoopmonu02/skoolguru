@@ -175,8 +175,18 @@ public class AcademicStudentService {
             academicStudent.setMedium(mediumObj);
             academicStudent.setGrade(gradeObj);
             academicStudent.setSection(sectionObj);
+            // Defensive rewrite: the old code did
+            // academicStudent.getDescription().concat(". ").concat(reason), which threw an
+            // NPE whenever description was null (a fresh academic record with nothing set
+            // yet) OR whenever reason was null (the UI's Reason field is optional and can
+            // be submitted empty) - String.concat(null) throws just like a null receiver
+            // does. Now both sides are null/blank-safe, and a blank reason no longer gets
+            // appended as the literal text "null".
+            String existingDescription = academicStudent.getDescription() != null ? academicStudent.getDescription() : "";
+            String reasonToAppend = (reason != null && !reason.trim().isEmpty()) ? reason.trim() : null;
             academicStudent.setDescription(
-                    academicStudent.getDescription().concat(". ").concat(reason));
+                    reasonToAppend == null ? existingDescription
+                            : (existingDescription.isEmpty() ? reasonToAppend : existingDescription + ". " + reasonToAppend));
             academicStudentRepository.saveAndFlush(academicStudent);
             return "success#####Student: " + academicStudent.getStudent().getStudentName()
                     + " Grade: "   + gradeObj.getGradeName()

@@ -92,6 +92,20 @@ public class StudentDiscountController extends BaseController {
             log.debug("studentDiscount received: id={}", studentDiscount.getId());
             School school = getSchool(model);
             AcademicYear academicYear = (AcademicYear)model.getAttribute("academicYear");
+            // If an id was submitted but doesn't resolve to a discount record already
+            // owned by this school (a stale form, or a tampered id aimed at another
+            // school's row), treat this as a brand-new record instead of letting a
+            // non-null id reach studentDiscountService.save() below - JPA's
+            // repository.save() merges/updates when the id is non-null, which would
+            // otherwise silently overwrite another school's discount row (repointing
+            // it to this school's student/discount data) even though it belongs to a
+            // different tenant. Same fix already applied to StudentController#saveStudent.
+            if (studentDiscount.getId() != null) {
+                StudentDiscount existing = studentDiscountService.findById(studentDiscount.getId()).orElse(null);
+                if (existing == null || existing.getSchool() == null || !existing.getSchool().getId().equals(school.getId())) {
+                    studentDiscount.setId(null);
+                }
+            }
             AcademicStudent student = academicStudentService.searchStudentById(studentDiscount.getAcademicStudent().getId(), academicYear.getId(), school.getId());
             studentDiscount.setAcademicYear(academicYear);
             studentDiscount.setSchool(school);
@@ -128,19 +142,26 @@ public class StudentDiscountController extends BaseController {
         return "redirect:/student/stu-discount-list";
     }
 
+    // POST, not GET - a state-changing action needs to go through a method
+    // Spring Security's CSRF filter actually covers (GET requests are
+    // exempt from CSRF by design). The confirm-delete modal on
+    // assigneddiscount.html submits a real POST form for this, carrying the
+    // auto-injected _csrf token - same fix already applied to Academic-Year
+    // List's and Sibling Group List's delete.
     @CheckAccess(screen = "STUDENT_DISCOUNT_DELETE", type = AccessType.DELETE)
-    @GetMapping("/assign-discount/delete/{id}")
-    public String deleteDiscount(@PathVariable("id")Long id, RedirectAttributes model){
+    @PostMapping("/assign-discount/delete/{id}")
+    public String deleteDiscount(@PathVariable("id")Long id, Model model, RedirectAttributes ra){
         log.info("Inside deleteDiscount");
         try{
-            String msg = studentDiscountService.deactivateStudentDiscount(id);//deleteStudentDiscount(id);
+            School school = getSchool(model);
+            String msg = studentDiscountService.deactivateStudentDiscount(id, school.getId());//deleteStudentDiscount(id);
             if(msg.equalsIgnoreCase("success")){
-                model.addFlashAttribute("success","Discount successfully removed from student");
+                ra.addFlashAttribute("success","Discount successfully removed from student");
             } else{
-                model.addFlashAttribute("error","Unable to remove mapping");
+                ra.addFlashAttribute("error","Unable to remove mapping");
             }
         }catch(Exception e){
-            model.addFlashAttribute("error", "Error: "+e.getLocalizedMessage());
+            ra.addFlashAttribute("error", "Error: "+e.getLocalizedMessage());
         }
         return "redirect:/student/stu-discount-list";
     }

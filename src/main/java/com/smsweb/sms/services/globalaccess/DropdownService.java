@@ -57,7 +57,20 @@ public class DropdownService {
     }
 
     public List<String> getBodyTypes() {
-        return Arrays.asList("NORMAL", "BLIND", "PHYSICALLY CHALLENGED", "OTHER");
+        return Arrays.asList("NORMAL", "PERSON WITH A DISABILITY");
+    }
+
+    public Map<String, String> getQualifications() {
+        Map<String, String> qualifications = new LinkedHashMap<>();
+        qualifications.put("Illiterate", "ILLITERATE");
+        qualifications.put("Upto 5th", "UPTO 5TH");
+        qualifications.put("Upto 8th", "UPTO 8TH");
+        qualifications.put("Upto 10th", "UPTO 10TH");
+        qualifications.put("Upto 12th/equivalent", "UPTO 12TH/EQUIVALENT");
+        qualifications.put("Graduate/equivalent", "GRADUATE/EQUIVALENT");
+        qualifications.put("Post Graduate/equivalent", "POST GRADUATE/EQUIVALENT");
+        qualifications.put("Doctorate/equivalent", "DOCTORATE/EQUIVALENT");
+        return qualifications;
     }
 
     public List<String> getReligions(){

@@ -58,7 +58,7 @@
       font-size: .68rem;
       text-transform: uppercase;
       letter-spacing: .04em;
-      background: var(--body-bg);
+      background: var(--body-bg) !important;
       white-space: nowrap;
       border-top: none !important;
       border-bottom: 1px solid var(--border-color) !important;
@@ -143,8 +143,65 @@
       transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
     }
     .aa-save-btn:hover { opacity: .93; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(22,163,74,.45); }
+    .aa-save-btn:disabled { opacity: .75; cursor: default; transform: none; box-shadow: 0 2px 8px rgba(22,163,74,.35); }
+
+    /* Full-page saving overlay - same treatment as Assign SR-No's identical
+       bulk-save flow. A bulk save across a whole grade/section can take a
+       few seconds, and the spinner-in-button alone was easy to miss (or to
+       assume nothing happened and click away / refresh mid save). */
+    .sr-saving-overlay {
+      position: fixed; inset: 0; background: rgba(15,23,42,.45); z-index: 2000;
+      display: none; align-items: center; justify-content: center;
+    }
+    .sr-saving-box {
+      background: var(--card-bg); border-radius: var(--radius-lg); padding: 30px 40px;
+      box-shadow: var(--shadow-md); text-align: center; min-width: 260px;
+    }
+    .sr-saving-box .spinner-border { width: 2.4rem; height: 2.4rem; margin-bottom: 14px; color: var(--accent); }
+    .sr-saving-text { font-weight: 700; font-size: 14.5px; color: var(--text-primary); }
+    .sr-saving-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
 
     .modal-header .bi { color: #ec4899; }
+
+    /* Bulk-upload preview modal ("Aadhar Information") — same list-table
+       look used everywhere else on this page, replacing the raw Bootstrap
+       table-bordered grid + solid table-danger red rows. Same treatment
+       applied to student/assign-srno.html's identical upload-preview modal. */
+    .sr-preview-alert {
+      background: var(--accent-light); border: 1px solid var(--border-color);
+      border-radius: var(--radius-md); padding: 12px 16px; color: var(--text-primary);
+      font-size: 13px; display: flex; gap: 10px; align-items: flex-start; margin-bottom: 16px;
+    }
+    .sr-preview-alert i { color: var(--accent); font-size: 16px; margin-top: 1px; flex-shrink: 0; }
+    .sr-preview-alert p { margin: 0; line-height: 1.5; }
+    #stu-sr-data.table { border: none; }
+    #stu-sr-data thead th {
+      text-align: left; padding: 9px 12px; color: var(--text-muted); font-weight: 700;
+      font-size: .65rem; text-transform: uppercase; letter-spacing: .04em;
+      background: var(--body-bg) !important; white-space: nowrap;
+      border-top: none !important; border-bottom: 1px solid var(--border-color) !important;
+    }
+    #stu-sr-data tbody td {
+      padding: 8px 12px; vertical-align: middle; font-size: 13px;
+      border-top: none !important; border-left: none !important; border-right: none !important;
+      border-bottom: 1px solid var(--border-color) !important; background-color: transparent !important;
+    }
+    #stu-sr-data tbody tr:last-child td { border-bottom: none !important; }
+    #stu-sr-data tbody tr.sr-row-fail td { background-color: rgba(220,38,38,.06) !important; }
+    #stu-sr-data tbody tr.sr-row-fail td:first-child { box-shadow: inset 3px 0 0 #dc2626; }
+    .sr-status-pill {
+      display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px;
+      font-size: 11px; font-weight: 700; white-space: nowrap;
+    }
+    .sr-status-pill.pass { background: rgba(22,163,74,.12); color: #16a34a; }
+    .sr-status-pill.fail { background: rgba(220,38,38,.12); color: #dc2626; }
+    .sr-upload-summary { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+    .sr-summary-chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px;
+      font-size: 12.5px; font-weight: 700; background: var(--body-bg); border: 1px solid var(--border-color); color: var(--text-primary);
+    }
+    .sr-summary-chip.pass { background: rgba(22,163,74,.10); color: #16a34a; border-color: transparent; }
+    .sr-summary-chip.fail { background: rgba(220,38,38,.10); color: #dc2626; border-color: transparent; }
   </style>
 
   <div class="container-fluid px-3">
@@ -254,6 +311,7 @@
                 <div class="mb-3">
                   <label for="formFile" class="form-label">Choose a file to upload the Aadhar List</label>
                   <input class="form-control" type="file" id="formFile" name="file" accept=".xlsx">
+                  <div class="form-text">.xlsx only — use "Download Sample File" first if you need the expected column layout.</div>
                 </div>
               </form>
             </div>
@@ -274,19 +332,18 @@
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-              <div class="alert alert-primary" role="alert">
-                <p id="fileInfo">Those rows are red which has no Aadhar found for Student. Either cancel this window and upload updated file again or want to proceed?<br>
-                  In case of proceed, validation failed records will not be process.
-                </p>
+              <div class="sr-preview-alert">
+                <i class="bi bi-info-circle-fill"></i>
+                <p id="fileInfo">Rows highlighted in red have no Aadhar No found for that student. You can cancel and re-upload a corrected file, or proceed — validation-failed rows will simply be skipped, everything else will be saved.</p>
               </div>
 
-              <table id="stu-sr-data" class="table table-bordered table-sm">
+              <table id="stu-sr-data" class="table table-sm">
                 <thead>
                 <tr id="table-headers">
                   <th>Student Name</th><th>ID#</th><th>Father Name</th><th>Mother Name</th><th>Mobile</th><th>Aadhar</th><th>Validation Message</th>
                 </tr>
                 </thead>
-                <tbody id="table-body" class="table-group-divider">
+                <tbody id="table-body">
                 </tbody>
                 <tfoot id="table-foot1">
                 </tfoot>
@@ -303,6 +360,36 @@
         </div>
       </div>
 
+      <!-- Confirm-before-save modal — shows exactly how many records will be
+           updated, so a bulk save is never a silent/surprise action. -->
+      <div class="modal fade" id="aaConfirmSaveModal" tabindex="-1" aria-labelledby="aaConfirmSaveModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="aaConfirmSaveModalLabel"><i class="bi bi-question-circle-fill"></i> Confirm Save</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <p class="mb-0">You're about to update the Aadhar number for <strong><span id="aaConfirmCount">0</span></strong> student(s). Rows left blank will not be changed. Continue?</p>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="btn btn-primary" id="aaConfirmSaveBtn"><i class="bi bi-save2-fill"></i> Yes, Save</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Full-page saving overlay, shown for the duration of the save
+           request - see .sr-saving-overlay above for why this exists
+           alongside the button's own spinner. -->
+      <div class="sr-saving-overlay" id="aaSavingOverlay">
+        <div class="sr-saving-box">
+          <div class="spinner-border" role="status"><span class="visually-hidden">Saving…</span></div>
+          <div class="sr-saving-text" id="aaSavingText">Saving…</div>
+          <div class="sr-saving-sub">Please don't close or refresh this page.</div>
+        </div>
+      </div>
 
     </div>
   </div>
@@ -344,6 +431,18 @@
       }
       toastr[msgType](msg,headerValue);
     }
+
+    // Digits-only, live: strips any non-digit character as the user types
+    // or pastes, and caps length at 12 — the field can never *contain*
+    // anything but digits, on top of the maxlength/inputmode/pattern
+    // attributes already on the element. Bound once via delegation on
+    // $(document) so it also covers rows the table doesn't have yet (every
+    // "Get Student List" re-render rebuilds the table's innerHTML).
+    $(document).on('input', '.aadhar-input', function () {
+      let cleaned = this.value.replace(/\D/g, '').slice(0, 12);
+      if (cleaned !== this.value) this.value = cleaned;
+      $(this).removeClass('is-invalid');
+    });
 
     // Same escaping helper used on the Mobile Users page — table rows here are
     // built by string-concatenating student data into HTML (as before), this
@@ -400,6 +499,11 @@
     });
 
     let medium, grade, section;
+    // Holds the active DataTables API instance (assigned in
+    // renderStudentData) so the Save handler can reach EVERY loaded row via
+    // the DataTables API, not just the current page - see the comment on
+    // the Save handler below for why that distinction matters.
+    let aaTable = null;
 
     const validateMandatoryValues=()=>{
       medium = $('#medium').val();
@@ -543,6 +647,7 @@
       if ($.fn.DataTable.isDataTable('#sr-table-data')) {
         $('#sr-table-data').DataTable().destroy();
       }
+      aaTable = null;
 
       if (!studentData || studentData.length === 0) {
         btndiv.hide();
@@ -554,7 +659,7 @@
       }
 
       let rowCount = 0;
-      let tbl = '<table class="table table-sm" id="sr-table-data" style="width:100%">'
+      let tbl = '<table class="table table-sm list-table" id="sr-table-data" style="width:100%">'
         + '<thead><tr><th>Student Name</th><th>Father Name</th><th>Mother Name</th><th>Mobile</th><th>Aadhar</th></tr></thead>'
         + '<tbody>';
       studentData.forEach(function(student, idx) {
@@ -581,7 +686,7 @@
                       <td>${escHtml(student.student.motherName)}</td>
                       <td>${maskedCell(student.student.mobile1, maskMobile)}</td>
                       <td>
-                            <input type="text" inputmode="numeric" maxlength="12" id="sr_${student.uuid}" name="sr_${student.uuid}" value="${escHtml(srno)}" class="form-control aadhar-input"/>
+                            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="12" id="sr_${student.uuid}" name="sr_${student.uuid}" value="${escHtml(srno)}" class="form-control aadhar-input"/>
                       </td>
                    </tr>`;
 
@@ -616,7 +721,10 @@
       // time around.
       const aaPageSizeValues = [10, 25, 50, 100, -1];
       const aaPageSizeLabels = [10, 25, 50, 100, 'All'];
-      const table = $('#sr-table-data').DataTable({
+      // Assigned to the module-level aaTable too, so the Save handler
+      // below can reach every loaded row through the DataTables API
+      // regardless of which page is currently displayed.
+      const table = aaTable = $('#sr-table-data').DataTable({
         searching: true,
         ordering: true,
         info: true,
@@ -716,70 +824,153 @@
     }
 
     document.getElementById("save-sr-from-table").onclick = function () {
-      const tableId = $("#sr-table-data");
-      let rowCount = $('#sr-table-data tbody tr').length;
-      if(rowCount > 0){
-        let allValues = {};
-        $("span.error").remove();
-        $('.aadhar-input').removeClass('is-invalid');
-
-        var errorMessage = "Please enter a valid 12-digit number";
-        var hasError = false;
-
-        // Loop through each input field with id starting with "sr_". DataTables
-        // only hides non-current-page rows (display:none), it doesn't remove
-        // them from the DOM, so this still validates/collects every row that
-        // was loaded, not just the ones currently visible on this page.
-        $("input[id^='sr_']").each(function() {
-          $(this).next(".error").remove();
-          var value = $(this).val().trim();
-
-          if (value === "" || value.length < 12 || !/^\d+$/.test(value)) {
-            hasError = true;
-            $(this).addClass('is-invalid');
-            showMsg("error", errorMessage+' for <strong>'+value+'</strong>', "Error");
-            return false;
-          }
-        });
-
-        if (hasError) {
-          return false;
-        }
-        $('#sr-table-data input[type="text"]').each(function() {
-          let id = $(this).attr('id');
-          let value = $(this).val();
-          allValues[id] = value;
-        });
-        fetch(`${contextPath}saveStudentAadharFromTable`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(allValues)
-        })
-                .then(response => {
-                  if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                  }
-                  return response.text();
-                })
-                .then(data => {
-                  if (data.includes('error#####')) {
-                    const errorMsg = data.split("#####")[1];
-                    showMsg("error", errorMsg, "Error");
-                  } else {
-                    const successMsg = data.split("#####")[1];
-                    showMsg("success", successMsg, "Updated");
-                  }
-                })
-                .catch(error => {
-                  console.error('Error:', error);
-                  const errorMsg = (error.includes('error#####'))?error.split("#####")[1]:error;
-                  showMsg("error", errorMsg, "Error");
-                });
-      } else{
-        showMsg("warning","No data found","Message");
+      if (!aaTable) {
+        showMsg("warning", "No data found", "Message");
+        return false;
       }
+      let rowCount = aaTable.rows().count();
+      if (rowCount === 0) {
+        showMsg("warning", "No data found", "Message");
+        return false;
+      }
+
+      // Collect every row's input via the DataTables API (table.rows() with
+      // no modifiers selects the FULL loaded dataset, ignoring paging and
+      // any active search filter) - NOT a plain jQuery/DOM query like
+      // $('#sr-table-data tbody tr') or $("input[id^='sr_']"). DataTables
+      // only keeps the current page's rows attached to the visible
+      // <tbody> and detaches the rest, so a plain DOM query silently misses
+      // every row on any page but the one currently shown - which is why
+      // Save used to only pick up the current page's records (same fix
+      // applied to Assign SR-No's identical Save flow).
+      let $inputs = aaTable.rows().nodes().to$().find("input[id^='sr_']");
+      $inputs.removeClass('is-invalid');
+
+      let allValues = {};
+      let toUpdateCount = 0;
+      let invalidCount = 0;
+      let firstInvalid = null;
+
+      // Rule: each value must be either BLANK (leave this student's Aadhar
+      // untouched) or EXACTLY 12 digits. Anything else — a partial/garbled
+      // value like "24234234dssv" — blocks the whole save rather than being
+      // silently dropped or silently saved, so nothing partial ever reaches
+      // the database. (The digits-only input filter above already stops new
+      // non-digit characters from being typed, but existing DB values saved
+      // before that filter existed could still be malformed, so this check
+      // stays regardless.)
+      $inputs.each(function () {
+        let id = $(this).attr('id');
+        let value = $(this).val().trim();
+        allValues[id] = value;
+
+        if (value === "") {
+          return; // blank = no change for this student, not an error
+        }
+        if (!/^\d{12}$/.test(value)) {
+          invalidCount++;
+          $(this).addClass('is-invalid');
+          if (!firstInvalid) firstInvalid = this;
+        } else {
+          toUpdateCount++;
+        }
+      });
+
+      if (invalidCount > 0) {
+        showMsg("error",
+          invalidCount + " Aadhar number(s) are incomplete or contain invalid characters — each must be exactly 12 digits, or left blank. Nothing has been saved.",
+          "Fix Before Saving");
+        if (firstInvalid) {
+          // The invalid input may be on a page that isn't currently
+          // displayed (see above) - jump the table to that page first,
+          // otherwise scrollIntoView()/focus() below would silently do
+          // nothing to a detached, off-page row.
+          try {
+            var pageLen = aaTable.page.len();
+            if (pageLen > 0) {
+              var orderedIndexes = aaTable.rows({ order: 'applied', search: 'applied' }).indexes().toArray();
+              var rowIdx = aaTable.row($(firstInvalid).closest('tr').get(0)).index();
+              var pos = orderedIndexes.indexOf(rowIdx);
+              if (pos >= 0) {
+                var targetPage = Math.floor(pos / pageLen);
+                if (targetPage !== aaTable.page()) { aaTable.page(targetPage).draw('page'); }
+              }
+            }
+          } catch (e) { /* best effort - fall through to scroll/focus regardless */ }
+          setTimeout(function () {
+            firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
+            firstInvalid.focus();
+          }, 30);
+        }
+        return false;
+      }
+
+      if (toUpdateCount === 0) {
+        showMsg("warning", "No Aadhar numbers were entered or changed.", "Nothing to Save");
+        return false;
+      }
+
+      // Confirm before saving — shows exactly how many records will be
+      // updated, so a bulk save is never a silent/surprise action.
+      $("#aaConfirmCount").text(toUpdateCount);
+      $("#aaConfirmSaveBtn").off('click').on('click', function () {
+        bootstrap.Modal.getInstance(document.getElementById('aaConfirmSaveModal'))?.hide();
+        submitAadharSave(allValues, toUpdateCount);
+      });
+      new bootstrap.Modal(document.getElementById('aaConfirmSaveModal')).show();
+    }
+
+    function submitAadharSave(allValues, updateCount) {
+      let btn = $("#save-sr-from-table");
+      btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Saving...');
+      // A bulk save across a whole grade/section can take a few seconds -
+      // the button spinner alone is easy to miss, so this also blocks the
+      // page behind an overlay and disables the filter/upload controls for
+      // the duration of the request, so nothing can be clicked mid-save.
+      $('#medium, #grade, #section, #getfee').prop('disabled', true);
+      $("#aaSavingText").text('Saving ' + updateCount + ' Aadhar number' + (updateCount === 1 ? '' : 's') + '…');
+      $('#aaSavingOverlay').css('display', 'flex');
+
+      fetch(`${contextPath}saveStudentAadharFromTable`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(allValues)
+      })
+              .then(response => {
+                if (!response.ok) {
+                  throw new Error('Network response was not ok');
+                }
+                return response.text();
+              })
+              .then(data => {
+                // Server replies with a status-prefixed message so a save
+                // that partly failed reads as a clear amber "partial" toast
+                // instead of being lumped in with either a full success or a
+                // full failure.
+                if (data.startsWith('error#####')) {
+                  showMsg("error", data.split("#####")[1], "Error");
+                } else if (data.startsWith('partial#####')) {
+                  showMsg("warning", data.split("#####")[1], "Partially Updated");
+                } else if (data.startsWith('success#####')) {
+                  showMsg("success", data.split("#####")[1], "Updated");
+                } else {
+                  // Defensive fallback for any unexpected/legacy response shape
+                  // (e.g. a rare DB-level validation failure) so the user always
+                  // sees a clear message instead of a blank/cryptic toast.
+                  showMsg("warning", "Save finished, but the server didn't confirm how many records were updated. Please refresh and check.", "Check Result");
+                }
+              })
+              .catch(error => {
+                console.error('Error:', error);
+                showMsg("error", "Could not save Aadhar numbers. Please try again.", "Error");
+              })
+              .finally(() => {
+                btn.prop('disabled', false).html('<i class="bi bi-save2-fill"></i> Save Aadhar (Bulk)');
+                $('#medium, #grade, #section, #getfee').prop('disabled', false);
+                $('#aaSavingOverlay').hide();
+              });
     }
 
     document.getElementById("uploadBtn").onclick = function (){
@@ -807,29 +998,44 @@
                       let failed = 0;
                       for (let i = 0; i < rowData.length; i++) {
                         let row = rowData[i];
-                        let tableRow = "<tr>";
-                        if(row[row.length - 1].includes("error")){
-                          tableRow = "<tr class='table-danger'>";
-                          failed++;
-                        } else{
-                          passed++;
-                        }
-                        row.forEach(cell => {
+                        let isFail = row[row.length - 1].includes("error");
+                        let tableRow = isFail ? "<tr class='sr-row-fail'>" : "<tr>";
+                        if (isFail) { failed++; } else { passed++; }
+                        // Escaped - this preview table is built from the
+                        // uploaded Excel file's own cell values (echoed
+                        // back by the server), so an unescaped student
+                        // name / etc. containing HTML would run as markup
+                        // here (stored/reflected XSS via a crafted upload
+                        // file). Same escHtml() already used elsewhere on
+                        // this page for DB-sourced text.
+                        row.forEach((cell, cellIdx) => {
                           if (cell == null) {
                             tableRow += `<td></td>`;
                           } else {
-                            if (cell.includes("#####")) {
-                              tableRow += `<td>${cell.split("#####")[1]}</td>`;
+                            let text = cell.includes("#####") ? cell.split("#####")[1] : cell;
+                            // Last column ("Validation Message") gets a
+                            // pass/fail pill instead of plain text, so a
+                            // sheet of results is scannable at a glance
+                            // instead of a wall of identical "Passed" text.
+                            if (cellIdx === row.length - 1) {
+                              if (isFail) {
+                                tableRow += `<td><span class="sr-status-pill fail"><i class="bi bi-x-circle-fill"></i> ${escHtml(text)}</span></td>`;
+                              } else {
+                                tableRow += `<td><span class="sr-status-pill pass"><i class="bi bi-check-circle-fill"></i> ${escHtml(text)}</span></td>`;
+                              }
                             } else {
-                              tableRow += `<td>${cell}</td>`;
+                              tableRow += `<td>${escHtml(text)}</td>`;
                             }
                           }
                         });
                         tableRow += "</tr>";
                         $("#table-body").append(tableRow);
                       }
-                      let msg = "<div class='row'><div class='col-md-2'><span><strong>Total: </strong>" + rowData.length + "</span></div><div class='col-md-2'><span class='text-success'><strong>Passed: </strong>"+ passed +"</span></div><div class='col-md-2'><span class='text-danger'><strong>Failed: </strong>" + failed;
-                      msg+="</span></div><div class='col-md-6'></div></div>";
+                      let msg = '<div class="sr-upload-summary">'
+                        + '<span class="sr-summary-chip"><i class="bi bi-list-check"></i> Total: ' + rowData.length + '</span>'
+                        + '<span class="sr-summary-chip pass"><i class="bi bi-check-circle-fill"></i> Passed: ' + passed + '</span>'
+                        + '<span class="sr-summary-chip fail"><i class="bi bi-x-circle-fill"></i> Failed: ' + failed + '</span>'
+                        + '</div>';
                       $("#table-foot").html(msg);
                     }
                   } else if (data.hasOwnProperty("error")) {

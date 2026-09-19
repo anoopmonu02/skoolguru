@@ -49,10 +49,10 @@ public interface FeeSubmissionRepository extends JpaRepository<FeeSubmission, Lo
             "(select m.priority from month_master mm join month_mapping m on m.month_master_id=mm.id where mm.month_name=monthname(curdate()) and m.academic_year_id=:academicId and m.school_id=:schoolId)) " +
             "as Result",
             nativeQuery = true)
-    int getMonthDiffForFine(@Param("monthName") String monthName, @Param("academicId") Long academicId, @Param("schoolId") Long schoolId);
+    Integer getMonthDiffForFine(@Param("monthName") String monthName, @Param("academicId") Long academicId, @Param("schoolId") Long schoolId);
 
     @Query(value = "SELECT DATEDIFF(STR_TO_DATE(:feeSubmissionDate, '%d/%b/%Y'), CURDATE()) AS DTDIFF", nativeQuery = true)
-    int getDateDifference(@Param("feeSubmissionDate") String feeSubmissionDate);
+    Integer getDateDifference(@Param("feeSubmissionDate") String feeSubmissionDate);
 
 
     Optional<FeeSubmission> findByReceiptNoAndStatusAndSchool_IdAndAcademicYear_Id(String receipt_no, String status, Long school_id, Long academic_id);

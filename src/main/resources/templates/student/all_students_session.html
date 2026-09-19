@@ -207,9 +207,14 @@
                             dob = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
                             dob = dob.replaceAll(" ","/");
                         }
-                        if(academicStudent.student.gender==='Male'){
+                        // Gender is stored as free text and has historically been written
+                        // in mixed case ("Male") as well as uppercase ("MALE") depending on
+                        // which form saved it — compare case-insensitively so students aren't
+                        // silently miscounted into "not preferred" based on casing alone.
+                        let genderUpper = (academicStudent.student.gender || '').toUpperCase();
+                        if(genderUpper==='MALE'){
                             maleCounter++;
-                        } else if(academicStudent.student.gender==='Female'){
+                        } else if(genderUpper==='FEMALE'){
                             femaleCounter++;
                         } else{
                             notPreferredCounter++;

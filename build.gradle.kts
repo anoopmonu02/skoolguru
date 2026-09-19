@@ -78,6 +78,12 @@ dependencies {
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.3")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.3")
 
+    // ── Hashids — obfuscates numeric ids (fee-receipt ids) in URLs so they
+    // can't be casually guessed/incremented. NOT an access-control mechanism
+    // by itself (see ReceiptIdCodec's javadoc) - that's the school-ownership
+    // check in FeeSubmissionService#getFeeReceiptData.
+    implementation("org.hashids:hashids:1.0.3")
+
     // ── Firebase Admin SDK — push notifications ──────────────────────────────
     // Initialised from a service-account JSON given by app.firebase.credentials.path
     // (see FirebaseConfig). That file must never be committed.

@@ -6,97 +6,182 @@
 </head>
 <body>
 <section>
+
+    <!-- Page-local, scoped look - same ".aa-card" shell already used on Update
+         Aadhar / Mid Session Migration / Sibling Group, reused here for visual
+         consistency. The search box + results dropdown is the same
+         ".da-search-wrap"/".da-search-results" pattern used on those pages'
+         student search, reused verbatim rather than re-invented. None of this
+         touches the id-based selectors (#medium, #getfee, #academicStudent, ...)
+         the script at the bottom binds to. -->
+    <style>
+        .aa-card {
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xs); padding: 20px 22px; margin-bottom: 18px;
+        }
+        .aa-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+        .aa-card-head h2 { font-size: 14.5px; font-weight: 800; margin: 0; color: var(--text-primary); }
+        .aa-icon { width: 30px; height: 30px; border-radius: 9px; background: var(--accent-light); color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+        .aa-sub { font-size: 12px; color: var(--text-muted); margin: 2px 0 16px; }
+
+        .aa-btn-primary {
+            background: var(--accent); border: 1px solid var(--accent); color: #fff; padding: 8px 18px;
+            border-radius: var(--radius-md); font-size: 13.5px; font-weight: 700; display: inline-flex;
+            align-items: center; justify-content: center; gap: 7px; cursor: pointer; box-shadow: var(--shadow-sm);
+            transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
+        }
+        .aa-btn-primary:hover { background: var(--brand-600); border-color: var(--brand-600); color: #fff; box-shadow: var(--shadow-md); }
+        .aa-btn-primary:active { transform: translateY(1px); }
+        .aa-btn-primary:disabled { opacity: .75; cursor: default; transform: none; }
+
+        /* Search box + results dropdown */
+        .da-search-wrap { position: relative; max-width: 480px; }
+        .da-search-wrap input { padding-left: 38px; }
+        .da-search-wrap .bi-search { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+        .da-search-results { position: absolute; z-index: 20; width: 100%; max-height: 320px; overflow-y: auto; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-xs); margin-top: 4px; display: none; }
+        .da-result-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border-color); }
+        .da-result-row:last-child { border-bottom: none; }
+        .da-result-row:hover { background: var(--accent-light); }
+        .da-result-name { font-weight: 600; color: var(--text-primary); }
+        .da-result-sub { font-size: .72rem; color: var(--text-muted); }
+        .da-result-empty { padding: 14px; color: var(--text-muted); font-size: .85rem; text-align: center; }
+
+        /* Empty state shown before a student is picked */
+        .egs-empty-card { text-align: center; padding: 42px 20px; color: var(--text-muted); font-size: 13.5px; }
+        .egs-empty-card i { font-size: 30px; display: block; margin-bottom: 10px; color: var(--border-color); }
+
+        /* Hero strip - avatar + name + quick-glance badges for the selected
+           student, sitting above the two detail cards for a stronger sense of
+           "this is who you're about to change" than a plain card grid alone. */
+        .egs-hero-card { padding: 20px 24px; }
+        .egs-hero { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .egs-avatar-lg {
+            width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; font-size: 19px; font-weight: 800; flex-shrink: 0;
+        }
+        .egs-hero-name { font-size: 17.5px; font-weight: 800; color: var(--text-primary); line-height: 1.25; }
+        .egs-hero-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .egs-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+        .egs-badge {
+            display: inline-flex; align-items: center; gap: 6px; background: var(--accent-light); color: var(--accent);
+            border-radius: 999px; padding: 6px 13px; font-size: 11.5px; font-weight: 700; white-space: nowrap;
+        }
+        .egs-badge i { font-size: 11px; }
+
+        /* Student Detail / Academic Detail cards - label/value rows. JS below
+           only ever writes into the ".msm-detail-value" spans with .text(),
+           never .html(), so these fields can never become an innerHTML-
+           injection point regardless of what a name/father/mother value
+           contains (the old version built these with raw .html() + template
+           interpolation - a real stored-XSS gap, closed here). */
+        .msm-detail-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border-color); font-size: 13.5px; }
+        .msm-detail-row:last-child { border-bottom: none; }
+        .msm-detail-label { color: var(--text-muted); font-weight: 600; }
+        .msm-detail-value { color: var(--text-primary); font-weight: 600; text-align: right; }
+
+        /* Confirmation modal review box */
+        .msm-review-box { border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--body-bg); padding: 14px 16px; }
+        .msm-review-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 0; }
+        .msm-review-label { color: var(--text-muted); font-size: 13px; display: flex; align-items: center; gap: 7px; }
+        .msm-review-value { font-weight: 700; color: var(--text-primary); text-align: right; font-size: 13.5px; }
+        .msm-review-value-lg { font-size: 15px; color: var(--accent); }
+        .modal-header .bi-arrow-left-right { color: var(--accent); }
+    </style>
+
     <div class="container-fluid px-3">
         <div class="row mt-2">
             <div class="col-md-12">
                 <div th:replace="~{components/ui :: page-header('Modify Grade/Section')}"></div>
 
-                <!--Search box-->
-                <div class="search-container my-3">
-                    <input type="text" onkeyup="searchStuName()" class="form-control" id="search-input" placeholder="Search student name">
-                    <div class="search-result">
+                <div class="aa-card">
+                    <div class="aa-card-head"><span class="aa-icon"><i class="bi bi-search"></i></span><h2>Find Student</h2></div>
+                    <div class="aa-sub">Search a student to view their current class and move them to a new medium/grade/section.</div>
+                    <div class="da-search-wrap">
+                        <i class="bi bi-search"></i>
+                        <input type="text" onkeyup="searchStuName()" class="form-control" id="search-input" placeholder="Search student name" autocomplete="off">
+                        <div class="da-search-results search-result"></div>
                     </div>
                 </div>
 
-                <hr/>
-                <div class="student-detail mb-3">
-                    <div class="academic-student-block">
-                        <div class="row">
-                            <div class="col-sm-5">
-                                <div class="card h-100 border-success">
-                                    <h5 class="card-header">Student Detail</h5>
-                                    <ul class="list-group list-group-flush">
-                                        <li class="list-group-item studname"><strong>Student Name:</strong></li>
-                                        <li class="list-group-item fname"><strong>Father Name:</strong></li>
-                                        <li class="list-group-item mname"><strong>Mother Name:</strong></li>
-                                        <li class="list-group-item contactno contact-update-btn"><strong>Contact No:</strong>
-                                        </li>
-                                    </ul>
-                                </div>
+                <div id="egsEmptyState" class="aa-card egs-empty-card">
+                    <i class="bi bi-person-badge"></i>
+                    Search and select a student above to see their details.
+                </div>
+
+                <div id="egsStudentBlock" class="d-none">
+                    <div class="aa-card egs-hero-card">
+                        <div class="egs-hero">
+                            <div class="egs-avatar-lg" id="egsAvatar" style="background:#0ea5e922;color:#0ea5e9">--</div>
+                            <div>
+                                <div class="egs-hero-name" id="egsHeroName">-</div>
+                                <div class="egs-hero-sub" id="egsHeroSub">-</div>
                             </div>
-
-                            <div class="col-sm-5">
-                                <div class="card h-100 border-success">
-                                    <h5 class="card-header">Academic Detail</h5>
-                                    <ul class="list-group list-group-flush">
-                                        <li class="list-group-item cmedium"><strong>Medium: </strong></li>
-                                        <li class="list-group-item cgrade"><strong>Class: </strong></li>
-                                        <li class="list-group-item csection"><strong>Section: </strong></li>
-                                        <li class="list-group-item csr"><strong>SR No: </strong></li>
-                                    </ul>
-                                </div>
+                            <div class="egs-badges">
+                                <span class="egs-badge" id="egsBadgeMedium"><i class="bi bi-translate"></i> -</span>
+                                <span class="egs-badge" id="egsBadgeClass"><i class="bi bi-mortarboard-fill"></i> -</span>
+                                <span class="egs-badge" id="egsBadgeSr"><i class="bi bi-hash"></i> -</span>
                             </div>
-
-                            <div class="col-sm-2 discountassigned" style="display: none;">
-                                <div class="card text-bg-success h-100">
-                                    <h5 class="card-header">Discount Detail</h5>
-                                    <ul class="list-group list-group-flush">
-                                        <li class="list-group-item text-bg-success studiscount"><strong>Discount: </strong></li>
-                                        <li class="list-group-item text-bg-success studescription"><strong>Description: </strong></li>
-
-                                    </ul>
-                                </div>
-                            </div>
-
                         </div>
                     </div>
-                </div>
-                <div class="updation-form">
-                    <hr/>
-                    <div class="row mt-3">
+
+                    <div class="student-detail mb-3">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="aa-card mb-0 h-100">
+                                    <div class="aa-card-head"><span class="aa-icon"><i class="bi bi-person-badge-fill"></i></span><h2>Student Detail</h2></div>
+                                    <div class="msm-detail-row"><span class="msm-detail-label">Student Name</span><span class="msm-detail-value studname">&mdash;</span></div>
+                                    <div class="msm-detail-row"><span class="msm-detail-label">Father Name</span><span class="msm-detail-value fname">&mdash;</span></div>
+                                    <div class="msm-detail-row"><span class="msm-detail-label">Mother Name</span><span class="msm-detail-value mname">&mdash;</span></div>
+                                    <div class="msm-detail-row"><span class="msm-detail-label">Contact No</span><span class="msm-detail-value contactno">&mdash;</span></div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="aa-card mb-0 h-100">
+                                    <div class="aa-card-head"><span class="aa-icon"><i class="bi bi-mortarboard-fill"></i></span><h2>Academic Detail</h2></div>
+                                    <div class="msm-detail-row"><span class="msm-detail-label">Medium</span><span class="msm-detail-value cmedium">&mdash;</span></div>
+                                    <div class="msm-detail-row"><span class="msm-detail-label">Class</span><span class="msm-detail-value cgrade">&mdash;</span></div>
+                                    <div class="msm-detail-row"><span class="msm-detail-label">Section</span><span class="msm-detail-value csection">&mdash;</span></div>
+                                    <div class="msm-detail-row"><span class="msm-detail-label">SR No</span><span class="msm-detail-value csr">&mdash;</span></div>
+                                </div>
+                            </div>
+                        </div>
                         <input id="academicStudent" name="academicStudent" type="hidden" value=""/>
-                        <div class="col-md-2">
-                            <label for="medium" class="form-label">Medium</label>
-                            <select name="medium" id="medium" class="form-select">
-                                <option value="">Select Medium</option>
-                                <option th:each="med : ${mediums}" th:value="${med.id}" th:text="${med.mediumName}">Medium</option>
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <label for="grade" class="form-label">Grade</label>
-                            <select name="grade" id="grade" class="form-select">
-                                <option value="">Select Grade</option>
-                                <option th:each="grade : ${grades}" th:value="${grade.id}" th:text="${grade.gradeName}">Grade</option>
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <label for="section" class="form-label">Section</label>
-                            <select name="section" id="section" class="form-select">
-                                <option value="">Select Section</option>
-                                <option th:each="section : ${sections}" th:value="${section.id}" th:text="${section.sectionName}">Section</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="section" class="form-label">Reason</label>
-                            <input type="text" class="form-control" name="reason" id="reason"/>
-                        </div>
-                        <div class="col-md-3 align-self-end">
-                            <div class="col-sm-6">
-                                <button name="getfee" id="getfee" class="btn btn-primary"><i class="bi bi-pencil-square"></i> Update </button>
+                    </div>
+
+                    <div class="aa-card">
+                        <div class="aa-card-head"><span class="aa-icon"><i class="bi bi-signpost-split-fill"></i></span><h2>Update Grade / Section</h2></div>
+                        <div class="aa-sub">Choose the new medium, grade and section for this student.</div>
+                        <div class="row g-3">
+                            <div class="col-md-2">
+                                <label for="medium" class="form-label">Medium</label>
+                                <select name="medium" id="medium" class="form-select">
+                                    <option value="">Select Medium</option>
+                                    <option th:each="med : ${mediums}" th:value="${med.id}" th:text="${med.mediumName}">Medium</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="grade" class="form-label">Grade</label>
+                                <select name="grade" id="grade" class="form-select">
+                                    <option value="">Select Grade</option>
+                                    <option th:each="grade : ${grades}" th:value="${grade.id}" th:text="${grade.gradeName}">Grade</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="section" class="form-label">Section</label>
+                                <select name="section" id="section" class="form-select">
+                                    <option value="">Select Section</option>
+                                    <option th:each="section : ${sections}" th:value="${section.id}" th:text="${section.sectionName}">Section</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="reason" class="form-label">Reason <span class="text-muted fw-normal">(optional)</span></label>
+                                <input type="text" class="form-control" name="reason" id="reason" placeholder="e.g. Parent request, section balancing…"/>
                             </div>
                         </div>
+                        <div class="mt-3 text-md-end">
+                            <button name="getfee" id="getfee" class="aa-btn-primary"><i class="bi bi-pencil-square"></i> Update</button>
+                        </div>
                     </div>
-                    <hr/>
                 </div>
 
             </div>
@@ -107,20 +192,42 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h1 class="modal-title fs-5" id="confirmationModalLabel">Confirm Action</h1>
+                    <h5 class="modal-title" id="confirmationModalLabel"><i class="bi bi-arrow-left-right me-1"></i> Confirm Grade/Section Change</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <figure class="modal-body">
-                    <blockquote class="blockquote">
-                        <p>Are you sure you want to proceed?</p>
-                    </blockquote>
-                    <figcaption class="blockquote-footer">
-                        Please do carefully and check once again before updating.
-                    </figcaption>
-                </figure>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Please review before continuing:</p>
+                    <div class="msm-review-box mb-3">
+                        <div class="msm-review-row">
+                            <span class="msm-review-label"><i class="bi bi-person-fill"></i> Student</span>
+                            <span class="msm-review-value msm-review-value-lg" id="confirmStudentName">-</span>
+                        </div>
+                        <hr class="my-1"/>
+                        <div class="msm-review-row">
+                            <span class="msm-review-label"><i class="bi bi-mortarboard-fill"></i> Current Class</span>
+                            <span class="msm-review-value" id="confirmCurrentClass">-</span>
+                        </div>
+                        <div class="msm-review-row">
+                            <span class="msm-review-label"><i class="bi bi-arrow-right-circle-fill"></i> New Class</span>
+                            <span class="msm-review-value msm-review-value-lg" id="confirmNewClass">-</span>
+                        </div>
+                        <hr class="my-1" id="confirmReasonDivider" style="display:none;"/>
+                        <div class="msm-review-row" id="confirmReasonRow" style="display:none;">
+                            <span class="msm-review-label"><i class="bi bi-chat-left-text-fill"></i> Reason</span>
+                            <span class="msm-review-value" id="confirmReasonValue">-</span>
+                        </div>
+                    </div>
+                    <div class="alert alert-warning py-2 mb-0 small d-flex align-items-start">
+                        <i class="bi bi-info-circle-fill me-2 mt-1"></i>
+                        <span>This moves the student to the new class immediately and updates their record.</span>
+                    </div>
+                </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" id="modalYesBtn">Update</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancel</button>
+                    <button type="button" class="btn btn-primary" id="modalYesBtn">
+                        <span class="normal-state"><i class="bi bi-check-lg"></i> Yes, Update</span>
+                        <span class="loading-state d-none"><span class="spinner-border spinner-border-sm me-2"></span>Updating&hellip;</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -128,100 +235,112 @@
 
     <script type="text/javascript" th:inline="javascript">
         const contextPath = /*[[@{/}]]*/ '/';
-        
 
-        
-
-        
-
-        
-
-        const searchStuName=() =>{
-            let query=$("#search-input").val();
-            console.log('searched.....'+query);
-            if(query.trim().length>2){
-                //Sending request to server
-                let url = `${contextPath}searchStudentForOtherPage/${query}`;
-                fetch(url).then(response=>{
-                    return response.json();
-                }).then((data)=>{
-                    console.log(data);
-                    let text = `<div class='list-group'>`;
-
-                    data.forEach((student) =>{
-                        let srval = student.classSrNo!=null && student.classSrNo!=''?' / ' + student.classSrNo: ' / -'
-                        text+=`<a onclick="loadStudentData('${student.uuid}')" th:href="#" class='list-group-item list-group-item-action'> ${student.student.studentName} / ${student.student.fatherName} / ${student.grade.gradeName}-${student.section.sectionName}${srval}</a>`;
-                    });
-
-                    text+=`</div>`;
-                    $(".search-result").html(text);
-                    $(".search-result").show();
-                });
-            } else{
-                $(".search-result").hide();
-            }
+        function escapeHtml(value){
+            const div = document.createElement('div');
+            div.textContent = value !== undefined && value !== null ? value : '';
+            return div.innerHTML;
         }
 
-        const loadStudentData=(id)=>{
+        // Avatar-initials chip for the search-results dropdown and the hero
+        // strip - same small helper already used on Sibling Group / Mid
+        // Session Migration, reused here for a consistent look.
+        const avatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+        const initialsOf = (name) => (name || '').trim().split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+        const avatarColorFor = (id) => avatarColors[Math.abs(id || 0) % avatarColors.length];
+
+        let selectedStudentName = '';
+        let currentClassLabel = '-';
+
+        const searchStuName = () => {
+            let query = $("#search-input").val();
+            if (query.trim().length > 2) {
+                let url = `${contextPath}searchStudentForOtherPage/${encodeURIComponent(query)}`;
+                fetch(url).then(response => response.json()).then((data) => {
+                    if (!data || data.length === 0) {
+                        $(".search-result").html(`<div class="da-result-empty">No students found.</div>`).show();
+                        return;
+                    }
+                    let html = '';
+                    data.forEach((student) => {
+                        const srval = student.classSrNo != null && student.classSrNo !== '' ? ' &middot; SR ' + escapeHtml(student.classSrNo) : '';
+                        const grade = student.grade ? student.grade.gradeName : '';
+                        const section = student.section ? student.section.sectionName : '';
+                        const stu = student.student || {};
+                        const color = avatarColorFor(stu.id || student.id);
+                        html += `<div class="da-result-row" onclick="loadStudentData('${student.uuid}')">` +
+                            `<div class="stu-avatar" style="background:${color}22;color:${color}">${escapeHtml(initialsOf(stu.studentName))}</div>` +
+                            `<div><div class="da-result-name">${escapeHtml(stu.studentName)}</div>` +
+                            `<div class="da-result-sub">${escapeHtml(stu.fatherName)} &middot; ${escapeHtml(grade)}-${escapeHtml(section)}${srval}</div></div>` +
+                            `</div>`;
+                    });
+                    $(".search-result").html(html).show();
+                });
+            } else {
+                $(".search-result").hide();
+            }
+        };
+
+        const loadStudentData = (id) => {
             $(".search-result").hide();
             $("#search-input").val('');
-            $(".discountassigned").hide();
-            if(id!=''){
-                console.log("id::::"+id);
+            if (id != '') {
                 let url = `${contextPath}getStudentDetail/${id}`;
-                fetch(url).then(response => {
-                    return response.json();
-                }).then((data) => {
-                    console.log(data);
-                    console.log(data.student);
-                    if('noAcademicStudent' in data){
-                        showMsg("warning",data.noAcademicStudent,"Message");
-                        setFeeRelatedData(data, 0)
-                    } else{
-                        if('noFeeDate' in data){
-                            showMsg("warning",data.noFeeDate,"Message");
-                        } else{
-                            if('assignedDiscount' in data){
-                                if(data.assignedDiscount.status==='Active'){
-                                    const msg = "Discount: "+ data.assignedDiscount.discounthead.discountName +" already assigned to this student."
-                                    showMsg("info",msg,"Message");
-                                    $(".discountassigned").show();
-                                    setDiscountData(data.assignedDiscount);
-                                }
-                            }
-                            setStudentRelatedData(data, 1);
-                        }
+                fetch(url).then(response => response.json()).then((data) => {
+                    if ('noAcademicStudent' in data) {
+                        showMsg("warning", data.noAcademicStudent, "Message");
+                        resetStudentBlock();
+                    } else {
+                        setStudentRelatedData(data, 1);
                     }
                 });
             }
-        }
+        };
 
         function setStudentRelatedData(data, flag){
             if(flag===1){
-                $(".studname").html(`<strong>Student Name: </strong> ${data.student.studentName} `);
-                $(".fname").html(`<strong>Father Name: </strong> ${data.student.fatherName} `);
-                $(".mname").html(`<strong>Mother Name: </strong> ${data.student.motherName} `);
-                $(".contactno").html(`<strong>Contact No: </strong> ${data.student.mobile1} `);
+                selectedStudentName = data.student.studentName || '';
+                const psrn = (data.student.psrn !== null && data.student.psrn !== undefined && data.student.psrn !== '') ? String(data.student.psrn).trim() : '';
+                const mediumName = data.medium ? data.medium.mediumName : '-';
+                const gradeName = data.grade ? data.grade.gradeName : '-';
+                const sectionName = data.section ? data.section.sectionName : '-';
+                const srNo = (data.classSrNo != null && data.classSrNo !== '') ? data.classSrNo : '-';
+                currentClassLabel = `${mediumName} / ${gradeName} - ${sectionName}`;
 
-                $(".cmedium").html(`<strong>Medium: </strong> ${data.medium.mediumName}`);
-                $(".cgrade").html(`<strong>Class: </strong> ${data.grade.gradeName}`);
-                $(".csection").html(`<strong>Section: </strong> ${data.section.sectionName}`);
-                $(".csr").html(`<strong>SR No: </strong> ${data.classSrNo==null?"":data.classSrNo}`);
+                const color = avatarColorFor(data.student.id);
+                $('#egsAvatar').text(initialsOf(selectedStudentName)).css({background: color + '22', color: color});
+                $('#egsHeroName').text(selectedStudentName || '—');
+                $('#egsHeroSub').text(psrn ? ('PSRN NO: ' + psrn) : (data.student.fatherName || ''));
+                $('#egsBadgeMedium').html(`<i class="bi bi-translate"></i> ${escapeHtml(mediumName)}`);
+                $('#egsBadgeClass').html(`<i class="bi bi-mortarboard-fill"></i> ${escapeHtml(gradeName)}-${escapeHtml(sectionName)}`);
+                $('#egsBadgeSr').html(`<i class="bi bi-hash"></i> ${escapeHtml(srNo)}`);
+
+                $(".studname").text(data.student.studentName || '—');
+                $(".fname").text(data.student.fatherName || '—');
+                $(".mname").text(data.student.motherName || '—');
+                $(".contactno").text(data.student.mobile1 || '—');
+                $(".cmedium").text(mediumName);
+                $(".cgrade").text(gradeName);
+                $(".csection").text(sectionName);
+                $(".csr").text(srNo);
 
                 $('#academicStudent').val(`${data.uuid}`);
 
+                $('#egsEmptyState').addClass('d-none');
+                $('#egsStudentBlock').removeClass('d-none');
             } else{
-                $(".studname").html(`<strong>Student Name: </strong>`);
-                $(".fname").html(`<strong>Father Name: </strong> `);
-                $(".mname").html(`<strong>Mother Name: </strong> `);
-                $(".contactno").html(`<strong>Contact No: </strong> `);
-
-                $(".cmedium").html(`<strong>Medium: </strong> `);
-                $(".cgrade").html(`<strong>Class: </strong> `);
-                $(".csection").html(`<strong>Section: </strong> `);
-                $(".csr").html(`<strong>SR No: </strong> `);
-                //$('#id').val(`${data.assignedDiscount.id}`);
+                resetStudentBlock();
             }
+        }
+
+        function resetStudentBlock(){
+            selectedStudentName = '';
+            currentClassLabel = '-';
+            $('#academicStudent').val('');
+            $('#medium, #grade, #section').val('');
+            $('#reason').val('');
+            $('#egsStudentBlock').addClass('d-none');
+            $('#egsEmptyState').removeClass('d-none');
         }
 
         $("#getfee").click(function (){
@@ -237,6 +356,21 @@
             if(stuid===null || stuid===''){
                 showMsg('error','Student not found',"Warning");
                 return;
+            }
+
+            const mediumText = $('#medium option:selected').text();
+            const gradeText = $('#grade option:selected').text();
+            const sectionText = $('#section option:selected').text();
+            const reasonVal = $('#reason').val().trim();
+
+            document.getElementById('confirmStudentName').textContent = selectedStudentName || '-';
+            document.getElementById('confirmCurrentClass').textContent = currentClassLabel;
+            document.getElementById('confirmNewClass').textContent = `${mediumText} / ${gradeText} - ${sectionText}`;
+            if (reasonVal) {
+                document.getElementById('confirmReasonValue').textContent = reasonVal;
+                $('#confirmReasonRow, #confirmReasonDivider').show();
+            } else {
+                $('#confirmReasonRow, #confirmReasonDivider').hide();
             }
 
             $('#confirmationModal').modal('show');
@@ -257,33 +391,44 @@
                 reason: reason
             };
 
+            const $btn = $('#modalYesBtn');
+            $btn.prop('disabled', true);
+            $btn.find('.normal-state').addClass('d-none');
+            $btn.find('.loading-state').removeClass('d-none');
+
             fetch(`${contextPath}updateStudentGradeSection`, {
-                method: 'POST',              // Specify the HTTP method
+                method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'  // Send JSON data
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(requestData)  // Convert allValues object to JSON string
+                body: JSON.stringify(requestData)
             })
             .then(response => {
-                $('#confirmationModal').modal('hide');
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
                 }
-                return response.text();  // Parse response as JSON
+                return response.text();
             })
             .then(data => {
-                if (data.includes('error#####')) {
-                    // Handle error by splitting and extracting the error message
-                    const errorMsg = data.split("#####")[1];
-                    showMsg("error", errorMsg, "Error");
+                $('#confirmationModal').modal('hide');
+                if (data.startsWith('error#####')) {
+                    showMsg("error", data.split("#####")[1], "Error");
+                } else if (data.startsWith('success#####')) {
+                    showMsg("success", data.split("#####")[1], "Updated");
+                    resetStudentBlock();
+                    $('#search-input').val('');
                 } else {
-                    // Handle success message
-                    showMsg("success", data, "Updated");
+                    showMsg("warning", "Update finished, but the server didn't confirm the result. Please refresh and check.", "Check Result");
                 }
             })
             .catch(error => {
-                console.error('Error:', error);  // Handle error response
-                showMsg("error", error, "Error");
+                console.error('Error:', error);
+                showMsg("error", (error && error.message) ? error.message : "Could not update the student's class. Please try again.", "Error");
+            })
+            .finally(() => {
+                $btn.prop('disabled', false);
+                $btn.find('.normal-state').removeClass('d-none');
+                $btn.find('.loading-state').addClass('d-none');
             });
         });
 

@@ -7,57 +7,88 @@
 <body>
 <section>
 
+  <style>
+    /* Detail cards (Student / Academic / Discount) - replaces the old raw
+       Bootstrap .card + .list-group + .text-bg-success blocks with the
+       app's card language (var(--card-bg) etc.), plus a soft tinted header
+       instead of a solid-green block for the Discount card. */
+    .da-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); overflow: hidden; height: 100%; }
+    .da-card-header { padding: 12px 16px; font-weight: 700; font-size: .82rem; text-transform: uppercase; letter-spacing: .03em; border-bottom: 1px solid var(--border-color); color: var(--text-muted); }
+    .da-card.da-accent .da-card-header { background: rgba(22,163,74,.10); color: #16a34a; }
+    .da-card-body { padding: 2px 16px; }
+    .da-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border-color); font-size: .85rem; }
+    .da-row:last-child { border-bottom: none; }
+    .da-row .da-label { color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+    .da-row .da-value { color: var(--text-primary); font-weight: 600; text-align: right; }
+
+    /* Search box + results dropdown */
+    /* Same width as the two detail cards below it, not a fixed narrow box. */
+    .da-search-wrap { position: relative; margin-bottom: 20px; }
+    .da-search-wrap input { padding-left: 38px; }
+    .da-search-wrap .bi-search { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+    .da-search-results { position: absolute; z-index: 20; width: 100%; max-height: 320px; overflow-y: auto; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-xs); margin-top: 4px; display: none; }
+    .da-result-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border-color); }
+    .da-result-row:last-child { border-bottom: none; }
+    .da-result-row:hover { background: var(--accent-light); }
+    .da-result-name { font-weight: 600; color: var(--text-primary); }
+    .da-result-sub { font-size: .72rem; color: var(--text-muted); }
+    .da-result-empty { padding: 14px; color: var(--text-muted); font-size: .85rem; text-align: center; }
+  </style>
+
   <div class="container-fluid px-3">
     <div class="row mt-2 ">
       <div class="col-md-12 ">
-        <div th:replace="~{components/ui :: page-header('Discount Assign Form - Student')}"></div>
 
-        <!--Search box-->
-        <div class="search-container my-3">
-          <input class="form-control" id="search-input" onkeyup="searchStuName()" placeholder="Search student name"
-                 type="text">
-          <div class="search-result" style="max-height:300px; overflow-y:auto; border:1px solid #dee2e6; border-radius:4px; display:none;">
+        <div th:replace="~{components/ui :: page-header-actions('Discount Assign Form - Student', ~{::daBackAction})}"></div>
+        <div style="display:none">
+          <div th:fragment="daBackAction">
+            <a th:replace="~{components/ui :: back-link('/student/stu-discount-list', 'Back to List')}"></a>
           </div>
         </div>
 
+        <!--Search box-->
+        <div class="da-search-wrap">
+          <i class="bi bi-search"></i>
+          <input class="form-control" id="search-input" onkeyup="searchStuName()" placeholder="Search student name"
+                 type="text" autocomplete="off">
+          <div class="da-search-results search-result"></div>
+        </div>
+
         <!--Student Details-->
-        <hr/>
-        <div class="student-detail mb-3">
+        <div class="student-detail mb-4">
           <div class="academic-student-block">
-            <div class="row">
+            <div class="row g-3">
               <div class="col-sm-4">
-                <div class="card  h-100 border-success">
-                  <h5 class="card-header">Student Detail</h5>
-                  <ul class="list-group list-group-flush">
-                    <li class="list-group-item  studname"><strong>Student Name:</strong></li>
-                    <li class="list-group-item  fname"><strong>Father Name:</strong></li>
-                    <li class="list-group-item  mname"><strong>Mother Name:</strong></li>
-                    <li class="list-group-item  contactno contact-update-btn"><strong>Contact No:</strong>
-                    </li>
-                  </ul>
+                <div class="da-card">
+                  <div class="da-card-header">Student Detail</div>
+                  <div class="da-card-body">
+                    <div class="da-row studname"><span class="da-label">Student Name</span><span class="da-value">-</span></div>
+                    <div class="da-row fname"><span class="da-label">Father Name</span><span class="da-value">-</span></div>
+                    <div class="da-row mname"><span class="da-label">Mother Name</span><span class="da-value">-</span></div>
+                    <div class="da-row contactno contact-update-btn"><span class="da-label">Contact No</span><span class="da-value">-</span></div>
+                  </div>
                 </div>
               </div>
 
               <div class="col-sm-4">
-                <div class="card  h-100 border-success">
-                  <h5 class="card-header">Academic Detail</h5>
-                  <ul class="list-group list-group-flush">
-                    <li class="list-group-item  cmedium"><strong>Medium: </strong></li>
-                    <li class="list-group-item  cgrade"><strong>Class: </strong></li>
-                    <li class="list-group-item  csection"><strong>Section: </strong></li>
-                    <li class="list-group-item  csr"><strong>SR No: </strong></li>
-                  </ul>
+                <div class="da-card">
+                  <div class="da-card-header">Academic Detail</div>
+                  <div class="da-card-body">
+                    <div class="da-row cmedium"><span class="da-label">Medium</span><span class="da-value">-</span></div>
+                    <div class="da-row cgrade"><span class="da-label">Class</span><span class="da-value">-</span></div>
+                    <div class="da-row csection"><span class="da-label">Section</span><span class="da-value">-</span></div>
+                    <div class="da-row csr"><span class="da-label">SR No</span><span class="da-value">-</span></div>
+                  </div>
                 </div>
               </div>
 
               <div class="col-sm-4 discountassigned" style="display: none;">
-                <div class="card text-bg-success h-100">
-                  <h5 class="card-header">Discount Detail</h5>
-                  <ul class="list-group list-group-flush">
-                    <li class="list-group-item text-bg-success studiscount"><strong>Discount: </strong></li>
-                    <li class="list-group-item text-bg-success studescription"><strong>Description: </strong></li>
-
-                  </ul>
+                <div class="da-card da-accent">
+                  <div class="da-card-header"><i class="bi bi-tag-fill me-1"></i> Discount Already Assigned</div>
+                  <div class="da-card-body">
+                    <div class="da-row studiscount"><span class="da-label">Discount</span><span class="da-value">-</span></div>
+                    <div class="da-row studescription"><span class="da-label">Description</span><span class="da-value">-</span></div>
+                  </div>
                 </div>
               </div>
 
@@ -66,62 +97,42 @@
 
         </div>
 
-        <!--Other Fee Detail-->
-        <hr/>
+        <!--Discount assignment form-->
         <div class="feeblock">
           <form th:action="@{/student/assign-discount}" th:object="${studentDiscount}" method="post" >
-            <div class="row g-3">
-                <input id="academicStudent" name="academicStudent.id" type="hidden" value=""/>
-                <input type="hidden" name="school.id" id="school_id" th:value="${school != null ? school.id : ''}"/>
-                <input type="hidden" name="academicYear.id" id="academicYear" th:value="${academicYear != null ? academicYear.id : ''}"/>
-                <input id="id" name="id" type="hidden" th:value="${studentDiscount.id}"/>
-                <div class="col-sm-6  monthlist">
-                  <!--dropdown-->
-                  <label for="discount" class="form-label">Select Discount</label>
-                  <select name="discount" id="discount" th:field="*{discounthead}" class="form-select">
-                    <option value="">Select Discount</option>
-                    <option th:each="discount : ${discounts}" th:value="${discount.id}" th:text="${discount.discountName}"
-                            th:selected="${discount} == ${studentDiscount.discounthead}">Discount</option>
-                  </select>
-                  <p class="text-danger" th:if="${#fields.hasErrors('discounthead')}" th:errors="*{discounthead}">Fine Error</p>
-                </div>
-                <div class="col-sm-6">
-
-                </div>
-                <div class="col-md-7">
-                  <label for="description" class="form-label">Description</label>
-                  <div class="form-floating">
-                    <textarea id="description" placeholder="Add description here" class="form-control" name="description" style="height: 100px;" rows="4" cols="50" th:field="*{description}"></textarea>
-                    <label for="description">Add Description Here</label>
+            <div class="aa-card">
+              <div class="row g-3">
+                  <input id="academicStudent" name="academicStudent.id" type="hidden" value=""/>
+                  <input type="hidden" name="school.id" id="school_id" th:value="${school != null ? school.id : ''}"/>
+                  <input type="hidden" name="academicYear.id" id="academicYear" th:value="${academicYear != null ? academicYear.id : ''}"/>
+                  <input id="id" name="id" type="hidden" th:value="${studentDiscount.id}"/>
+                  <div class="col-sm-6 monthlist">
+                    <!--dropdown-->
+                    <label for="discount" class="form-label">Select Discount</label>
+                    <select name="discount" id="discount" th:field="*{discounthead}" class="form-select">
+                      <option value="">Select Discount</option>
+                      <option th:each="discount : ${discounts}" th:value="${discount.id}" th:text="${discount.discountName}"
+                              th:selected="${discount} == ${studentDiscount.discounthead}">Discount</option>
+                    </select>
+                    <p class="text-danger mb-0 mt-1" th:if="${#fields.hasErrors('discounthead')}" th:errors="*{discounthead}">Fine Error</p>
                   </div>
-                  <p class="text-danger" th:if="${#fields.hasErrors('description')}" th:errors="*{description}">description Error</p>
-                </div>
-                <div class="col-sm-5">
+                  <div class="col-sm-6"></div>
+                  <div class="col-md-7">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea id="description" placeholder="Add description here" class="form-control" name="description" style="height: 100px;" rows="4" cols="50" th:field="*{description}"></textarea>
+                    <p class="text-danger mb-0 mt-1" th:if="${#fields.hasErrors('description')}" th:errors="*{description}">description Error</p>
+                  </div>
+                  <div class="col-sm-5"></div>
+              </div>
+            </div>
 
-                </div>
-
-                <hr/>
-                <div class="col-md-4">
-                  <a class="btn btn-outline-secondary btn-sm" th:href="@{/student/stu-discount-list}"><i class="bi bi-arrow-left"></i> Back to List</a>
-                </div>
-                <div class="col-md-6 mb-5">
-                  <button type="submit" class="btn btn-primary"><i class="bi bi-save2-fill"></i> Save </button>
-                </div>
-
-                <!--<div class="col-sm-1">
-                  <button type="submit" class="btn btn-primary"><i class="bi bi-save2-fill"></i> Save </button>
-                </div>
-                <div class="col-sm-3  mb-5">
-                  <a class="btn btn-outline-secondary btn-sm" href="/student/stu-discount-list"><i class="bi bi-arrow-left"></i> Back to List</a>
-                </div>-->
-
-
-
+            <div class="row mt-3">
+              <div class="col-12 mb-5 text-center">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-save2-fill"></i> Save</button>
+              </div>
             </div>
           </form>
         </div>
-
-
 
       </div>
     </div>
@@ -129,17 +140,52 @@
 
   <script type="text/javascript" th:inline="javascript">
       const contextPath = /*[[@{/}]]*/ '/';
-      
 
-      
+      // This page renders directly (not via redirect) on a validation
+      // failure or a save exception (UniqueConstraintsException /
+      // ObjectNotSaveException / generic Exception all set "error" on the
+      // model - see StudentDiscountController#saveStudentDiscount) - but
+      // previously nothing here ever read or displayed it, so a failed
+      // save looked like nothing happened at all beyond the small inline
+      // field-level errors below the dropdown/textarea.
+      const discountAssignErrorMessage = [[${error}]];
 
-      
+      $(document).ready(function () {
+          if (discountAssignErrorMessage) showMsg("error", discountAssignErrorMessage, "Error");
+      });
 
-      
+      // Escapes a value before it's concatenated into innerHTML below -
+      // student/father names are DB data, not hard-coded strings, so this
+      // closes off a stored-XSS path in the AJAX-built search results (same
+      // approach as Student List's escapeAttr / Sibling Group's sdEscape).
+      const daEscape = function (value) {
+          return String(value == null ? '' : value)
+              .replace(/&/g, '&amp;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#39;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;');
+      };
+
+      // Avatar-initials badge for each search result row - same palette/
+      // approach as Student List and the other list pages this session.
+      const daAvatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+      const daInitialsOf = function (name) {
+          return (name || '').trim().split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+      };
+      const daAvatarColorFor = function (id) {
+          return daAvatarColors[Math.abs(id || 0) % daAvatarColors.length];
+      };
+
       let _daQuery = '', _daPage = 0, _daMore = false, _daLoading = false;
       const _daRow = (s) => {
-          let sr = s.classSrNo ? ' / ' + s.classSrNo : ' / -';
-          return `<a onclick="loadStudentData(${s.id})" href="#" class='list-group-item list-group-item-action'>${s.student.studentName} / ${s.student.fatherName} / ${s.grade.gradeName}-${s.section.sectionName}${sr}</a>`;
+          const sr = s.classSrNo ? ' / SR ' + daEscape(s.classSrNo) : '';
+          const color = daAvatarColorFor(s.student ? s.student.id : s.id);
+          return `<div class="da-result-row" onclick="loadStudentData(${s.id})">` +
+              `<div class="stu-avatar" style="background:${color}22;color:${color}">${daEscape(daInitialsOf(s.student.studentName))}</div>` +
+              `<div><div class="da-result-name">${daEscape(s.student.studentName)}</div>` +
+              `<div class="da-result-sub">${daEscape(s.student.fatherName)} &middot; ${daEscape(s.grade.gradeName)}-${daEscape(s.section.sectionName)}${sr}</div></div>` +
+              `</div>`;
       };
       const _daFetch = (query, page, append) => {
           if (_daLoading) return;
@@ -149,9 +195,13 @@
                   _daLoading = false;
                   _daMore = data.length === 10;
                   if (!append) {
-                      let html = `<div class='list-group' id='da-list-group'>`;
-                      data.forEach(s => { html += _daRow(s); });
-                      $(".search-result").html(html + `</div>`).show();
+                      if (data.length === 0) {
+                          $(".search-result").html(`<div class="da-result-empty">No students found for "${daEscape(query)}"</div>`).show();
+                      } else {
+                          let html = `<div id='da-list-group'>`;
+                          data.forEach(s => { html += _daRow(s); });
+                          $(".search-result").html(html + `</div>`).show();
+                      }
                   } else {
                       data.forEach(s => { $('#da-list-group').append(_daRow(s)); });
                   }
@@ -172,27 +222,30 @@
           $(".search-result").hide();
           $("#search-input").val('');
           $(".discountassigned").hide();
+          // Reset the actual editable form fields (not just the read-only
+          // preview cards) every time a student is (re)selected - without
+          // this, picking Student A (who has an active discount, so the
+          // dropdown/textarea get pre-filled below), then picking Student B
+          // (who has none) left A's discount selection sitting in the form,
+          // ready to be silently saved against B.
+          $('#discount').val('');
+          $('#description').val('');
+          $('#id').val('');
           if(id>0){
-            console.log("id::::"+id);
             let url = `${contextPath}getStudentDetailForDiscount/${id}`;
             fetch(url).then(response => {
               return response.json();
             }).then((data) => {
-              console.log(data);
-              console.log(data.student);
               if('noAcademicStudent' in data){
-                //toastr["warning"](data.noAcademicStudent,"Message");
                 showMsg("warning",data.noAcademicStudent,"Message")
                 setFeeRelatedData(data, 0)
               } else{
                 if('noFeeDate' in data){
-                  //toastr["warning"](data.noFeeDate,"Message");
                   showMsg("warning",data.noFeeDate,"Message")
                 } else{
                   if('assignedDiscount' in data){
                     if(data.assignedDiscount.status==='Active'){
                       const msg = "Discount: "+ data.assignedDiscount.discounthead.discountName +" already assigned to this student."
-                      //toastr["info"](msg,"Message");
                       showMsg("info",msg,"Message")
                       $(".discountassigned").show();
                       setDiscountData(data.assignedDiscount);
@@ -206,36 +259,46 @@
       }
 
       function setDiscountData(data){
-        $('.studiscount').html(`<strong>Discount: </strong> ${data.discounthead.discountName}`);
-        $('.studescription').html(`<strong>Description: </strong> ${data.description}`);
+        $('.studiscount .da-value').text(data.discounthead ? data.discounthead.discountName : '-');
+        $('.studescription .da-value').text(data.description ? data.description : '-');
+        // Pre-fill the actual editable form fields with the existing
+        // assignment - previously only the read-only preview above was
+        // populated, so re-opening a student who already has an active
+        // discount left "Select Discount" empty even though #id was set to
+        // that discount's id (an update, not a create). Saving in that
+        // state would fail discounthead's @NotNull validation (or worse,
+        // null it out) - this is what "check the flow" surfaced.
+        if (data.discounthead) { $('#discount').val(String(data.discounthead.id)); }
+        $('#description').val(data.description || '');
       }
 
       function setFeeRelatedData(data, flag){
           if(flag===1){
-              $(".studname").html(`<strong>Student Name: </strong> ${data.student.student.studentName} `);
-              $(".fname").html(`<strong>Father Name: </strong> ${data.student.student.fatherName} `);
-              $(".mname").html(`<strong>Mother Name: </strong> ${data.student.student.motherName} `);
-              $(".contactno").html(`<strong>Contact No: </strong> ${data.student.student.mobile1} `);
+              $(".studname .da-value").text(data.student.student.studentName);
+              $(".fname .da-value").text(data.student.student.fatherName);
+              $(".mname .da-value").text(data.student.student.motherName);
+              $(".contactno .da-value").text(data.student.student.mobile1);
 
-              $(".cmedium").html(`<strong>Medium: </strong> ${data.student.medium.mediumName}`);
-              $(".cgrade").html(`<strong>Class: </strong> ${data.student.grade.gradeName}`);
-              $(".csection").html(`<strong>Section: </strong> ${data.student.section.sectionName}`);
-              $(".csr").html(`<strong>SR No: </strong> ${data.student.classSrNo==null?"":data.student.classSrNo}`);
+              $(".cmedium .da-value").text(data.student.medium ? data.student.medium.mediumName : '-');
+              $(".cgrade .da-value").text(data.student.grade.gradeName);
+              $(".csection .da-value").text(data.student.section.sectionName);
+              $(".csr .da-value").text(data.student.classSrNo==null?"-":data.student.classSrNo);
 
               $('#academicStudent').val(`${data.student.id}`);
               $('#id').val(data.assignedDiscount ? data.assignedDiscount.id : '');
 
           } else{
-              $(".studname").html(`<strong>Student Name: </strong>`);
-              $(".fname").html(`<strong>Father Name: </strong> `);
-              $(".mname").html(`<strong>Mother Name: </strong> `);
-              $(".contactno").html(`<strong>Contact No: </strong> `);
+              $(".studname .da-value").text('-');
+              $(".fname .da-value").text('-');
+              $(".mname .da-value").text('-');
+              $(".contactno .da-value").text('-');
 
-              $(".cmedium").html(`<strong>Medium: </strong> `);
-              $(".cgrade").html(`<strong>Class: </strong> `);
-              $(".csection").html(`<strong>Section: </strong> `);
-              $(".csr").html(`<strong>SR No: </strong> `);
-              //$('#id').val(`${data.assignedDiscount.id}`);
+              $(".cmedium .da-value").text('-');
+              $(".cgrade .da-value").text('-');
+              $(".csection .da-value").text('-');
+              $(".csr .da-value").text('-');
+
+              $('#academicStudent').val('');
           }
       }
 

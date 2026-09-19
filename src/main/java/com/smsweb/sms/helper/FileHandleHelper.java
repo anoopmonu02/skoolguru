@@ -7,8 +7,11 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -182,14 +185,47 @@ public class FileHandleHelper {
         return fileName;
     }
 
+    /**
+     * Fix for a pre-existing weakness (CWE-434 -> CWE-79): this previously only
+     * checked that the browser-DECLARED Content-Type started with "image/" and
+     * never looked at the actual bytes. That's fully spoofable client-side, and
+     * sanitizeFileName() only strips risky characters, not the extension - so a
+     * file like shell.html, uploaded with a forged "image/*" Content-Type, would
+     * pass, get saved, and later be served back by /student/images/{filename}
+     * (or the equivalent employee/school/customer endpoints) as text/html by
+     * extension, executing any embedded script. Fixed in this ONE shared helper
+     * so every caller (add-student, edit-student, the mobile app's photo
+     * upload, and the bulk "Update Student Images" page) is protected at once,
+     * rather than patching each call site separately.
+     *
+     * The real fix: re-decode the file's actual bytes as a raster image via
+     * ImageIO instead of trusting any client-supplied label. A renamed/spoofed
+     * non-image file fails to decode and is rejected regardless of what
+     * Content-Type or extension it claims. This also means image/svg+xml is no
+     * longer accepted here - SVG is XML and can itself embed <script>, so it
+     * was never actually safe to treat as a plain image upload.
+     */
     public boolean checkValidImageFileAndSize(MultipartFile logo){
         boolean validFile = true;
         try{
-            if (!logo.getContentType().startsWith("image/")){
+            if (logo == null || logo.isEmpty()) {
+                return false;
+            }
+            String contentType = logo.getContentType();
+            if (contentType == null || !contentType.toLowerCase(Locale.ROOT).startsWith("image/")){
                 validFile = false;
             }
             if(logo.getSize() > MAX_FILE_SIZE){
                 validFile = false;
+            }
+            if (validFile) {
+                BufferedImage decoded;
+                try (InputStream in = logo.getInputStream()) {
+                    decoded = ImageIO.read(in);
+                }
+                if (decoded == null) {
+                    validFile = false;
+                }
             }
         }catch(Exception e){
             e.printStackTrace();
@@ -286,5 +322,26 @@ public class FileHandleHelper {
         }
     }
 
+    /**
+     * Deletes a previously-saved student image file by its stored filename
+     * (the value saveImage("student", ...) returned, e.g. as previously held
+     * in Student.pic). Purely additive — does not change saveImage() or any
+     * other existing behavior. Used both by the "Update Student Images"
+     * bulk-upload page and the mobile app's profile-photo upload, so a
+     * re-upload doesn't leave the old file orphaned on disk. Silent no-op if
+     * the file is already gone (nothing to clean up) or the name is blank.
+     */
+    public void deleteStudentImage(String fileName) {
+        if (fileName == null || fileName.isBlank()) return;
+        try {
+            Path path = Paths.get(STUDENT_IMG_FOLDER_PATH, fileName);
+            boolean deleted = Files.deleteIfExists(path);
+            if (!deleted) {
+                log.info("Old student image '{}' was already absent, nothing to delete", fileName);
+            }
+        } catch (Exception e) {
+            log.warn("Could not delete old student image '{}': {}", fileName, e.getMessage());
+        }
+    }
 
 }

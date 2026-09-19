@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sms="http://www.smsweb.com/thymeleaf" th:replace="~{base::Layout(~{::section})}">
+<head>
+    <meta charset="UTF-8">
+    <title>UAIC - Student</title>
+</head>
+<body>
+<section>
+    <!--
+        Fee Submission Neo — same page shape as fees/feesubmitform.html (months |
+        fee table | amount detail, with student/academic/date info above it),
+        rebuilt on the real design system per the user's "polish the existing
+        layout, don't restructure it" direction. Every id/class/name the shared
+        inline script depends on that also exists on the original page
+        (monthcheckbox, feeTable, discountAmount, fineAmount, totalAmount,
+        paidAmount, balanceAmount, paymentType, academicStudentId, etc.) is
+        preserved exactly, so the same backend endpoints (searchStudentForFeePage,
+        getStudentDetailForFee, getFeeDetailsBasedOnMonth, getDiscountDetailsBasedOnMonth,
+        getFineDetailsBasedOnMonth, updateContact, /fees/feesubmit) work unchanged.
+        Search box + result rows follow the same da-search-wrap/da-result-row
+        pattern already used on Assign Discount (student/discountassign.html) and
+        several other pages, each page keeping its own copy of the CSS. All
+        classes introduced for the new look are prefixed "fsq-" to avoid clashing
+        with any existing global style or with feesubmitform-new.html's own
+        "fsn-" prefix.
+    -->
+    <style>
+        /* ── Search box — same da- pattern as student/discountassign.html ── */
+        .da-search-wrap { position: relative; margin-bottom: 18px; max-width: 460px; }
+        .da-search-wrap input { padding-left: 38px; }
+        .da-search-wrap .bi-search { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+        .da-search-results { position: absolute; z-index: 20; width: 100%; max-height: 320px; overflow-y: auto; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-xs); margin-top: 4px; display: none; }
+        .da-result-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border-color); }
+        .da-result-row:last-child { border-bottom: none; }
+        .da-result-row:hover { background: var(--accent-light); }
+        .da-result-name { font-weight: 600; color: var(--text-primary); font-size: .85rem; }
+        .da-result-sub { font-size: .72rem; color: var(--text-muted); }
+        .da-result-empty { padding: 14px; color: var(--text-muted); font-size: .85rem; text-align: center; }
+
+        /* ── Cards ── */
+        .fsq-card{ background:var(--card-bg); border:1px solid var(--border-color); border-radius:var(--radius-lg); box-shadow:var(--shadow-xs); }
+
+        /* ── Top info row: combined Student+Academic card / Dates card ── */
+        .fsq-infogrid{ display:grid; grid-template-columns:1.7fr 1fr; gap:14px; margin-bottom:18px; }
+        @media (max-width:900px){ .fsq-infogrid{ grid-template-columns:1fr; } }
+        .fsq-icard-hd{ display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--border-color); }
+        .fsq-icard-hd b{ font-size:.86rem; font-family:"Outfit", sans-serif; color:var(--text-primary); }
+        .fsq-icard-hd .badge{ margin-left:auto; }
+        .fsq-icard-body{ padding:2px 16px 6px; }
+        .fsq-irow{ display:flex; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid var(--border-color); font-size:.82rem; }
+        .fsq-irow:last-child{ border-bottom:none; }
+        .fsq-irow span:first-child{ color:var(--text-muted); }
+        .fsq-irow span:last-child{ font-weight:600; text-align:right; color:var(--text-primary); }
+        .fsq-irow.fsq-warn span:last-child{ color:#92400e; background:#fef3e2; padding:1px 8px; border-radius:5px; }
+        .fsq-callbtn{ border:none; background:var(--success,#16a34a); color:#fff; width:22px; height:22px; border-radius:6px; font-size:.65rem; margin-left:6px; cursor:pointer; }
+        .fsq-rs{ color:var(--text-muted); margin-right:2px; font-size:.95rem; }
+        .fsq-amt-input{ font-size:.95rem !important; }
+
+        /* Combined Student + Academic card: left (avatar+name, medium/grade/sr
+           line, contact) / right (father/mother), one card instead of two. */
+        .fsq-combocard{ display:grid; grid-template-columns:1.35fr auto 1fr; padding:16px 18px; gap:14px; }
+        @media (max-width:640px){ .fsq-combocard{ grid-template-columns:1fr; } }
+        .fsq-combo-left{ border-right:1px solid var(--border-color); padding-right:14px; }
+        @media (max-width:640px){ .fsq-combo-left{ border-right:none; padding-right:0; border-bottom:1px solid var(--border-color); padding-bottom:12px; } }
+        /* Student photo - its own middle column between the info column and the
+           Fee Date/Submission Date/Previous Balance column. */
+        .fsq-combo-photocol{ display:flex; align-items:center; justify-content:center; padding:0 14px; border-right:1px solid var(--border-color); }
+        @media (max-width:640px){ .fsq-combo-photocol{ border-right:none; padding:10px 0; } }
+        .fsq-combo-namerow{ display:flex; align-items:center; gap:9px; margin-bottom:9px; }
+        .fsq-combo-namerow .studname{ font-size:.92rem; font-family:"Outfit", sans-serif; color:var(--text-primary); }
+        .fsq-combo-namerow .stu-avatar{ width:32px; height:32px; font-size:.72rem; background:var(--accent-light); color:var(--accent); }
+        .fsq-combo-metaline{ font-size:.78rem; color:var(--text-muted); margin-bottom:9px; }
+        .fsq-combo-metaline .fsq-msep{ color:var(--border-color); margin:0 6px; }
+        .fsq-combo-metaline b, .fsq-combo-metaline span span{ color:var(--text-primary); font-weight:600; }
+        .fsq-combo-contact{ font-size:.82rem; color:var(--text-muted); display:flex; align-items:center; }
+        .fsq-combo-contact .contactno{ color:var(--text-primary); font-weight:600; margin-left:5px; }
+        .fsq-combo-right{ display:flex; flex-direction:column; justify-content:center; }
+        .fsq-combo-right .fsq-irow{ padding:7px 0; font-size:.8rem; }
+        .fsq-callbtn:disabled{ background:var(--border-color); color:var(--text-muted); cursor:not-allowed; opacity:.75; }
+        .fsq-combo-parents{ margin-top:2px; margin-bottom:0; }
+
+        /* Student photo, top of the right column (falls back to a plain
+           person icon when the student has no photo on file, or the image
+           404s - /student/images/{filename} is gated on STUDENT_LIST:VIEW,
+           which a Fee-Submit-only user may not have, so a load failure is
+           expected sometimes, not an error). */
+        .fsq-combo-photo-img, .fsq-combo-photo-fallback{ width:84px; height:96px; border-radius:10px; border:1px solid var(--border-color); }
+        .fsq-combo-photo-img{ object-fit:cover; }
+        .fsq-combo-photo-fallback{ background:var(--body-bg); color:var(--text-muted); display:flex; align-items:center; justify-content:center; font-size:1.9rem; }
+
+        /* Update-Contact modal body redesign */
+        .fsq-contact-current{ display:flex; justify-content:space-between; align-items:center; background:var(--body-bg); border-radius:var(--radius-sm); padding:9px 12px; font-size:.82rem; color:var(--text-muted); }
+        .fsq-contact-current b{ color:var(--text-primary); font-size:.85rem; }
+        .fsq-contact-inputwrap{ display:flex; align-items:center; gap:9px; border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:9px 12px; margin-top:6px; }
+        .fsq-contact-inputwrap i{ color:var(--accent); font-size:.85rem; }
+        .fsq-contact-inputwrap input{ border:none; outline:none; flex:1; font-size:.88rem; background:transparent; color:var(--text-primary); min-width:0; }
+        .fsq-contact-inputwrap:focus-within{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-light); }
+
+        /* ── Three working columns — same shape as today's months | fee table | amounts ── */
+        .fsq-workcols{ display:grid; grid-template-columns:200px 1.5fr 1fr; gap:16px; align-items:start; }
+        @media (max-width:980px){ .fsq-workcols{ grid-template-columns:1fr; } }
+
+        .fsq-monthcard{ padding:14px; }
+        .fsq-lbl-sm{ font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); margin-bottom:10px; }
+        .fsq-monthstack{ display:flex; flex-direction:column; gap:6px; }
+        .fsq-mchip{ position:relative; display:block; cursor:pointer; margin:0; user-select:none; }
+        .fsq-mchip input{ position:absolute; opacity:0; width:0; height:0; }
+        .fsq-mchip-visual{ display:flex; align-items:center; gap:9px; padding:8px 10px; border-radius:var(--radius-md); border:1.5px solid var(--border-color); background:var(--card-bg); font-size:.8rem; font-weight:600; color:var(--text-primary); transition:background .12s,border-color .12s,color .12s; }
+        .fsq-mchip-box{ width:15px; height:15px; border-radius:4px; border:1.5px solid var(--border-color); flex:none; display:flex; align-items:center; justify-content:center; font-size:.62rem; color:#fff; background:#fff; }
+        .fsq-mchip:hover .fsq-mchip-visual{ border-color:var(--accent); }
+        .fsq-mchip input:checked + .fsq-mchip-visual{ background:var(--accent-light); border-color:var(--accent); }
+        .fsq-mchip input:checked + .fsq-mchip-visual .fsq-mchip-box{ background:var(--accent); border-color:var(--accent); }
+        .fsq-mchip input:checked + .fsq-mchip-visual .fsq-mchip-box i{ display:inline; }
+        .fsq-mchip-box i{ display:none; }
+        .fsq-mchip input:disabled + .fsq-mchip-visual{ background:var(--body-bg); border-color:var(--border-color); color:#98a2b8; text-decoration:line-through; cursor:default; }
+        .fsq-mchip input:disabled + .fsq-mchip-visual .fsq-mchip-box{ background:#cbd2e0; border-color:#cbd2e0; }
+        .fsq-discountnote{ margin-top:12px; font-size:.72rem; color:#0f6b3b; background:#e9f9ef; border-radius:8px; padding:8px 10px; line-height:1.5; display:none; }
+
+        .fsq-feecard table{ width:100%; border-collapse:collapse; font-size:.82rem; }
+        .fsq-feecard th{ text-align:left; background:var(--body-bg); color:var(--text-muted); font-size:.66rem; text-transform:uppercase; letter-spacing:.04em; padding:9px 14px; }
+        .fsq-feecard th.amt, .fsq-feecard td.amt{ text-align:right; }
+        .fsq-feecard td{ padding:9px 14px; border-top:1px solid var(--border-color); }
+        .fsq-feecard tr.fsq-auto td{ background:#e9f9ef; }
+        .fsq-feecard tr.fsq-auto .fsq-lbl{ display:flex; align-items:center; gap:7px; color:#0f6b3b; font-weight:600; }
+        .fsq-feecard .fsq-pill{ font-size:.62rem; font-weight:700; padding:2px 7px; border-radius:999px; background:#c9f2da; color:#0f6b3b; text-transform:uppercase; letter-spacing:.03em; }
+        .fsq-feecard-foot{ padding:10px 14px; font-size:.74rem; color:var(--text-muted); }
+        .fsq-feecard-empty{ padding:18px 14px; font-size:.8rem; color:var(--text-muted); text-align:center; }
+
+        .fsq-amtcard{ padding:16px; display:flex; flex-direction:column; gap:2px; }
+        .fsq-amtcard .fsq-mini{ display:flex; justify-content:space-between; align-items:center; font-size:.8rem; padding:6px 0; color:var(--text-muted); border-bottom:1px solid var(--border-color); }
+        .fsq-amtcard .fsq-mini input{ border:none; background:transparent; text-align:right; width:70px; font-weight:600; color:var(--text-primary); padding:0; }
+        .fsq-amtcard .fsq-mini input.fsq-fine-active{ color:#dc2626; }
+        .fsq-fieldlabel{ font-size:.68rem; font-weight:600; color:var(--text-muted); margin-bottom:4px; display:block; text-transform:uppercase; letter-spacing:.03em; }
+        .fsq-field{ margin:10px 0; }
+        .fsq-field input, .fsq-field select{ width:100%; border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:8px 10px; font-size:.82rem; background:#fff; color:var(--text-primary); }
+        .fsq-field input[readonly]{ background:var(--body-bg); color:var(--text-muted); }
+        .fsq-hint{ font-size:.71rem; color:var(--text-muted); margin-top:4px; display:block; }
+        .fsq-hint.fsq-fine-active-hint{ color:#dc2626; font-weight:600; }
+
+        .fsq-adminrow{ display:flex; align-items:center; gap:8px; background:#fef9ec; border:1px solid #fbe6ad; border-radius:var(--radius-md); padding:8px 10px; margin:10px 0; }
+        .fsq-adminrow label{ font-size:.73rem; font-weight:600; color:#8a5a00; flex:1; }
+        .fsq-adminrow input{ max-width:100px; border:1px solid #fbe6ad !important; }
+
+        .fsq-duebox{ background:var(--accent-light); border-radius:var(--radius-md); padding:12px 14px; margin:10px 0 4px; }
+        .fsq-duebox > span{ font-size:.7rem; font-weight:700; color:#075985; text-transform:uppercase; letter-spacing:.03em; }
+        .fsq-duebox-val{ display:flex; align-items:baseline; gap:4px; margin-top:2px; }
+        .fsq-duebox-val .fsq-rs{ font-size:1.15rem; font-weight:700; color:#075985; line-height:1; }
+        .fsq-duebox b{ display:block; font-size:1.5rem; font-family:"Outfit","Plus Jakarta Sans",sans-serif; color:#075985; margin-top:2px; }
+        .fsq-duebox input{ border:none !important; background:transparent !important; font-size:1.5rem; line-height:1; font-weight:700; color:#075985; padding:0 !important; width:100%; font-family:"Outfit","Plus Jakarta Sans",sans-serif; }
+
+        .fsq-balrow{ display:flex; justify-content:space-between; align-items:center; font-size:.82rem; padding:8px 0; }
+        .fsq-balrow b{ color:#16a34a; }
+        .fsq-balrow input{ border:none; background:transparent; text-align:right; font-weight:700; color:#16a34a; width:90px; padding:0; }
+        .fsq-settled-badge{ font-size:.68rem; font-weight:600; padding:2px 8px; }
+
+        .fsq-ptype-tiles{ display:flex; gap:6px; margin-top:4px; }
+        .fsq-ptype-tiles button{ flex:1; border:1.5px solid var(--border-color); background:#fff; border-radius:var(--radius-sm); padding:9px 4px; font-size:.76rem; font-weight:600; color:var(--text-muted); cursor:pointer; }
+        .fsq-ptype-tiles button.on{ background:var(--accent-light); border-color:var(--accent); color:var(--accent); }
+
+        .fsq-breakup{ display:none; flex-direction:column; gap:10px; background:var(--body-bg); border-radius:var(--radius-md); padding:12px; margin:10px 0; }
+        .fsq-breakup.show{ display:flex; }
+        .fsq-breakup .fsq-bcol{ display:flex; gap:8px; }
+        .fsq-breakup .fsq-bcol .fsq-bhd{ flex:none; width:60px; font-size:.76rem; font-weight:700; padding-top:8px; }
+        .fsq-breakup .fsq-bcol.fsq-cash .fsq-bhd{ color:#16a34a; }
+        .fsq-breakup .fsq-bcol.fsq-online .fsq-bhd{ color:var(--accent); }
+        .fsq-breakup .fsq-bcol .fsq-inputs{ flex:1; display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+        .fsq-breakup .fsq-inputs input{ border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:7px 9px; font-size:.78rem; background:#fff; }
+        .fsq-breakup-total{ font-size:.72rem; color:var(--text-muted); display:flex; justify-content:space-between; }
+        .fsq-breakup-total.fsq-mismatch{ color:#dc2626; font-weight:600; }
+
+        .fsq-submitbtn-wrap{ text-align:right; margin-top:12px; }
+        .fsq-submitbtn{ width:auto; padding:9px 22px; font-size:.84rem; border-radius:9px; }
+
+        /* ── Themed toasts: scoped to this page only via a body class, so other
+               pages' toastr styling is unaffected. ── */
+        body.fsq-toast-theme #toast-container > div{ border-radius:12px !important; box-shadow:0 6px 20px rgba(15,23,42,.18) !important; font-family:"Plus Jakarta Sans",sans-serif !important; opacity:1 !important; }
+        body.fsq-toast-theme #toast-container > .toast-success{ background-color:#16a34a !important; }
+        body.fsq-toast-theme #toast-container > .toast-error{ background-color:#dc2626 !important; }
+        body.fsq-toast-theme #toast-container > .toast-warning{ background-color:#d97706 !important; }
+        body.fsq-toast-theme #toast-container > .toast-info{ background-color:var(--accent,#0ea5e9) !important; }
+    </style>
+
+    <div class="container-fluid px-3">
+        <div class="row mt-2">
+            <div class="col-md-12">
+                <div class="card-header fs-3">Fee Submission <span class="badge rounded-pill text-bg-primary" style="font-size:11px;vertical-align:middle;">Neo</span></div>
+                <hr/>
+
+                <!--Search box - same da-search-wrap pattern as Assign Discount-->
+                <div class="da-search-wrap">
+                    <i class="bi bi-search"></i>
+                    <input oninput="searchStuName()" type="text" class="form-control" id="search-input" placeholder="Search student name">
+                    <div class="da-search-results search-result"></div>
+                </div>
+
+                <form name="feesubmission" th:action="@{/fees/feesubmit}" th:object="${feesubmissionobj}" method="post">
+
+                    <input type="hidden" id="academicStudentId" value="" name="academicStudentId" th:field="*{academicStudent.id}">
+                    <input type="hidden" name="school_id" id="school_id" th:field="*{school.id}"/>
+                    <input type="hidden" name="academic_id" id="academic_id" th:field="*{academicYear.id}"/>
+                    <input type="hidden" id="StudentId" value="" name="StudentId">
+                    <input type="hidden" id="gradeId" value="" name="gradeId">
+                    <input type="hidden" id="paymentType" name="paymentType" value="">
+
+                    <!--Student+Academic (combined) / Dates - two cards-->
+                    <div class="fsq-infogrid">
+                        <div class="fsq-card fsq-combocard">
+                            <div class="fsq-combo-left">
+                                <div class="fsq-combo-namerow">
+                                    <span class="stu-avatar" id="studentAvatar"></span>
+                                    <span class="studname"></span>
+                                </div>
+                                <div class="fsq-combo-metaline">
+                                    <span>Medium: <span class="cmedium"></span></span><span class="fsq-msep">|</span><span>Grade: <span class="cgrade"></span>-<span class="csection"></span></span><span class="fsq-msep">|</span><span>SR No: <span class="csr"></span></span>
+                                </div>
+                                <div class="fsq-combo-contact">
+                                    <span>Contact No:</span><span class="contactno"></span>
+                                    <button type="button" class="fsq-callbtn dynamic-btn" title="Update contact" disabled><i class="bi bi-pencil-fill"></i></button>
+                                </div>
+                                <div class="fsq-combo-metaline fsq-combo-parents">
+                                    <span>Father Name: <b class="fname"></b></span><span class="fsq-msep">|</span><span>Mother Name: <b class="mname"></b></span>
+                                </div>
+                            </div>
+                            <div class="fsq-combo-photocol">
+                                <img id="studentPhoto" class="fsq-combo-photo-img" style="display:none;" alt="Student photo">
+                                <div id="studentPhotoFallback" class="fsq-combo-photo-fallback"><i class="bi bi-person"></i></div>
+                            </div>
+                            <div class="fsq-combo-right">
+                                <div class="fsq-irow"><span>Fee Date</span><span><input type="text" readonly id="feedate" name="feedate" value="" style="border:none;background:transparent;text-align:right;font-weight:600;color:inherit;width:100px;padding:0;"></span></div>
+                                <div class="fsq-irow"><span>Submission Date</span><span><input type="text" readonly id="feesubmissiondate" name="feesubmissiondate" value="" style="border:none;background:transparent;text-align:right;font-weight:600;color:inherit;width:150px;padding:0;"></span></div>
+                                <div class="fsq-irow fsq-warn"><span>Previous Balance</span><span><span class="fsq-rs">₹</span><input type="text" readonly class="fsq-amt-input" id="previousBalance" name="previousBalance" value="" style="border:none;background:transparent;text-align:right;font-weight:700;color:inherit;width:60px;padding:0;"></span></div>
+                            </div>
+                        </div>
+                        <div class="fsq-card">
+                            <div class="fsq-icard-hd"><b>Details</b></div>
+                            <div class="fsq-icard-body">
+                                <div class="fsq-irow"><span>Discount Name</span><span id="discountNameDisplay">-</span></div>
+                                <div class="fsq-irow"><span>Last Submit Date</span><span id="lastSubmitDateDisplay">-</span></div>
+                                <div class="fsq-irow"><span>Last Receipt No</span><span id="lastReceiptNoDisplay">-</span></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="fsq-workcols">
+
+                        <!--Months-->
+                        <div class="fsq-card fsq-monthcard" th:if="${hasMonthMapping}">
+                            <div class="fsq-lbl-sm">Months</div>
+                            <div class="fsq-monthstack">
+                                <label class="fsq-mchip" th:each="mon,iterStat : ${monthmapping}">
+                                    <input type="checkbox" class="form-check-input monthcheckbox" th:id="${mon.monthMaster.monthName}" th:name="months" th:value="${mon.monthMaster.monthName}" />
+                                    <span class="fsq-mchip-visual">
+                                        <span class="fsq-mchip-box"><i class="bi bi-check-lg"></i></span>
+                                        <span th:text="${mon.monthMaster.monthName}"></span>
+                                    </span>
+                                </label>
+                            </div>
+                            <div class="fsq-discountnote" id="discountNote"></div>
+                        </div>
+                        <div class="fsq-card fsq-monthcard" th:if="${!hasMonthMapping}">
+                            <p class="text-center mb-1">No Month-Mapping found.</p>
+                            <p class="text-center mb-0">Contact to your admin.</p>
+                        </div>
+
+                        <!--Fee heads-->
+                        <div class="fsq-card fsq-feecard">
+                            <table id="feeTable">
+                                <thead>
+                                    <tr><th>#</th><th>Fee-head</th><th class="amt">Qty</th><th class="amt">Amount</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr id="feeTableEmptyRow"><td colspan="4" class="fsq-feecard-empty">Select a student and tick session months to load fee heads.</td></tr>
+                                </tbody>
+                            </table>
+                            <div class="fsq-feecard-foot" id="feeTableFoot" style="display:none;">Full Payment Discount applies automatically once every remaining session month is selected.</div>
+                            <input type="hidden" name="fullPaymentAmount" id="fullPaymentAmount" value=""/>
+                        </div>
+
+                        <!--Amount Detail-->
+                        <div class="fsq-card fsq-amtcard">
+                            <div class="fsq-mini">
+                                <span>Fine Amount</span>
+                                <span><span class="fsq-rs">₹</span><input type="number" readonly class="fsq-amt-input" id="fineAmount" name="fineAmount" value=""></span>
+                            </div>
+                            <div class="fsq-field">
+                                <span class="fsq-fieldlabel">Fine Remark</span>
+                                <input type="text" readonly id="fineRemark" name="fineRemark" value="">
+                            </div>
+
+                            <div class="fsq-mini">
+                                <span>Discount</span>
+                                <span><span class="fsq-rs">₹</span><input type="number" readonly class="fsq-amt-input" id="discountAmount" name="discountAmount" value=""></span>
+                            </div>
+                            <input type="hidden" id="discountHead" name="discountHead" value="">
+                            <span class="fsq-hint" style="display:block;margin:-2px 0 8px;"><span id="discountMsg"></span> <span id="discountCount"></span></span>
+
+                            <!--
+                                Mid Year Migration Discount - rendered only when the server-side
+                                check (system_config toggle ON + logged-in user is
+                                ROLE_ADMIN/ROLE_SUPERADMIN, see
+                                FeeSubmissionController.getFeeSubmissionFormNeo /
+                                FeeSubmissionService.isMigrationDiscountFieldEnabledForCurrentUser)
+                                passes - computed once at page load, not per student.
+                            -->
+                            <div id="migrationDiscountRow" th:if="${migrationDiscountEnabled}" class="fsq-adminrow">
+                                <label for="migrationDiscountAmount">Special Discount (Admin)</label>
+                                <span class="fsq-rs">₹</span><input type="text" inputmode="numeric" class="fsq-amt-input" id="migrationDiscountAmount" name="migrationDiscountAmount" placeholder="0" autocomplete="off">
+                            </div>
+
+                            <div class="fsq-duebox">
+                                <span>Total Due</span>
+                                <div class="fsq-duebox-val">
+                                    <span class="fsq-rs">₹</span><input type="number" readonly id="totalAmount" name="totalAmount" value="" style="flex:1;min-width:0;">
+                                </div>
+                            </div>
+
+                            <div class="fsq-field">
+                                <span class="fsq-fieldlabel">Paid Amount*</span>
+                                <span class="fsq-rs">₹</span><input type="number" class="fsq-amt-input" id="paidAmount" name="paidAmount" value="" autocomplete="off" style="width:calc(100% - 16px);display:inline-block;">
+                                <span id="errmsg" class="fsq-hint"></span>
+                            </div>
+
+                            <div class="fsq-balrow">
+                                <span>Balance Amount*</span>
+                                <span><span class="fsq-rs" id="balanceRs">₹</span><input type="number" readonly class="fsq-amt-input" id="balanceAmount" name="balanceAmount" value=""><span id="balanceStatusBadge" class="badge rounded-pill text-bg-success fsq-settled-badge" style="display:none;">Settled</span></span>
+                            </div>
+
+                            <div class="fsq-field">
+                                <span class="fsq-fieldlabel">Payment Type*</span>
+                                <div class="fsq-ptype-tiles">
+                                    <button type="button" data-pt="Cash"><i class="bi bi-cash-stack"></i> Cash</button>
+                                    <button type="button" data-pt="Both"><i class="bi bi-arrow-left-right"></i> Both</button>
+                                    <button type="button" data-pt="Online"><i class="bi bi-credit-card-fill"></i> Online</button>
+                                </div>
+                            </div>
+                            <div class="fsq-breakup" id="breakupBlock">
+                                <div class="fsq-bcol fsq-cash">
+                                    <div class="fsq-bhd"><i class="bi bi-cash-stack"></i> Cash</div>
+                                    <div class="fsq-inputs">
+                                        <input type="number" id="cashAmount" name="cashAmount" placeholder="₹ Amount" autocomplete="off">
+                                        <input type="text" id="cashRemark" name="cashRemark" placeholder="Remark (optional)" autocomplete="off">
+                                    </div>
+                                </div>
+                                <div class="fsq-bcol fsq-online">
+                                    <div class="fsq-bhd"><i class="bi bi-credit-card-fill"></i> Online</div>
+                                    <div class="fsq-inputs">
+                                        <input type="number" id="onlineAmount" name="onlineAmount" placeholder="₹ Amount" autocomplete="off">
+                                        <input type="text" id="onlineRemark" name="onlineRemark" placeholder="Remark (optional)" autocomplete="off">
+                                    </div>
+                                </div>
+                                <div class="fsq-breakup-total" id="breakupTotalLine">
+                                    <span>Entered: <b>₹<span id="breakupEnteredTotal">0</span></b></span>
+                                    <span>Target: <b>₹<span id="breakupTargetTotal">0</span></b></span>
+                                </div>
+                            </div>
+
+                            <div class="fsq-field">
+                                <span class="fsq-fieldlabel">Remark</span>
+                                <input type="text" id="feeRemark" name="feeRemark" value="">
+                            </div>
+
+                            <div class="fsq-submitbtn-wrap">
+                                <button type="button" sms:access="FEE_SUBMIT:CREATE" onclick="checkMonths()" class="btn btn-primary fsq-submitbtn" id="feeSubmitBtn"><i class="bi bi-save2-fill"></i> Submit Fee</button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Update Contact Modal -->
+    <div class="modal fade" id="myModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius:14px;border:none;box-shadow:0 12px 32px rgba(15,23,42,0.18);">
+                <div class="modal-header" style="border-bottom:1px solid var(--border-color);">
+                    <h5 class="modal-title" id="exampleModalLabel"><i class="bi bi-telephone-plus-fill text-primary me-2"></i>Update Contact</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="fsq-contact-current"><span>Current number</span><b id="modalCurrentContact">-</b></div>
+                    <label class="fsq-fieldlabel" for="updatedContactNumber" style="margin-top:14px;">New mobile number</label>
+                    <div class="fsq-contact-inputwrap">
+                        <i class="bi bi-telephone-fill"></i>
+                        <input type="text" inputmode="numeric" maxlength="10" id="updatedContactNumber" placeholder="10-digit mobile number" autocomplete="off" required>
+                    </div>
+                    <span class="fsq-hint">Used for SMS and call notifications for this student.</span>
+                </div>
+                <div class="modal-footer" style="border-top:1px solid var(--border-color);">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><i class="bi bi-x-square"></i> Close</button>
+                    <button type="button" class="btn btn-primary" id="updateContactBtn"><i class="bi bi-pencil-square"></i> Update</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/javascript" th:inline="javascript">
+        const contextPath = /*[[@{/}]]*/ '/';
+
+        // Scoped toast theme - added to <body> only while this page is open, so
+        // other pages' default toastr look is unaffected (see the body.fsq-toast-theme
+        // rules in the <style> block above).
+        document.body.classList.add('fsq-toast-theme');
+
+        // Escapes a value before it is interpolated into an .html()-built string.
+        // Same fix pattern already applied across the app (feesubmitform.html,
+        // feesubmitform-new.html, messageSender.html, etc.) - student/father/
+        // mother names, mobile numbers, grade/section labels come straight from
+        // a JSON response with no server-side escaping.
+        const escapeHtml = function (value) {
+            const div = document.createElement('div');
+            div.textContent = value !== undefined && value !== null ? value : '';
+            return div.innerHTML;
+        };
+
+        const moneyFmt = function(n){
+            n = parseFloat(n);
+            if (isNaN(n)) n = 0;
+            return (Math.round(n * 100) / 100).toFixed(2);
+        };
+
+        // Event listener for dynamically added button
+        $(document).on('click', '.dynamic-btn', function() {
+            // Guard against the button being clicked while no student is loaded -
+            // the native `disabled` attribute already blocks this in every modern
+            // browser, this is just defense in depth.
+            if ($(this).is(':disabled') || $('#StudentId').val() === '') return;
+            $('#modalCurrentContact').text($('.contactno').text() || '-');
+            $('#updatedContactNumber').val('');
+            $('#myModal').modal('show');
+        });
+
+        /* ── Display-only helpers ─────────────────────────────────────────── */
+        function refreshBalanceDisplay(){
+            let raw = $('#balanceAmount').val();
+            let bal = parseFloat(raw);
+            if(raw !== '' && !isNaN(bal) && bal === 0){
+                $('#balanceAmount').hide();
+                $('#balanceRs').hide();
+                $('#balanceStatusBadge').show();
+            } else {
+                $('#balanceAmount').show();
+                $('#balanceRs').show();
+                $('#balanceStatusBadge').hide();
+            }
+        }
+
+        /* ── Mid Year Migration Discount (admin-only, config-gated field) ── */
+        let baseTotalBeforeMigrationDiscount = 0;
+
+        function applyMigrationDiscount(){
+            const row = document.getElementById('migrationDiscountRow');
+            if(!row) return; // not rendered at all for this user (th:if was false server-side)
+            let discountVal = parseFloat($('#migrationDiscountAmount').val());
+            if(isNaN(discountVal) || discountVal < 0) discountVal = 0;
+            let newTotal = baseTotalBeforeMigrationDiscount - discountVal;
+            if(newTotal < 0) newTotal = 0;
+            $('#totalAmount').val(newTotal);
+            $('#balanceAmount').val('0');
+            $('#paidAmount').val(newTotal);
+            refreshBalanceDisplay();
+            updateBreakupTotals();
+        }
+
+        $('#migrationDiscountAmount').on('keypress', function(e){
+            const char = String.fromCharCode(e.which);
+            if(e.which !== 8 && e.which !== 0 && !/[0-9.]/.test(char)){
+                return false;
+            }
+            if(char === '.' && $(this).val().indexOf('.') !== -1){
+                return false;
+            }
+        });
+        $('#migrationDiscountAmount').on('input', applyMigrationDiscount);
+
+        $("#paidAmount").keypress(function (e) {
+            if (e.which != 8 && e.which != 0 && (e.which < 48 || e.which > 57)) {
+                $("#errmsg").html("Digits Only").show().fadeOut("slow");
+                return false;
+            }
+        });
+
+        $('#paidAmount').on('keyup input', function() {
+            var ta = $('#totalAmount').val();
+            $('#balanceAmount').val((ta-$(this).val()));
+            refreshBalanceDisplay();
+            updateBreakupTotals();
+        });
+
+        /* ── Payment Type: Cash / Both / Online, with Both showing an inline
+               Cash+Online amount+remark breakup instead of a modal ── */
+        $('.fsq-ptype-tiles [data-pt]').on('click', function(){
+            $('.fsq-ptype-tiles [data-pt]').removeClass('on');
+            $(this).addClass('on');
+            const pt = $(this).data('pt');
+            $('#paymentType').val(pt);
+            if(pt === 'Both'){
+                $('#breakupBlock').addClass('show');
+                updateBreakupTotals();
+            } else {
+                $('#breakupBlock').removeClass('show');
+                $('#cashAmount').val(''); $('#cashRemark').val('');
+                $('#onlineAmount').val(''); $('#onlineRemark').val('');
+            }
+        });
+
+        // Same exact-match rule the backend enforces (FeeSubmissionService.save):
+        // Cash and Online must each be > 0, and their sum must equal Paid Amount
+        // to the cent - compared as formatted strings (like the original page's
+        // breakup modal) rather than raw floats, to sidestep float rounding.
+        function breakupMatchesTarget(){
+            const cash = parseFloat($('#cashAmount').val()) || 0;
+            const online = parseFloat($('#onlineAmount').val()) || 0;
+            const target = parseFloat($('#paidAmount').val()) || 0;
+            return cash > 0 && online > 0 && target > 0 && moneyFmt(cash + online) === moneyFmt(target);
+        }
+
+        function updateBreakupTotals(){
+            if($('#paymentType').val() !== 'Both') return;
+            const cash = parseFloat($('#cashAmount').val()) || 0;
+            const online = parseFloat($('#onlineAmount').val()) || 0;
+            const target = parseFloat($('#paidAmount').val()) || 0;
+            $('#breakupEnteredTotal').text(moneyFmt(cash + online));
+            $('#breakupTargetTotal').text(moneyFmt(target));
+            $('#breakupTotalLine').toggleClass('fsq-mismatch', !breakupMatchesTarget());
+        }
+        $('#cashAmount, #onlineAmount').on('input', updateBreakupTotals);
+
+        /* ── Student search with infinite scroll (da- result rows, same
+               debounced fetch/pagination as feesubmitform-new.html) ────────── */
+        let _searchQuery = '';
+        let _searchPage  = 0;
+        let _searchMore  = false;
+        let _searchLoading = false;
+        let _searchDebounceTimer = null;
+
+        const _fsqAvatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+        const _fsqInitialsOf = function (name) {
+            return (name || '').trim().split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+        };
+        const _fsqAvatarColorFor = function (id) {
+            return _fsqAvatarColors[Math.abs(id || 0) % _fsqAvatarColors.length];
+        };
+
+        const _fsqRow = (student) => {
+            const sr = student.classSrNo != null && student.classSrNo !== '' ? ' / SR ' + escapeHtml(student.classSrNo) : '';
+            const color = _fsqAvatarColorFor(student.id);
+            return `<div class="da-result-row" onclick="loadStudentData(${student.id})">` +
+                `<div class="stu-avatar" style="background:${color}22;color:${color}">${escapeHtml(_fsqInitialsOf(student.student.studentName))}</div>` +
+                `<div><div class="da-result-name">${escapeHtml(student.student.studentName)}</div>` +
+                `<div class="da-result-sub">${escapeHtml(student.student.fatherName)} &middot; ${escapeHtml(student.grade.gradeName)}-${escapeHtml(student.section.sectionName)}${sr}</div></div>` +
+                `</div>`;
+        };
+
+        const fetchStudents = (query, page, append) => {
+            if (_searchLoading) return;
+            _searchLoading = true;
+            let url = `${contextPath}searchStudentForFeePage/${encodeURIComponent(query)}?page=${page}`;
+            fetch(url).then(r => r.json()).then(students => {
+                _searchLoading = false;
+                _searchMore = students.length === 10;
+                if (!append) {
+                    if (students.length === 0) {
+                        $(".search-result").html(`<div class="da-result-empty">No students found for "${escapeHtml(query)}"</div>`).show();
+                    } else {
+                        let html = `<div id='fsq-list-group'>`;
+                        students.forEach(s => { html += _fsqRow(s); });
+                        html += `</div>`;
+                        $(".search-result").html(html).show();
+                    }
+                } else {
+                    students.forEach(s => {
+                        $('#fsq-list-group').append(_fsqRow(s));
+                    });
+                }
+            }).catch(() => { _searchLoading = false; });
+        };
+
+        const searchStuName = () => {
+            clearTimeout(_searchDebounceTimer);
+            let query = $("#search-input").val();
+            if (query.trim().length > 2) {
+                _searchDebounceTimer = setTimeout(() => {
+                    _searchQuery = query;
+                    _searchPage  = 0;
+                    fetchStudents(query, 0, false);
+                }, 300);
+            } else {
+                _searchQuery = '';
+                $(".search-result").hide();
+            }
+        };
+
+        document.querySelector('.search-result').addEventListener('scroll', function() {
+            if (!_searchMore || _searchLoading) return;
+            if (this.scrollTop + this.clientHeight >= this.scrollHeight - 40) {
+                _searchPage++;
+                fetchStudents(_searchQuery, _searchPage, true);
+            }
+        });
+
+        const loadStudentData=(id)=>{
+            $(".search-result").hide();
+            $("#search-input").val('');
+            resetMonthsSelection();
+            if(id>0){
+                resetMonthCheckBoxes();
+                resetFeeFields(0);
+                let url = `${contextPath}getStudentDetailForFee/${id}`;
+                fetch(url).then(response => {
+                    return response.json();
+                }).then((data) => {
+                    if('noAcademicStudent' in data){
+                        showWarningMsg("warning",data.noAcademicStudent,"Message");
+                        setFeeRelatedData(data, 0)
+                    } else{
+                        if('noFeeDate' in data){
+                            showWarningMsg("warning",data.noFeeDate,"Message");
+                        } else{
+                            setFeeRelatedData(data, 1);
+                        }
+                        if(!('Paid_Month_Error' in data)){
+                            if(data.PaidMonths!=null){
+                                let month_checkboxes = $('.monthcheckbox');
+                                month_checkboxes.each(function() {
+                                    if (data.PaidMonths.includes($(this).attr('id'))) {
+                                        $(this).prop('checked', true);
+                                        $(this).prop('disabled', true);
+                                    }
+                                });
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        const resetMonthsSelection = ()=>{
+            let month_checkboxes = $('.monthcheckbox');
+            month_checkboxes.each(function() {
+                $(this).prop('checked', false);
+                $(this).prop('disabled', false);
+            });
+        }
+
+        function formatDate(dateString, dlen) {
+            const date = new Date(dateString);
+            const getMonthAbbreviation = (monthIndex) => {
+                const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                return months[monthIndex];
+            };
+            const day = date.getDate();
+            const month = getMonthAbbreviation(date.getMonth());
+            const year = date.getFullYear();
+            const hrs = date.getHours();
+            const mins = date.getMinutes();
+            const seconds = date.getSeconds();
+            if(dlen === 'short'){
+                return `${String(day).padStart(2, '0')}/${month}/${year}`;
+            }
+            if(dlen === 'dmyhm'){
+                return `${String(day).padStart(2, '0')}/${month}/${year} ${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+            }
+            return `${String(day).padStart(2, '0')}/${month}/${year} ${hrs}:${mins}:${seconds}`;
+        }
+
+        /* Student photo (top of the Fee Date/Submission Date/Previous Balance
+           column) - falls back to a plain person icon when the student has no
+           photo on file, or /student/images/{filename} 404s/403s (that route
+           is gated on STUDENT_LIST:VIEW, which a Fee-Submit-only user may not
+           have - a failed load there is expected, not an error to surface). */
+        function _fsqShowStudentPhoto(pic){
+            const $img = $('#studentPhoto');
+            const $fallback = $('#studentPhotoFallback');
+            if(pic){
+                $img.attr('src', `${contextPath}student/images/${encodeURIComponent(pic)}`)
+                    .off('error.fsqphoto').on('error.fsqphoto', function(){
+                        $(this).hide();
+                        $fallback.show();
+                    })
+                    .show();
+                $fallback.hide();
+            } else{
+                $img.hide().removeAttr('src');
+                $fallback.show();
+            }
+        }
+
+        function setFeeRelatedData(data, flag){
+            if(flag===1){
+                $(".studname").html(`<b>${escapeHtml(data.student.studentName)}</b> <span class="badge rounded-pill ${data.countStu=='OLD'?'text-bg-primary':'text-bg-success'}" style="font-size:10px;vertical-align:middle;"> ${escapeHtml(data.countStu)} </span>`);
+                const avColor = _fsqAvatarColorFor(data.student.id);
+                $('#studentAvatar').text(_fsqInitialsOf(data.student.studentName)).css({background: avColor + '22', color: avColor});
+                $(".fname").html(`${escapeHtml(data.student.fatherName)}`);
+                $(".mname").html(`${escapeHtml(data.student.motherName)}`);
+                $(".contactno").html(`${escapeHtml(data.student.mobile1)}`);
+                $('.dynamic-btn').prop('disabled', false);
+                _fsqShowStudentPhoto(data.student.pic);
+
+                $(".cmedium").html(`${escapeHtml(data.student.medium)}`);
+                $(".cgrade").html(`${escapeHtml(data.student.grade)}`);
+                $(".csection").html(`${escapeHtml(data.student.section)}`);
+                $(".csr").html(`${data.student.classSrNo==null?"":escapeHtml(data.student.classSrNo)}`);
+
+                $('#academicStudentId').val(`${data.student.academicId}`);
+                $('#StudentId').val(`${data.student.id}`);
+                $('#gradeId').val(`${data.student.gradeId}`);
+                let feeSubmissiondate = formatDate(data.feeDate.feeDate, 'short');
+                $("#feedate").val(feeSubmissiondate);
+                let todayDate = formatDate(data.todayDate, 'full');
+                $("#feesubmissiondate").val(todayDate);
+                $("#previousBalance").val(`${data.previousBalance}`);
+                if(data.previousBalance>0){
+                    $("#previousBalance").closest('.fsq-irow').addClass('fsq-warn');
+                } else{
+                    $("#previousBalance").closest('.fsq-irow').removeClass('fsq-warn');
+                }
+
+                // Discount Name / Last Submit Date / Last Receipt No - all pre-escaped
+                // (discountName/lastReceiptNo are plain strings from the server; run
+                // through escapeHtml the same as every other student-supplied/derived
+                // value on this page).
+                $('#discountNameDisplay').html(data.discountName ? escapeHtml(data.discountName) : '-');
+                $('#lastSubmitDateDisplay').text(data.lastSubmitDate ? formatDate(data.lastSubmitDate, 'dmyhm') : 'Not submitted yet');
+                $('#lastReceiptNoDisplay').html(data.lastReceiptNo ? escapeHtml(data.lastReceiptNo) : '-');
+
+                baseTotalBeforeMigrationDiscount = 0;
+            } else{
+                $(".studname").html(``);
+                $('#studentAvatar').text('').css({background: '', color: ''});
+                $(".fname").html(``);
+                $(".mname").html(``);
+                $(".contactno").html(``);
+                $('.dynamic-btn').prop('disabled', true);
+                $('#StudentId').val('');
+                _fsqShowStudentPhoto(null);
+
+                $(".cmedium").html(``);
+                $(".cgrade").html(``);
+                $(".csection").html(``);
+                $(".csr").html(``);
+                $("#feedate").val('');
+                $("#feesubmissiondate").val('');
+                $('#academicStudentId').val('');
+                $('#gradeId').val('');
+                $("#previousBalance").val('');
+                $("#previousBalance").closest('.fsq-irow').removeClass('fsq-warn');
+
+                $('#discountNameDisplay').text('-');
+                $('#lastSubmitDateDisplay').text('-');
+                $('#lastReceiptNoDisplay').text('-');
+
+                baseTotalBeforeMigrationDiscount = 0;
+            }
+        }
+
+        $('.monthcheckbox').on('click', async function (e){
+            const academicStudentId = $('#academicStudentId').val();
+            if(academicStudentId === null || academicStudentId === ''){
+                showWarningMsg("error","No Student found.\nPlease select a student for fee submission.","Message")
+                resetMonthCheckBoxes();
+                return;
+            }
+            let checkBoxes = "";
+            let monthArr = "";
+            let month_checkboxes = $('.monthcheckbox');
+            month_checkboxes.each(function() {
+                if($(this).is(':enabled') && $(this).is(':checked')){
+                    if(checkBoxes===""){
+                        checkBoxes = $(this).attr("id");
+                    } else{
+                        checkBoxes = checkBoxes + "-" + $(this).attr("id");
+                    }
+                }
+                if($(this).is(':enabled')){
+                    monthArr = monthArr + $(this).attr("id") + "-";
+                }
+            });
+            const sequenceResult = checkMonthSequence(checkBoxes.split("-"));
+            if(sequenceResult === false){
+                showWarningMsg("warning","Selection Not Allowed.\nPlease select month in sequence","Message")
+                resetMonthCheckBoxes();
+                resetFeeFields(0);
+                return;
+            }
+            $('#feeTable > tbody').empty();
+            resetFeeFields(1);
+            const gradeId = $('#gradeId').val();
+            let prevBalAmount = parseInt($('#previousBalance').val());
+            const requestBody = {
+                checkBoxes: checkBoxes,
+                gradeId: gradeId,
+                academicStudentId: academicStudentId
+            };
+            await calculateFee(requestBody);
+            await calculateDiscount(requestBody);
+            await calculateFine(requestBody);
+
+            baseTotalBeforeMigrationDiscount = parseFloat($('#totalAmount').val()) || 0;
+            applyMigrationDiscount();
+
+            if(parseFloat($('#previousBalance').val()) > 0){
+                $('#previousBalance').closest('.fsq-irow').addClass('fsq-warn');
+            }
+        });
+
+        async function calculateFee(requestBody){
+            let url = `${contextPath}getFeeDetailsBasedOnMonth`;
+            let tot = 0;
+            let prevBalAmount = parseInt($('#previousBalance').val());
+            try{
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+                if (!response.ok) {
+                    throw new Error('Network response was not ok ' + response.statusText);
+                }
+                const data = await response.json();
+                let headList = data.feelist;
+                let olist = data.paymentlist;
+                if(headList!=null) {
+                    tot = tot + prevBalAmount;
+                    let rows = '';
+                    for (let i = 0; i < headList.length; i++) {
+                        let value = headList[i];
+                        rows += '<tr><td>'+ (i+1) +'</td><td>'+ escapeHtml(value.feehead) +'</td><td class="amt">'+ value.quantity +'</td><td class="amt">₹'+formatINR(value.amount)+'<input type="hidden" name="headName" value="'+escapeHtml(value.feehead)+'###'+value.amount+'###'+ value.feeid +'" /></td></tr>';
+                        tot = tot + value.amount;
+                    }
+                    if(olist.amount>0){
+                        rows += '<tr class="fsq-auto"><td colspan="2"><div class="fsq-lbl"><span class="fsq-pill">auto-applied</span> Full Payment Discount</div></td><td></td><td class="amt">&minus; ₹'+moneyFmt(olist.amount)+'</td></tr>';
+                        tot = tot - olist.amount;
+                        $('#fullPaymentAmount').val(olist.amount);
+                        $('#feeTableFoot').show();
+                    } else {
+                        $('#fullPaymentAmount').val(0.0);
+                        $('#feeTableFoot').hide();
+                    }
+                    $('#feeTable > tbody').html(rows || '<tr id="feeTableEmptyRow"><td colspan="4" class="fsq-feecard-empty">No fee heads for the selected months.</td></tr>');
+                    $('#totalAmount').val(tot);
+                    $('#balanceAmount').val("0");
+                    $('#paidAmount').val(tot);
+                    refreshBalanceDisplay();
+                    updateBreakupTotals();
+                }
+            }catch (error) {
+                console.error('There was a problem with the fetch operation:', error);
+                showWarningMsg("error","There was a problem with the fetch operation: " + error,"Error")
+            }
+        }
+
+        async function calculateDiscount(requestBody){
+            let url = `${contextPath}getDiscountDetailsBasedOnMonth`;
+            let tot = $('#totalAmount').val();
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+                if (!response.ok) {
+                    throw new Error('Network response was not ok ' + response.statusText);
+                }
+                const data = await response.json();
+                let headList = data.discountlist;
+                if(headList!=null) {
+                    for (let i = 0; i < headList.length; i++) {
+                        const value = headList[i];
+                        $('#discountAmount').val(value.amount);
+                        $('#discountHead').val(value.discountHeadName);
+                        $('#discountMsg').text(value.discountHeadName);
+                        $('#discountCount').text("("+value.quantity+" x ₹"+value.amt+" : ₹"+value.amount+")")
+                        $('#discountNote').text(value.discountHeadName + " applied — " + value.quantity + " x ₹" + value.amt + " = ₹" + value.amount).show();
+                        tot = tot - value.amount;
+                        $('#totalAmount').val(tot);
+                        $('#balanceAmount').val("0");
+                        $('#paidAmount').val(tot);
+                        refreshBalanceDisplay();
+                        updateBreakupTotals();
+                    }
+                }
+            } catch (error) {
+                console.error('There was a problem with the fetch operation:', error);
+                showWarningMsg("error","There was a problem with the fetch operation: " + error,"Error")
+            }
+        }
+
+        async function calculateFine(requestBody){
+            let subDate = $('#feesubmissiondate').val();
+            let feeDate = $('#feedate').val();
+            const newRequestBody = {
+                ...requestBody,
+                'submissionDate' : subDate,
+                'feeDate' : feeDate,
+            };
+            let url = `${contextPath}getFineDetailsBasedOnMonth`;
+            let tot = $('#totalAmount').val();
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newRequestBody)
+                });
+                if (!response.ok) {
+                    throw new Error('Network response was not ok ' + response.statusText);
+                }
+                const data = await response.json();
+                let headList = data.fineamount;
+                if(headList!=null) {
+                    if($.isNumeric(headList) && headList!=0)
+                    {
+                        $('#fineAmount').val(headList);
+                        $('#fineRemark').val("FINE APPLICABLE");
+                        $('#fineAmount').addClass('fsq-fine-active');
+                        $('#fineRemark').addClass('fsq-fine-active-hint');
+                    }
+                    else{
+                        $('#fineAmount').val(headList);
+                        $('#fineRemark').val("FINE NOT APPLICABLE");
+                        $('#fineAmount').removeClass('fsq-fine-active');
+                        $('#fineRemark').removeClass('fsq-fine-active-hint');
+                    }
+                    tot = parseInt(tot) + parseInt(headList);
+                    $('#totalAmount').val(tot);
+                    $('#balanceAmount').val("0");
+                    $('#paidAmount').val(tot);
+                    refreshBalanceDisplay();
+                    updateBreakupTotals();
+                }
+            } catch (error) {
+                console.error('There was a problem with the fine operation:', error);
+                showWarningMsg("error","There was a problem with the fine operation: " + error,"Error")
+            }
+        }
+
+        function checkMonthSequence(monthArr){
+            let monthsInOrder = [];
+            let month_checkboxes = $('.monthcheckbox');
+            month_checkboxes.each(function() {
+                if($(this).is(':enabled')){
+                    monthsInOrder.push($(this).attr("id"));
+                }
+            });
+            if(monthsInOrder.indexOf(monthArr[0])!=0){
+                return false;
+            }
+            const indices = monthArr.map(month => monthsInOrder.indexOf(month));
+            indices.sort((a, b) => a - b);
+            for (let i = 0; i < indices.length - 1; i++) {
+                if (indices[i + 1] - indices[i] !== 1) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function resetFeeFields(flag){
+            if(flag === 0){
+                $('#feeTable > tbody').html('<tr id="feeTableEmptyRow"><td colspan="4" class="fsq-feecard-empty">Select a student and tick session months to load fee heads.</td></tr>');
+            }
+            $('#discountAmount').val('');
+            $('#discountHead').val('');
+            $('#discountMsg').text('');
+            $('#discountCount').text('');
+            $('#discountNote').text('').hide();
+            $('#fineAmount').val('').removeClass('fsq-fine-active');
+            $('#fineRemark').val('').removeClass('fsq-fine-active-hint');
+            $('#totalAmount').val('');
+            $('#balanceAmount').val('');
+            $('#paidAmount').val('');
+            $('#feeTableFoot').hide();
+            $('#fullPaymentAmount').val('');
+            $('#previousBalance').closest('.fsq-irow').removeClass('fsq-warn');
+            refreshBalanceDisplay();
+            updateBreakupTotals();
+            if(flag === 0){
+                $('#migrationDiscountAmount').val('');
+                baseTotalBeforeMigrationDiscount = 0;
+                // New student loaded - clear any Cash/Online breakup state left over
+                // from a previous student's "Both" payment.
+                $('#paymentType').val('');
+                $('.fsq-ptype-tiles [data-pt]').removeClass('on');
+                $('#breakupBlock').removeClass('show');
+                $('#cashAmount').val('');
+                $('#cashRemark').val('');
+                $('#onlineAmount').val('');
+                $('#onlineRemark').val('');
+                updateBreakupTotals();
+            }
+        }
+
+        function resetMonthCheckBoxes(){
+            let month_checkboxes = $('.monthcheckbox');
+            month_checkboxes.each(function() {
+                if($(this).is(':enabled') && $(this).is(':checked')){
+                    $(this).prop('checked', false);
+                }
+            });
+        }
+
+        $('#updateContactBtn').click(function() {
+            const contactNumber = $('#updatedContactNumber').val();
+            const studentId = $('#StudentId').val();
+
+            if (contactNumber === '') {
+                showWarningMsg("error","Contact number cannot be empty","Missing");
+                return;
+            }
+            const isNumeric = /^\d{10}$/.test(contactNumber);
+            if (!isNumeric) {
+                showWarningMsg("error","Contact number must be exactly 10 digits and contain only numbers.","Message");
+                return;
+            }
+            const apiUrl = `${contextPath}updateContact`;
+            const requestData = {
+                contactNumber: contactNumber,
+                stuId: studentId
+            };
+            fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showWarningMsg("success",data.success,"Success");
+                    $('#myModal').modal('hide');
+                } else if(data.error){
+                    showWarningMsg("error",data.error,"Error");
+                } else if(data.empty_response){
+                    // no-op
+                } else {
+                    showWarningMsg("error","Failed to update contact number","Error");
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showWarningMsg("error","An error occurred while updating the contact number","Error");
+            });
+        });
+
+        function checkMonths(){
+            if($('#academicStudentId').val().toString()===''){
+                showWarningMsg("error","Student is missing, please select a student!","Message");
+                return false;
+            }
+            if($("#feedate").val().toString()===''){
+                showWarningMsg("error","Fee Date is missing!","Message");
+                return false;
+            }
+            if($("#totalAmount").val().toString()===''){
+                showWarningMsg("error","Total Amount is missing!","Message");
+                return false;
+            }
+            if($("#paidAmount").val().toString()===''){
+                showWarningMsg("error","Paid Amount is missing!","Message");
+                return false;
+            }
+            if($("#balanceAmount").val().toString()===''){
+                showWarningMsg("error","Balance Amount is missing!","Message");
+                return false;
+            }
+            if($("#paymentType").val().toString()===''){
+                showWarningMsg("error","Payment type is missing!","Message");
+                return false;
+            }
+            if($('#feeTable > tbody > tr').not('#feeTableEmptyRow').length === 0){
+                showWarningMsg("error","No fee heads added. Please add at least one fee head before submitting.","Message");
+                return false;
+            }
+            if($('#paymentType').val() === 'Both' && !breakupMatchesTarget()){
+                showWarningMsg("error","For payment type \"Both\", enter a Cash amount and an Online amount (each greater than zero) that add up exactly to the Paid Amount.","Message");
+                return false;
+            }
+
+            const allMonthCheckboxes = $('.monthcheckbox');
+            const lastMonthCheckbox = allMonthCheckboxes.last();
+            const isLastMonthSelected = lastMonthCheckbox.is(':enabled') && lastMonthCheckbox.is(':checked');
+            if (isLastMonthSelected) {
+                const balanceAmt = parseFloat($('#balanceAmount').val()) || 0;
+                if (balanceAmt > 0) {
+                    showWarningMsg("error", "Balance amount must be zero when submitting the last month of the session. Please pay the full amount.", "Validation Error");
+                    return false;
+                }
+            }
+
+            $('#feeSubmitBtn').attr('disabled',true);
+            document.forms.feesubmission.submit();
+            return true;
+        }
+
+        function showWarningMsg(msgType, msg, headerValue){
+            toastr.options = {
+                "closeButton": true,
+                "debug": false,
+                "newestOnTop": false,
+                "progressBar": false,
+                "positionClass": "toast-top-right",
+                "preventDuplicates": false,
+                "onclick": null,
+                "showDuration": "600",
+                "hideDuration": "1000",
+                "timeOut": "5000",
+                "extendedTimeOut": "1000",
+                "showEasing": "swing",
+                "hideEasing": "linear",
+                "showMethod": "fadeIn",
+                "hideMethod": "fadeOut"
+            }
+            toastr[msgType](msg,headerValue);
+        }
+
+    </script>
+
+  <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html
+       loads them in <head>, so they are available before this page's inline
+       scripts run. -->
+</section>
+</body>
+</html>

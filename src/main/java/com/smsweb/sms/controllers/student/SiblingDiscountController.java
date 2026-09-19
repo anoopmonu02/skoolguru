@@ -71,9 +71,12 @@ public class SiblingDiscountController extends BaseController {
     @ResponseBody
     @CheckAccess(screen = "SIBLING_DISCOUNT_ASSIGN", type = AccessType.VIEW)
     @GetMapping("/groups/by-group/{groupId}")
-    public List<Map<String, Object>> getStudentsByGroup(@PathVariable Long groupId) {
+    public List<Map<String, Object>> getStudentsByGroup(@PathVariable Long groupId, Model model) {
         log.info("Inside getStudentsByGroup - groupId={}", groupId);
-        SiblingGroup group = siblingGroupService.getSiblingGroupDetail(groupId).orElse(null);
+        // School-scoped - without this, any admin could pull the student list of
+        // another school's sibling group just by knowing/guessing its id.
+        School school = (School)model.getAttribute("school");
+        SiblingGroup group = siblingGroupService.getSiblingGroupDetail(groupId, school.getId()).orElse(null);
         List<SiblingGroupStudent> students = group != null ? group.getSiblingGroupStudents() : new java.util.ArrayList<>();
         log.debug("getStudentsByGroup - students size={}", students == null ? 0 : students.size());
         List<Map<String, Object>> leanList = new java.util.ArrayList<>();

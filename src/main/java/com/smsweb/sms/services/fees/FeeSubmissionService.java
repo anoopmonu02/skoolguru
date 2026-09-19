@@ -814,7 +814,7 @@ public class FeeSubmissionService {
             return "UC";
         } else if (lowerCaseName.contains("school")) {
             return "US";
-        } else if (lowerCaseName.contains("demo")) {
+        } else if (lowerCaseName.contains("sansthan")) {
             return "DM";
         }
 
@@ -1302,13 +1302,43 @@ public class FeeSubmissionService {
                                     log.debug("restMonths headNames={}, amt={}", headNames, amt);
                                     //Calculate Fine
                                     //int monthDiff = monthmappingService.monthDifference(14L, 4L, lastMonthName, subDate);
-                                    int monthDiff = monthmappingRepository.findMonthDifference(academicYear.getId(), school.getId(), restMonthsList.get(0).getMonthName(), new SimpleDateFormat("dd/MMM/yyyy").format(new Date()));
+                                    // findMonthDifference is a native-query method declared to return a
+                                    // primitive int; if either month has no month_mapping row for this
+                                    // academic year/school (e.g. mapping not set up yet), the query's DIFF
+                                    // column comes back NULL and Spring's AOP proxy throws
+                                    // AopInvocationException trying to unbox null into int - crashing the
+                                    // whole Fee Reminder request. MonthmappingService.monthDifference()
+                                    // already guards this exact call the same way; mirroring that guard
+                                    // here since this call bypasses that service.
+                                    int monthDiff;
+                                    try {
+                                        monthDiff = monthmappingRepository.findMonthDifference(academicYear.getId(), school.getId(), restMonthsList.get(0).getMonthName(), new SimpleDateFormat("dd/MMM/yyyy").format(new Date()));
+                                    } catch (Exception e) {
+                                        log.warn("findMonthDifference returned no result (missing month_mapping row?) for academicYearId={}, schoolId={}, monthName={}; defaulting monthDiff to 0",
+                                                academicYear.getId(), school.getId(), restMonthsList.get(0).getMonthName(), e);
+                                        monthDiff = 0;
+                                    }
                                     List<FeeDate> feeDates = feedateRepository.findByAcademicYearAndSchoolAndGivenMonth(academicYear.getId(), school.getId(), LocalDate.now().getMonthValue());
                                     FeeDate feeDate = null;
                                     if(feeDates!=null && !feeDates.isEmpty()){
                                         feeDate = feeDates.get(0);
                                     }
-                                    int cdiff = monthmappingRepository.currentFeeDateDifference(new SimpleDateFormat("dd/MMM/yyyy").format(feeDate.getFeeSubmissiondate()), new SimpleDateFormat("dd/MMM/yyyy").format(new Date()));
+                                    // currentFeeDateDifference is another native-query method declared to
+                                    // return a primitive int (same NULL-DIFF unboxing risk as
+                                    // findMonthDifference above, e.g. if str_to_date() fails to parse
+                                    // either date) - and feeDate itself can be null when no FeeDate is
+                                    // configured for the current calendar month, which would NPE on
+                                    // getFeeSubmissiondate() right below. Guard both: default cdiff to 0
+                                    // (current month's due date treated as not yet passed) instead of
+                                    // failing the whole Fee Reminder request over one student.
+                                    int cdiff = 0;
+                                    if (feeDate != null) {
+                                        try {
+                                            cdiff = monthmappingRepository.currentFeeDateDifference(new SimpleDateFormat("dd/MMM/yyyy").format(feeDate.getFeeSubmissiondate()), new SimpleDateFormat("dd/MMM/yyyy").format(new Date()));
+                                        } catch (Exception e) {
+                                            log.warn("currentFeeDateDifference returned no result for feeSubmissiondate={}; defaulting cdiff to 0", feeDate.getFeeSubmissiondate(), e);
+                                        }
+                                    }
                                     try {
                                         // Fine multiplier = monthDiff (past months) + 1 if current month's fee date also passed.
                                         // This mirrors calculateFine() which iterates per-month:
@@ -1399,8 +1429,18 @@ public class FeeSubmissionService {
                                         feeDate = feeDates.get(0);
                                     }
                                     if(feeDate!=null){
-                                        int cdiff = monthmappingRepository.currentFeeDateDifference(new SimpleDateFormat("dd/MMM/yyyy").format(feeDate.getFeeSubmissiondate()), new SimpleDateFormat("dd/MMM/yyyy").format(new Date()));
-                                        int monthdiff = monthmappingRepository.firstMonthDifference(new SimpleDateFormat("dd/MMM/yyyy").format(new Date()), academicYear.getStartDate());
+                                        // Both native-query methods below are declared to return a
+                                        // primitive int; a NULL DIFF from either (see the
+                                        // currentFeeDateDifference guard above for why that can happen)
+                                        // used to crash this whole branch. Default both to 0 instead.
+                                        int cdiff = 0;
+                                        int monthdiff = 0;
+                                        try {
+                                            cdiff = monthmappingRepository.currentFeeDateDifference(new SimpleDateFormat("dd/MMM/yyyy").format(feeDate.getFeeSubmissiondate()), new SimpleDateFormat("dd/MMM/yyyy").format(new Date()));
+                                            monthdiff = monthmappingRepository.firstMonthDifference(new SimpleDateFormat("dd/MMM/yyyy").format(new Date()), academicYear.getStartDate());
+                                        } catch (Exception e) {
+                                            log.warn("currentFeeDateDifference/firstMonthDifference returned no result for feeSubmissiondate={}, academicYearStartDate={}; defaulting cdiff/monthdiff to 0", feeDate.getFeeSubmissiondate(), academicYear.getStartDate(), e);
+                                        }
                                         try {
                                             if (monthdiff > 2) {
                                                 fineAmount = BigDecimal.valueOf(fine.getFineAmount()).multiply(BigDecimal.valueOf(fine.getMaxCalculated()));
@@ -1492,19 +1532,72 @@ public class FeeSubmissionService {
         int finalFineAmount = 0;
         try{
             for(String mnName : selectedMonths){
-                int monDiff = feeSubmissionRepository.getMonthDiffForFine(mnName, academicYear.getId(), school.getId());
+                Integer monDiffObj = feeSubmissionRepository.getMonthDiffForFine(mnName, academicYear.getId(), school.getId());
+                if(monDiffObj == null){
+                    // month_mapping has no priority row for this month (or for the current
+                    // real calendar month) for this academic year/school - the native query's
+                    // subtraction of two scalar subqueries returns SQL NULL when either side
+                    // matches no row. Used to throw trying to unbox that NULL into a primitive
+                    // int here, crashing the WHOLE multi-month fine calculation with a 500 even
+                    // when every other selected month was fine. Same conservative fallback as
+                    // the missing-FeeDate case below: skip this month's fine contribution
+                    // instead of failing the whole request.
+                    log.warn("calculateFine: could not determine month priority diff for month={}, academicYearId={}, schoolId={} (missing month_mapping row) - treating as no fine contribution for this month instead of failing the whole request", mnName, academicYear.getId(), school.getId());
+                    continue;
+                }
+                int monDiff = monDiffObj;
                 if(monDiff>0){
-                    finalFineAmount = 0;
+                    // Future month (e.g. paying October in advance alongside overdue
+                    // July/August/September in the same submission) - this used to hard
+                    // RESET finalFineAmount to 0 here, wiping out fine already accumulated
+                    // from genuinely overdue months processed earlier in this same loop
+                    // (months are walked in calendar order, so a future month is always
+                    // processed last). A future month owes no fine of its own, but it must
+                    // not erase what's already due for the months before it - skip only
+                    // this month's contribution instead.
+                    continue;
                 } else if(monDiff==0){
                     FeeDate feedate = feedateRepository.findByAcademicYear_IdAndSchool_IdAndMonthMaster_MonthName(academicYear.getId(), school.getId(), mnName).orElse(null);
                     if(feedate!=null){
-                        String formattedDate = new SimpleDateFormat("dd/MMM/yyyy").format(feedate.getFeeSubmissiondate());
-                        int dateDifference = feeSubmissionRepository.getDateDifference(formattedDate);
-                        if(dateDifference<0){
+                        // Locale.ENGLISH is explicit here on purpose: without it, the "MMM"
+                        // month abbreviation rendered by SimpleDateFormat depends on the
+                        // JVM's default locale, which can vary across Java versions/environments
+                        // (e.g. the JDK 9+ switch from the COMPAT to the CLDR locale-data
+                        // provider can change abbreviated month names for some locales). MySQL's
+                        // STR_TO_DATE(..., '%b') below only understands English month
+                        // abbreviations, so a non-English abbreviation here silently fails to
+                        // parse there and returns SQL NULL instead of throwing - which is the
+                        // root cause of this bug only showing up in some environments (e.g. not
+                        // on the older Java 11 deployment, whose default locale likely happened
+                        // to already resolve to English). Pinning the locale makes this
+                        // deterministic everywhere.
+                        String formattedDate = new SimpleDateFormat("dd/MMM/yyyy", Locale.ENGLISH).format(feedate.getFeeSubmissiondate());
+                        Integer dateDifferenceObj = feeSubmissionRepository.getDateDifference(formattedDate);
+                        if(dateDifferenceObj == null){
+                            // STR_TO_DATE(formattedDate, '%d/%b/%Y') failed to parse and MySQL
+                            // returned NULL for DATEDIFF instead of throwing (non-strict SQL
+                            // mode). This used to crash here trying to unbox that NULL into a
+                            // primitive int (AopInvocationException), failing the WHOLE
+                            // multi-month fine calculation with a 500 even when other selected
+                            // months were fine. Treat it the same conservative way as the other
+                            // "can't determine" cases in this method: skip this month's fine
+                            // contribution instead of failing the whole request.
+                            log.warn("calculateFine: could not compute date difference for formattedDate={} (month={}, academicYearId={}, schoolId={}) - STR_TO_DATE likely failed to parse it - treating as no fine contribution for this month instead of failing the whole request", formattedDate, mnName, academicYear.getId(), school.getId());
+                        } else if(dateDifferenceObj<0){
                             finalFineAmount+=fine.getFineAmount();
                         }
                     } else{
-                        throw new RuntimeException("No Fee date found for month: "+mnName);
+                        // No Fee Date configured for this month (an admin setup gap, not a
+                        // user error) - this used to throw and crash the WHOLE multi-month
+                        // fine calculation with a generic 500 / "Network response was not
+                        // ok" error, even when every other selected month had a fine amount
+                        // that computed fine (e.g. selecting the current calendar month
+                        // alongside two already-configured months). Treat it as "no fine
+                        // contribution from this month" instead - conservative (never
+                        // overcharges) - and let the rest of the calculation proceed rather
+                        // than blocking fee submission entirely over one month's missing
+                        // config.
+                        log.warn("calculateFine: no Fee Date configured for month={}, academicYearId={}, schoolId={} - treating as no fine contribution for this month instead of failing the whole request", mnName, academicYear.getId(), school.getId());
                     }
                 } else{
                     finalFineAmount+=fine.getFineAmount();
@@ -1538,6 +1631,29 @@ public class FeeSubmissionService {
             if (academicStudent == null) {
                 modelData.put("studentError", "Academic Student not found!");
                 return modelData;
+            }
+
+            // Security (IDOR fix): `id` comes straight from the URL for both callers of
+            // this method - GET /fees/receipt-print/{id} and GET /fees/student-receipt-print/{id}
+            // - and FeeSubmission ids are plain sequential auto-increment values, trivially
+            // guessable/enumerable (confirmed: incrementing/decrementing the id in the URL
+            // loaded a different receipt). getFeeSubmissionById() above is a raw findById()
+            // with no school scoping, so without this check ANY logged-in user with ordinary
+            // "view fee receipt" access could view ANY OTHER school's receipt - student name,
+            // parent names, fees, discounts, fines, receipt number - just by changing the
+            // number in the URL. @CheckAccess on the controllers only checks screen-level
+            // role permission, never which record is being requested, so it does not cover
+            // this. Deny the same way as "not found" above (don't reveal that a receipt with
+            // this id exists at all) rather than a distinct access-denied message.
+            // Super-admins, who legitimately work across schools, are exempt.
+            if (!isSuperAdminUser()) {
+                School receiptSchool = academicStudent.getSchool();
+                if (school == null || receiptSchool == null || !receiptSchool.getId().equals(school.getId())) {
+                    log.warn("getFeeReceiptData: blocked cross-school access attempt - feeSubmissionId={}, requestedBySchoolId={}, actualOwningSchoolId={}",
+                            id, school != null ? school.getId() : null, receiptSchool != null ? receiptSchool.getId() : null);
+                    modelData.put("studentError", "Academic Student not found!");
+                    return modelData;
+                }
             }
 
             modelData.put("student", studentService.toLeanAcademicStudentMap(academicStudent));
@@ -1629,6 +1745,17 @@ public class FeeSubmissionService {
         }
         log.debug("getFeeReceiptDataForModel result keys={}", modelData.keySet());
         return modelData;
+    }
+
+    private boolean isSuperAdminUser() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            return authentication != null && authentication.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_SUPERADMIN"));
+        } catch (Exception e) {
+            log.warn("Unable to determine super-admin status", e);
+            return false;
+        }
     }
 
     /**

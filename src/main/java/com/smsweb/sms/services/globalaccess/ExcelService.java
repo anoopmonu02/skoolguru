@@ -241,6 +241,15 @@ public class ExcelService {
                         } else{
                             rowData[6] = "error#####Failed: SR No required";
                         }
+                    } else if(!"aadhar_file".equalsIgnoreCase(fileName) && rowData[5].trim().length() > 6){
+                        // SR No is capped at 6 characters app-wide (same rule
+                        // as the manual-table Save flow) - flagged here too so
+                        // a bad value in the uploaded sheet is visible in the
+                        // preview instead of silently failing (or, without the
+                        // matching server-side guard in uploadSR/
+                        // uploadSRFromTable, silently saving a value that's
+                        // too long).
+                        rowData[6] = "error#####Failed: SR No must be 6 characters or fewer";
                     } else{
                         rowData[6] = "success#####Passed";
                     }

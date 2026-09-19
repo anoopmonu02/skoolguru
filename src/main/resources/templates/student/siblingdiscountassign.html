@@ -6,47 +6,78 @@
 </head>
 <body>
 <section>
+
+    <style>
+        /* .aa-card is a page-local pattern (not globally defined) first
+           established in update-aadhar.html and reused since on
+           update-student-details.html, student-health-report.html and
+           add-siblinggroup.html - same definition repeated here for the
+           group-select card. */
+        .aa-card {
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xs); padding: 20px 22px; margin-bottom: 18px;
+        }
+        /* Name cell: an avatar-initials badge (same .stu-avatar pattern as
+           Student List - see components.css) before the name, with the name
+           on top and grade-section as a smaller muted line stacked directly
+           below it - replaces the old separate # and Grade columns. */
+        .sd-name-cell { display: flex; align-items: center; gap: 10px; }
+        .sd-name-cell .sd-name-text { display: flex; flex-direction: column; gap: 2px; }
+        .sd-name-cell .sd-name { font-weight: 600; color: var(--text-primary); }
+        .sd-name-cell .sd-grade { font-size: .72rem; color: var(--text-muted); }
+        /* Larger, easier-to-hit select radio; whole row is clickable too
+           (see the row-click handler below), not just the tiny input. */
+        #group-detail tbody .sd-select-cell { text-align: center; }
+        #group-detail tbody .sd-select-cell input[type="radio"] { width: 18px; height: 18px; cursor: pointer; }
+        #group-detail tbody tr { cursor: pointer; }
+    </style>
+
     <div class="container-fluid px-3">
         <div class="row mt-2">
             <div class="col-md-12">
-                <div th:replace="~{components/ui :: page-header('Assign Sibling Group Discount')}"></div>
 
-                <div class="row">
-                    <div class="col-md-2"><label class="form-label">Select Group</label> </div>
-                    <div class="col-md-4">
-                        <select name="grpname" id="grpname" class="form-select">
-                            <option value="">Select Group</option>
-                            <option th:each="sibgrp : ${siblingGroups}" th:value="${sibgrp.id}" th:text="${sibgrp.groupName}">
-                            </option>
-                        </select>
+                <div th:replace="~{components/ui :: page-header-actions('Assign Sibling Group Discount', ~{::sdBackAction})}"></div>
+                <div style="display:none">
+                  <div th:fragment="sdBackAction">
+                    <a th:replace="~{components/ui :: back-link('/sibling/sibling-group', 'Back to List')}"></a>
+                  </div>
+                </div>
+
+                <div class="aa-card">
+                    <div class="row align-items-center">
+                        <div class="col-md-2"><label class="form-label mb-0" for="grpname">Select Group</label></div>
+                        <div class="col-md-4">
+                            <select name="grpname" id="grpname" class="form-select">
+                                <option value="">Select Group</option>
+                                <option th:each="sibgrp : ${siblingGroups}" th:value="${sibgrp.id}" th:text="${sibgrp.groupName}">
+                                </option>
+                            </select>
+                        </div>
                     </div>
                 </div>
+
                 <div class="datadiv" style="display: none;">
                     <form name="siblingdiscount" method="post" th:action="@{/sibling/savesiblinggroupdiscount}">
-                        <div class="row py-5 pb-5">
-                            <table id="group-detail" class="table table-sm table-bordered table-striped">
+                        <div class="list-table-card">
+                            <table id="group-detail" class="table table-sm list-table">
                                 <thead>
                                 <tr>
-                                    <th>#</th>
                                     <th>Student Name</th>
-                                    <th>Grade</th>
                                     <th>Father Name</th>
                                     <th>Mother Name</th>
                                     <th>School</th>
-                                    <th class="text-center"><input type="radio" class="form-check form-check-input" disabled></th>
+                                    <th class="text-center">Select</th>
                                 </tr>
                                 </thead>
-                                <tbody class="table-group-divider">
+                                <tbody>
 
                                 </tbody>
                             </table>
-                            <input type="hidden" id="grp" name="grp"/>
                         </div>
-                        <div class="row">
-                            <div class="col-md-5">
-                                <a class="btn btn-outline-secondary btn-sm" th:href="@{/sibling/sibling-group}"><i class="bi bi-arrow-left"></i> Back to List</a>
-                            </div>
-                            <div class="col-md-6 mb-5">
+                        <input type="hidden" id="grp" name="grp"/>
+
+                        <div class="row mt-3">
+                            <div class="col-12 mb-5 text-center">
                                 <button type="button" onclick="checkData()" class="btn btn-primary" id="siblingSubmitBtn"><i class="bi bi-save2-fill"></i> Save</button>
                             </div>
                         </div>
@@ -60,112 +91,134 @@
 
     <script type="text/javascript" th:inline="javascript">
         const contextPath = /*[[@{/}]]*/ '/';
-        
 
-        
+        // Flash-attribute success/error banner after redirects (save already
+        // sets these server-side - this page previously never displayed
+        // them, so a save could succeed or fail with no visible feedback).
+        const siblingDiscountSuccessMessage = [[${success}]];
+        const siblingDiscountErrorMessage   = [[${error}]];
 
-        
+        // Escapes a value before it's concatenated into innerHTML below -
+        // student/father/mother/school names are DB data, not hard-coded
+        // strings, so this closes off a stored-XSS path in the AJAX-built
+        // table rows (same escaping approach as Student List's escapeAttr).
+        const sdEscape = function (value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        };
 
-        
+        // Avatar-initials badge shown before the student name - same palette
+        // and "id % colors.length" approach as Student List's avatarColors/
+        // initialsOf (see student.html), adapted here since this table is
+        // built client-side from the by-group AJAX response, not Thymeleaf.
+        const sdAvatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+        const sdInitialsOf = function (name) {
+            return (name || '').trim().split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+        };
+        const sdAvatarColorFor = function (id) {
+            return sdAvatarColors[Math.abs(id || 0) % sdAvatarColors.length];
+        };
 
-        let deleteId = null;
+        $(document).ready(function () {
+            if (siblingDiscountSuccessMessage) showMsg("success", siblingDiscountSuccessMessage, "Success");
+            if (siblingDiscountErrorMessage)   showMsg("error", siblingDiscountErrorMessage, "Error");
 
-        // Capture the ID of the record to be deleted when the delete button is clicked
-        $('a[data-bs-target="#deleteConfirmationModal"]').on('click', function () {
-            deleteId = $(this).data('id');
-        });
+            $('#grpname').change(function () {
+                $('#grp').val('');
+                $('.datadiv').hide();
+                const groupId = $(this).val();
+                if (groupId) {
+                    $('#grp').val(groupId);
+                    $.ajax({
+                        url: `${contextPath}sibling/groups/by-group/` + groupId,
+                        type: 'GET',
+                        success: function (data) {
+                            $('.datadiv').show();
+                            let rows = '';
 
-        // Handle the deletion when "Delete" button is clicked in the modal
-        $('#confirmDeleteButton').on('click', function () {
-            if (deleteId) {
-                // Redirect to the delete URL
-                window.location.href = `/sibling/sibling-group/delete/${deleteId}`;
-            }
-        });
+                            if (!data || data.length === 0) {
+                                rows = '<tr><td colspan="5">No students found for this group.</td></tr>';
+                            } else {
+                                $.each(data, function (index, student) {
+                                    const as = student.academicStudent;
+                                    rows += '<tr>';
+                                    const sdColor = sdAvatarColorFor(as.student.id);
+                                    rows += '<td><div class="sd-name-cell">' +
+                                        '<div class="stu-avatar" style="background:' + sdColor + '22;color:' + sdColor + '">' + sdEscape(sdInitialsOf(as.student.studentName)) + '</div>' +
+                                        '<div class="sd-name-text">' +
+                                        '<span class="sd-name">' + sdEscape(as.student.studentName) + '</span>' +
+                                        '<span class="sd-grade">' + sdEscape(as.grade.gradeName + ' - ' + as.section.sectionName) + '</span>' +
+                                        '</div></div></td>';
+                                    rows += '<td>' + sdEscape(as.student.fatherName) + '</td>';
+                                    rows += '<td>' + sdEscape(as.student.motherName) + '</td>';
+                                    rows += '<td>' + sdEscape(as.school.schoolName) + '</td>';
+                                    rows += '<td class="sd-select-cell"><input type="radio" class="form-check form-check-input" name="assignedstu" id="assignedstu-' + as.id + '" value="' + as.id + '"></td>';
+                                    rows += '</tr>';
+                                });
+                            }
 
-        $('#grpname').change(function() {
-            $('#grp').val('');
-            $('.datadiv').hide();
-            const groupId = $(this).val();
-            console.log("Selected Group ID: " + groupId);
-            if (groupId) {
-                $('#grp').val(groupId);
-                $.ajax({
-                    url: `${contextPath}sibling/groups/by-group/`+ groupId,
-                    type: 'GET',
-                    success: function(data) {
-                        $('.datadiv').show();
-                        console.log("Received Data: ", data);
-                        let rows = '';
-
-                        if (!data || data.length === 0) {
-                            rows = '<tr><td colspan="5">No students found for this group.</td></tr>';
-                        } else {
-                            $.each(data, function(index, student) {
-                                rows += '<tr>';
-                                rows += '<td>' + (index + 1) + '</td>'; // Display index starting from 1
-                                rows += '<td>' + student.academicStudent.student.studentName + '</td>';
-                                rows += '<td>' + student.academicStudent.grade.gradeName + ' - ' + student.academicStudent.section.sectionName + '</td>';
-                                rows += '<td>' + student.academicStudent.student.fatherName + '</td>';
-                                rows += '<td>' + student.academicStudent.student.motherName + '</td>';
-                                rows += '<td>' + student.academicStudent.school.schoolName + '</td>';
-                                rows += '<td> <input type="radio" class="form-check form-check-input" name="assignedstu" id="assignedstu" value="'+ student.academicStudent.id +'"> </td>';
-                                rows += '</tr>';
-                            });
+                            $('#group-detail tbody').html(rows);
+                        },
+                        error: function (xhr, status, error) {
+                            console.error("Error fetching data: " + error);
+                            showMsg("error", "Could not load students for this group.", "Error");
                         }
+                    });
+                } else {
+                    $('#group-detail tbody').html('');
+                }
+            });
 
-                        $('#group-detail tbody').html(rows);
-                    },
-                    error: function(xhr, status, error) {
-                        console.error("Error fetching data: " + error);
-                    }
-                });
-            } else {
-                $('#group-detail tbody').html('');
-            }
+            // Click anywhere on a row to select its radio - not just the
+            // small input itself. Guarded so clicking the radio directly
+            // isn't double-toggled by the browser's own default handling.
+            $(document).on('click', '#group-detail tbody tr', function (e) {
+                if (e.target && e.target.type === 'radio') { return; }
+                $(this).find('input[type="radio"]').prop('checked', true);
+            });
         });
 
-        const checkData = ()=>{
+        const checkData = () => {
             const groupId = $('#grpname').val();
-            if(groupId===''){
-                showMsg("error","No sibling group name found. Please select a group name.","Message");
+            if (groupId === '') {
+                showMsg("error", "No sibling group name found. Please select a group name.", "Message");
                 return;
             }
             const rowCount = $('#group-detail tbody tr').length;
-            console.log("Row Count': "+rowCount);
-            if(rowCount>2){
+            if (rowCount > 2) {
                 const selectedValue = $('input[name="assignedstu"]:checked').val();
                 if (selectedValue) {
-                    console.log("Selected value: " + selectedValue);
                     $.ajax({
-                        url: `${contextPath}sibling/validate-student/`+selectedValue,
+                        url: `${contextPath}sibling/validate-student/` + selectedValue,
                         type: 'GET',
-                        success: function(response) {
-                            console.log("Response: "+response.error);
-                            console.log("Response: "+response.success);
-                            if('error' in response){
-                                showMsg("error",response.error,"Error");
+                        success: function (response) {
+                            if ('error' in response) {
+                                showMsg("error", response.error, "Error");
                                 return;
-                            } else if ('success' in response){
+                            } else if ('success' in response) {
                                 document.forms.siblingdiscount.submit();
                                 return true;
                             }
                         },
-                        error: function(error) {
+                        error: function (error) {
                             console.error("Error fetching data:", error.responseText);
-                            showMsg("error","Error fetching data:"+ error.responseText,"Error");
+                            showMsg("error", "Error fetching data:" + error.responseText, "Error");
                             return;
                         }
                     });
                 } else {
-                    showMsg("error","No Student selected for assigning the discount","Error");
+                    showMsg("error", "No Student selected for assigning the discount", "Error");
                     return;
                 }
-            } else if(rowCount<3){
-                showMsg("info","Atleast 3 sibling must be available to avail this discount","Info");
+            } else if (rowCount < 3) {
+                showMsg("info", "Atleast 3 sibling must be available to avail this discount", "Info");
                 return;
-            } else{
-                showMsg("warning","No student data found for sibling group!","Message");
+            } else {
+                showMsg("warning", "No student data found for sibling group!", "Message");
                 return;
             }
         }
@@ -173,7 +226,13 @@
     </script>
   <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html
        now loads them in <head>, so they are available before this page's
-       inline scripts run. They used to be duplicated on every page. -->
+       inline scripts run. They used to be duplicated on every page.
+
+       Also removed here: dead delete-confirmation-modal JS (deleteId /
+       $('a[data-bs-target="#deleteConfirmationModal"]') / #confirmDeleteButton)
+       that referenced a modal and delete button which don't exist anywhere
+       on this page - inert leftover from an earlier version, not reachable,
+       so removing it changes no behavior. -->
 </section>
 </body>
 </html>

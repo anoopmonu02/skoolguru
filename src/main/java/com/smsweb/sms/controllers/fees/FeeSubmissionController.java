@@ -3,6 +3,7 @@ package com.smsweb.sms.controllers.fees;
 import com.smsweb.sms.config.permission.CheckAccess;
 import com.smsweb.sms.models.permission.AccessType;
 import com.smsweb.sms.controllers.BaseController;
+import com.smsweb.sms.helper.ReceiptIdCodec;
 import com.smsweb.sms.models.admin.AcademicYear;
 import com.smsweb.sms.models.admin.MonthMapping;
 import com.smsweb.sms.models.admin.School;
@@ -48,10 +49,11 @@ public class FeeSubmissionController extends BaseController {
     private final SectionService sectionService;
     private final MediumService mediumService;
     private final AcademicyearService academicyearService;
+    private final ReceiptIdCodec receiptIdCodec;
 
     @Autowired
     public FeeSubmissionController(StudentService studentService, MonthmappingService mmService, FeeSubmissionService feeSubmissionService, AcademicStudentService academicStudentService, FeeReceiptService receiptService,
-                                   GradeService gradeService, SectionService sectionService, MediumService mediumService, AcademicyearService academicyearService){
+                                   GradeService gradeService, SectionService sectionService, MediumService mediumService, AcademicyearService academicyearService, ReceiptIdCodec receiptIdCodec){
         this.studentService = studentService;
         this.mmService = mmService;
         this.feeSubmissionService = feeSubmissionService;
@@ -61,6 +63,7 @@ public class FeeSubmissionController extends BaseController {
         this.sectionService = sectionService;
         this.mediumService = mediumService;
         this.academicyearService = academicyearService;
+        this.receiptIdCodec = receiptIdCodec;
     }
 
     @CheckAccess(screen = "FEE_SUBMIT", type = AccessType.VIEW)
@@ -106,6 +109,33 @@ public class FeeSubmissionController extends BaseController {
         return "fees/feesubmitform-new";
     }
 
+    /**
+     * "Fee Submission Neo" - a second redesigned front-end for the exact same
+     * fee submission flow as getFeeSubmissionForm() / getFeeSubmissionFormNew()
+     * above. Keeps the ORIGINAL page's layout shape (months | fee table |
+     * amount detail, with student/academic/date info above), just rebuilt on
+     * the real design system, per the user's explicit "polish the existing
+     * layout, don't restructure it" direction. Deliberately a separate
+     * method/view - the live /fees/fee-submit-form page and its controller
+     * method are untouched. Posts to the same /fees/feesubmit endpoint below -
+     * same save logic, same receipt-print redirect on success. Same FEE_SUBMIT
+     * permission as the other two, since it's the same capability.
+     */
+    @CheckAccess(screen = "FEE_SUBMIT", type = AccessType.VIEW)
+    @GetMapping("/fee-submit-form-neo")
+    public String getFeeSubmissionFormNeo(Model model){
+        log.info("Inside getFeeSubmissionFormNeo");
+        School school = (School)model.getAttribute("school");
+        AcademicYear academicYear = (AcademicYear) model.getAttribute("academicYear");
+        List<MonthMapping> monthMappingList = mmService.getAllMonthMapping(academicYear.getId(), school.getId());
+        log.debug("getFeeSubmissionFormNeo - monthMappingList size={}", monthMappingList.size());
+        model.addAttribute("monthmapping", monthMappingList);
+        model.addAttribute("feesubmissionobj", new FeeSubmission());
+        model.addAttribute("hasMonthMapping", !monthMappingList.isEmpty());
+        model.addAttribute("migrationDiscountEnabled", feeSubmissionService.isMigrationDiscountFieldEnabledForCurrentUser());
+        return "fees/feesubmitform-neo";
+    }
+
     @CheckAccess(screen = "FEE_SUBMIT", type = AccessType.CREATE)
     @PostMapping("/feesubmit")
     public String saveFeeSubmission(HttpServletRequest request, RedirectAttributes redirectAttributes, Model model){
@@ -129,7 +159,8 @@ public class FeeSubmissionController extends BaseController {
                     }
                     AcademicStudent student = (AcademicStudent)responseMap.get("student");
                     redirectAttributes.addFlashAttribute("success","Fees Submitted for: "+student.getStudent().getStudentName());
-                    return "redirect:/fees/receipt-print/"+responseMap.get("feeid");
+                    Long newFeeId = ((Number) responseMap.get("feeid")).longValue();
+                    return "redirect:/fees/receipt-print/"+receiptIdCodec.encode(newFeeId);
                 }
             }
         }catch(Exception e){
@@ -164,11 +195,20 @@ public class FeeSubmissionController extends BaseController {
     }
 
     @CheckAccess(screen = "FEE_RECEIPT_PRINT", type = AccessType.VIEW)
-    @GetMapping("/receipt-print/{id}")
-    public String getFeeReceipt(@PathVariable("id")Long id, Model model){
+    @GetMapping("/receipt-print/{encodedId}")
+    public String getFeeReceipt(@PathVariable("encodedId") String encodedId, Model model){
         log.info("Inside getFeeReceipt");
         School school = (School) model.getAttribute("school");
         AcademicYear academicYear = (AcademicYear) model.getAttribute("academicYear");
+
+        Long id = receiptIdCodec.decode(encodedId);
+        if (id == null) {
+            // Malformed/tampered/foreign-salt id - same "not found" state as a
+            // genuinely missing record, not a distinct error (don't confirm
+            // or deny whether some other id would have decoded to something).
+            model.addAttribute("studentError", "Academic Student not found!");
+            return "fees/receipt";
+        }
 
         Map<String, Object> receiptData = feeSubmissionService.getFeeReceiptData(id, school, academicYear);
         model.addAllAttributes(receiptData);

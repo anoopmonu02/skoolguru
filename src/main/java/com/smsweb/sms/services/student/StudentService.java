@@ -204,6 +204,7 @@ public class StudentService {
             Integer submittedWeight = student.getWeight();
             student.setHeight(null);
             student.setWeight(null);
+            student.setGender(normalizeGender(student.getGender()));
             //Saving Student Data
             if(existingStudent==null){
                 String regisNo = "SRN-"+fileNameOrSchoolCode;
@@ -273,8 +274,20 @@ public class StudentService {
                 student.setPic(imageResponse);
                 proceedFlag = true;
             }
+            // Old photo was overwritten in Student.pic above without ever being
+            // deleted from disk - fixed here to match the same cleanup already
+            // done for the mobile app and the bulk "Update Student Images" page.
+            // Capture it before the save below and delete only after the new
+            // photo is safely persisted, so a failed save never leaves the
+            // student with no usable photo.
+            String previousPicToDelete = (existingStudent != null && existingStudent.getPic() != null
+                    && !existingStudent.getPic().isBlank() && !existingStudent.getPic().equals(student.getPic()))
+                    ? existingStudent.getPic() : null;
             if(proceedFlag){
                 savedStudent = repository.save(student);
+            }
+            if (previousPicToDelete != null && savedStudent != null) {
+                fileHandleHelper.deleteStudentImage(previousPicToDelete);
             }
             // Create or ensure FamilyAccount exists for this mobile number
             if(savedStudent != null && savedStudent.getMobile1() != null && !savedStudent.getMobile1().isBlank()) {
@@ -331,6 +344,36 @@ public class StudentService {
         return lastSixDigitsOfRegistrationNo + lastFourDigitsOfMobileNumber;
     }
 
+    // Canonical values for the free-text `gender` column. Different forms
+    // (add-student, edit-student, Excel import, the group-wise bulk update
+    // tool) have historically written different casings for the same three
+    // values ("Male" vs "MALE"), which broke exact-match client-side logic
+    // that assumed a single canonical casing. Normalizing here, at every
+    // write path, stops new inconsistent data from being introduced —
+    // existing rows already in the database are left as-is. Any value that
+    // isn't a recognized variant of Male/Female/No Preference is passed
+    // through unchanged (trimmed) rather than dropped, since this column
+    // accepts free text and we don't want to silently discard a legitimate
+    // value we don't recognize.
+    private static final java.util.Map<String, String> GENDER_CANONICAL_MAP = java.util.Map.of(
+            "MALE", "MALE",
+            "FEMALE", "FEMALE",
+            "NO_PREFERENCE", "NO_PREFERENCE",
+            "NOPREFERENCE", "NO_PREFERENCE"
+    );
+
+    private String normalizeGender(String gender) {
+        if (gender == null) {
+            return null;
+        }
+        String trimmed = gender.trim();
+        if (trimmed.isEmpty()) {
+            return trimmed;
+        }
+        String key = trimmed.toUpperCase().replace(" ", "_");
+        return GENDER_CANONICAL_MAP.getOrDefault(key, trimmed);
+    }
+
     @Transactional
     public Student editStudentDetails(Student student, MultipartFile logo, String fileNameOrSchoolCode,
                                        Boolean haveHealthIssues, Boolean haveEyeIssue, String healthIssueDescription) throws IOException {
@@ -338,7 +381,17 @@ public class StudentService {
         try{
             Student existingStudent = null;
             existingStudent = repository.findById(student.getId()).orElseThrow(()->new RuntimeException("Student not found"));
+            // Tenant-isolation check - without this, an admin could edit another
+            // school's student by tampering the hidden student id in this form. The
+            // controller only sets student.getSchool() to the session's current
+            // school; it never used to verify the looked-up existingStudent already
+            // belonged to it before overwriting its fields below.
+            if (existingStudent.getSchool() == null || student.getSchool() == null
+                    || !existingStudent.getSchool().getId().equals(student.getSchool().getId())) {
+                throw new RuntimeException("This student does not belong to your current school");
+            }
             if(existingStudent!=null){
+                String previousPicToDelete = null;
                 if(!logo.isEmpty()){
                     String imageResponse = fileHandleHelper.saveImage("student", logo);
 
@@ -351,6 +404,13 @@ public class StudentService {
                     } else if (foundImageResponse && imageResponse.equalsIgnoreCase("Specified category not valid")) {
                         throw new RuntimeException(imageResponse);
                     } else{
+                        // Old photo was overwritten here without ever being deleted from
+                        // disk - fixed to match the same cleanup already done for the
+                        // mobile app and the bulk "Update Student Images" page. Deleted
+                        // only after existingStudent is saved further down, so a failed
+                        // save never leaves the student with no usable photo.
+                        previousPicToDelete = (existingStudent.getPic() != null && !existingStudent.getPic().isBlank()
+                                && !existingStudent.getPic().equals(imageResponse)) ? existingStudent.getPic() : null;
                         existingStudent.setPic(imageResponse);
                         existingStudent.setRegistrationNo(student.getRegistrationNo());
                         proceedFlag = true;
@@ -372,7 +432,7 @@ public class StudentService {
                 existingStudent.setMotherQualification(student.getMotherQualification());
                 existingStudent.setReligion(student.getReligion());
                 existingStudent.setNationality(student.getNationality());
-                existingStudent.setGender(student.getGender());
+                existingStudent.setGender(normalizeGender(student.getGender()));
                 existingStudent.setCategory(student.getCategory());
                 existingStudent.setCast(student.getCast());
                 existingStudent.setDescription(student.getDescription());
@@ -394,8 +454,13 @@ public class StudentService {
                 existingStudent.setRelationship(student.getRelationship());
                 existingStudent.setStudentType(student.getStudentType());
                 existingStudent.setAadharNo(student.getAadharNo());
+                existingStudent.setApaarId(student.getApaarId());
+                existingStudent.setPenNo(student.getPenNo());
                 existingStudent.setUpdatedBy(userService.getLoggedInUser());
                 existingStudent = repository.saveAndFlush(existingStudent);
+                if (previousPicToDelete != null) {
+                    fileHandleHelper.deleteStudentImage(previousPicToDelete);
+                }
                 // Ensure FamilyAccount exists (creates one if mobile changed or new)
                 if (existingStudent.getMobile1() != null && !existingStudent.getMobile1().isBlank()) {
                     familyAccountService.createIfAbsent(existingStudent.getMobile1());
@@ -463,12 +528,20 @@ public class StudentService {
         return academicStudentRepository.findAllBySchool_IdAndMedium_IdAndGrade_IdAndSection_IdAndAcademicYear_IdAndStatusIgnoreCase(school, medium, grade, section, academic, "Active");
     }
 
+    public List<AcademicStudent> getAllStudentsByMediumAndBodyType(Long medium, Long academic, Long school, String bodyType){
+        log.info("Inside getAllStudentsByMediumAndBodyType");
+        return academicStudentRepository.findAllStudentsByMediumAndBodyType(school, academic, medium, bodyType);
+    }
+
     @Transactional
-    public String deleteStudent(Long id){
+    public String deleteStudent(Long id, Long schoolId){
         log.info("Inside deleteStudent");
         String msg = "";
         try{
-            List<AcademicStudent> academicList = academicStudentRepository.findAllByStudent_IdAndStatus(id, "Active");
+            // School-scoped lookup - without this, any admin could deactivate a
+            // student belonging to a different school just by knowing/guessing
+            // their id (this used to look the student up by id alone).
+            List<AcademicStudent> academicList = academicStudentRepository.findAllByStudent_IdAndStatusAndSchool_Id(id, "Active", schoolId);
 
             if(academicList == null || academicList.isEmpty()){
                 return "success#####Student not found";
@@ -493,11 +566,14 @@ public class StudentService {
     }
 
     @Transactional
-    public String activateStudent(Long id){
+    public String activateStudent(Long id, Long schoolId){
         log.info("Inside activateStudent");
         String msg = "";
         try{
-            List<AcademicStudent> academicList = academicStudentRepository.findAllByStudent_IdAndStatus(id, "Inactive");
+            // School-scoped lookup - without this, any admin could reactivate a
+            // student belonging to a different school just by knowing/guessing
+            // their id (this used to look the student up by id alone).
+            List<AcademicStudent> academicList = academicStudentRepository.findAllByStudent_IdAndStatusAndSchool_Id(id, "Inactive", schoolId);
 
             if(academicList == null || academicList.isEmpty()){
                 return "success#####Student not found";
@@ -530,18 +606,29 @@ public class StudentService {
         try{
             for (Map<String, String> rowData : srdata) {
                 if (rowData.containsKey("SR") && rowData.get("SR")!=null && !rowData.get("SR").isEmpty()) {
+                    String srValue = rowData.get("SR").trim();
                     String uuid = rowData.get("ID#");
                     if (uuid != null && !uuid.isEmpty()) {
-                        AcademicStudent academicStudent = academicStudentRepository.findByUuidAndStatusAndAcademicYear_IdAndSchool_Id(
-                                UUID.fromString(uuid), "Active", academic, school).orElse(null);
-
-                        if (academicStudent != null) {
-                            academicStudent.setClassSrNo(rowData.get("SR"));
-                            studentsToSave.add(academicStudent);  // Collect the student for bulk saving
-                            srPassCounter++;
-                        } else {
-                            failedIds.add(uuid);  // Log the failure
+                        // SR No is capped at 6 characters (see the same rule
+                        // enforced on the manual-table save below and flagged
+                        // in the upload preview) - checked again here so a
+                        // request built by hand against this endpoint can't
+                        // bypass that preview-step validation.
+                        if (srValue.length() > 6) {
+                            failedIds.add(uuid);
                             SRFailCounter++;
+                        } else {
+                            AcademicStudent academicStudent = academicStudentRepository.findByUuidAndStatusAndAcademicYear_IdAndSchool_Id(
+                                    UUID.fromString(uuid), "Active", academic, school).orElse(null);
+
+                            if (academicStudent != null) {
+                                academicStudent.setClassSrNo(srValue);
+                                studentsToSave.add(academicStudent);  // Collect the student for bulk saving
+                                srPassCounter++;
+                            } else {
+                                failedIds.add(uuid);  // Log the failure
+                                SRFailCounter++;
+                            }
                         }
                     } else {
                         failedIds.add("Invalid UUID");
@@ -564,38 +651,88 @@ public class StudentService {
     @Transactional
     public String uploadSRFromTable(Map<String, String> studentData, Long academic, Long school){
         log.info("Inside uploadSRFromTable");
+        // "Failed" here means an actual attempt that couldn't be saved (the
+        // student uuid didn't resolve in this school/academic year, or the
+        // value was too long) - a row the user simply left blank is tracked
+        // separately as "skipped", not counted as a failure, since it was
+        // never an attempted update in the first place. Conflating the two
+        // (as this method used to) made "N SR not found" claim a failure
+        // count that was mostly just untouched rows.
         AtomicInteger SRFailCounter = new AtomicInteger();
         AtomicInteger srPassCounter = new AtomicInteger();
+        AtomicInteger skippedCounter = new AtomicInteger();
         List<AcademicStudent> studentsToSave = new ArrayList<>();
-        List<String> failedIds = new ArrayList<>();
         try{
             studentData.forEach((key, value) -> {
-                if(key!=null && value!=null && value!=""){
+                if(key!=null){
                     String uuid = key.split("sr_")[1];
                     if (uuid != null && !uuid.isEmpty()) {
                         AcademicStudent academicStudent = academicStudentRepository.findByUuidAndStatusAndAcademicYear_IdAndSchool_Id(
                                 UUID.fromString(uuid), "Active", academic, school).orElse(null);
 
                         if (academicStudent != null) {
-                            academicStudent.setClassSrNo(value);
-                            studentsToSave.add(academicStudent);  // Collect the student for bulk saving
-                            srPassCounter.getAndIncrement();
+                            String trimmedValue = value != null ? value.trim() : "";
+                            if (!trimmedValue.isEmpty()) {
+                                // SR No is capped at 6 characters - the input on
+                                // the page already enforces this (maxlength +
+                                // live truncation) and blocks Save client-side,
+                                // but this is the actual point where the value
+                                // reaches the database, so it's checked again
+                                // here rather than trusting the browser alone.
+                                if (trimmedValue.length() > 6) {
+                                    SRFailCounter.getAndIncrement();
+                                } else {
+                                    academicStudent.setClassSrNo(trimmedValue);
+                                    studentsToSave.add(academicStudent);  // Collect the student for bulk saving
+                                    srPassCounter.getAndIncrement();
+                                }
+                            } else {
+                                // Box left empty in the UI. If this student already had an
+                                // SR number, an empty box means the user deliberately cleared
+                                // it, and that clear must be saved - not silently dropped.
+                                // Only a row that was already blank (nothing to clear) counts
+                                // as a true no-op skip.
+                                String existing = academicStudent.getClassSrNo();
+                                if (existing != null && !existing.trim().isEmpty()) {
+                                    academicStudent.setClassSrNo(null);
+                                    studentsToSave.add(academicStudent);
+                                    srPassCounter.getAndIncrement();
+                                } else {
+                                    skippedCounter.getAndIncrement();
+                                }
+                            }
                         } else {
-                            failedIds.add(uuid);  // Log the failure
                             SRFailCounter.getAndIncrement();
                         }
                     } else {
-                        failedIds.add("Invalid UUID");
                         SRFailCounter.getAndIncrement();
                     }
                 } else{
-                    SRFailCounter.getAndIncrement();
+                    skippedCounter.getAndIncrement();
                 }
             });
 
             // Bulk save the students
             academicStudentRepository.saveAll(studentsToSave);
-            return "Total SR updated: " + srPassCounter + " and SR not found for: "+SRFailCounter;
+
+            // A single status-prefixed message (success##### / partial##### /
+            // error#####) the page can style correctly (green/amber/red)
+            // instead of the old plain-string reply, which never carried a
+            // "success" marker at all and so always fell through to a
+            // generic "didn't confirm" toast regardless of what actually
+            // happened.
+            int attempted = srPassCounter.get() + SRFailCounter.get();
+            if (attempted == 0) {
+                return "error#####No SR numbers were entered - nothing to update.";
+            }
+            if (SRFailCounter.get() == 0) {
+                return "success#####All " + srPassCounter + " SR number(s) updated successfully"
+                        + (skippedCounter.get() > 0 ? " (" + skippedCounter + " left blank, unchanged)." : ".");
+            }
+            if (srPassCounter.get() == 0) {
+                return "error#####None of the " + attempted + " SR number(s) could be updated - the student record couldn't be matched, or the value was too long.";
+            }
+            return "partial#####" + srPassCounter + " of " + attempted + " SR number(s) updated; " + SRFailCounter + " could not be updated.";
         }catch(Exception e){
             e.printStackTrace();
             return "error#####"+e.getLocalizedMessage();
@@ -1421,53 +1558,87 @@ public class StudentService {
     @Transactional
     public String uploadAadharFromTable(Map<String, String> studentData, Long academic, Long school){
         log.info("Inside uploadAadharFromTable");
+        // Same "skipped vs. actually failed" split as uploadSRFromTable -
+        // see the comment there. A row left blank was never attempted, so it
+        // shouldn't count toward the failure total in the summary message.
         AtomicInteger SRFailCounter = new AtomicInteger();
         AtomicInteger srPassCounter = new AtomicInteger();
+        AtomicInteger skippedCounter = new AtomicInteger();
         List<Student> studentsToSave = new ArrayList<>();
-        List<String> failedIds = new ArrayList<>();
         try{
             studentData.forEach((key, value) -> {
-                if(key!=null && value!=null && value!=""){
+                if(key!=null){
                     String uuid = key.split("sr_")[1];
                     if (uuid != null && !uuid.isEmpty()) {
                         AcademicStudent academicStudent = academicStudentRepository.findByUuidAndStatusAndAcademicYear_IdAndSchool_Id(
                                 UUID.fromString(uuid), "Active", academic, school).orElse(null);
-                        Student studentObj = academicStudent.getStudent();
+                        // Guard against a uuid that doesn't resolve in this
+                        // school/academic year - this used to call
+                        // .getStudent() directly on a possibly-null
+                        // academicStudent, throwing a NullPointerException
+                        // INSIDE this forEach that aborted the whole batch
+                        // (the saveAll() below never ran), silently losing
+                        // every already-processed row in the same save
+                        // instead of just failing that one row.
+                        Student studentObj = academicStudent != null ? academicStudent.getStudent() : null;
                         if (studentObj != null) {
+                            String trimmedValue = value != null ? value.trim() : "";
                             String aadharStr = studentObj.getAadharNo();
-                            if(aadharStr==null || !value.equalsIgnoreCase(aadharStr.trim())){
-                                if(value.length()==12){
-                                    studentObj.setAadharNo(value);
-                                    studentsToSave.add(studentObj);
-                                    // Collect the student for bulk saving
-                                    srPassCounter.getAndIncrement();
+                            if (!trimmedValue.isEmpty()) {
+                                if(aadharStr==null || !trimmedValue.equalsIgnoreCase(aadharStr.trim())){
+                                    if(trimmedValue.length()==12){
+                                        studentObj.setAadharNo(trimmedValue);
+                                        studentsToSave.add(studentObj);
+                                        // Collect the student for bulk saving
+                                        srPassCounter.getAndIncrement();
+                                    } else{
+                                        SRFailCounter.getAndIncrement();
+                                    }
                                 } else{
                                     SRFailCounter.getAndIncrement();
                                 }
-                            } else{
-                                SRFailCounter.getAndIncrement();
+                            } else {
+                                // Box left empty in the UI. If this student already had an
+                                // Aadhar number, an empty box means the user deliberately
+                                // cleared it, and that clear must be saved - not silently
+                                // dropped. A row that was already blank is a true no-op skip.
+                                if (aadharStr != null && !aadharStr.trim().isEmpty()) {
+                                    studentObj.setAadharNo("");
+                                    studentsToSave.add(studentObj);
+                                    srPassCounter.getAndIncrement();
+                                } else {
+                                    skippedCounter.getAndIncrement();
+                                }
                             }
                         } else {
-                            failedIds.add(uuid);  // Log the failure
                             SRFailCounter.getAndIncrement();
                         }
                     } else {
-                        failedIds.add("Invalid UUID");
                         SRFailCounter.getAndIncrement();
                     }
                 } else{
-                    SRFailCounter.getAndIncrement();
+                    skippedCounter.getAndIncrement();
                 }
             });
 
             // Bulk save the students
             repository.saveAll(studentsToSave);
-            if(SRFailCounter.get() == studentData.size()){
-                return "error#####No aadhar found for update!";
+
+            int attempted = srPassCounter.get() + SRFailCounter.get();
+            if (attempted == 0) {
+                return "error#####No Aadhar numbers were entered - nothing to update.";
             }
-            return "success#####Total Aadhar updated: " + srPassCounter + " and Aadhar not found for: "+SRFailCounter;
+            if (SRFailCounter.get() == 0) {
+                return "success#####All " + srPassCounter + " Aadhar number(s) updated successfully"
+                        + (skippedCounter.get() > 0 ? " (" + skippedCounter + " left blank, unchanged)." : ".");
+            }
+            if (srPassCounter.get() == 0) {
+                return "error#####None of the " + attempted + " Aadhar number(s) could be updated - the student record couldn't be matched, or the value wasn't a valid 12-digit number.";
+            }
+            return "partial#####" + srPassCounter + " of " + attempted + " Aadhar number(s) updated; " + SRFailCounter + " could not be updated.";
         }catch (TransactionSystemException ex) {
             Throwable rootCause = ex.getRootCause();
+            String violationMsg = null;
             if (rootCause instanceof ConstraintViolationException) {
                 ConstraintViolationException cve = (ConstraintViolationException) rootCause;
                 for (ConstraintViolation<?> violation : cve.getConstraintViolations()) {
@@ -1475,13 +1646,17 @@ public class StudentService {
                     String message = violation.getMessage();
                     if ("aadharNo".equals(propertyPath) && "Aadhar number must be a 12-digit number".equals(message)) {
                         log.warn("Aadhar validation error: {}", message);
+                        violationMsg = message;
                     }
                 }
             } else {
                 // Handle other types of exceptions
                 log.error("Unexpected error updating Aadhar", ex);
             }
-            return "---------";
+            // Was: return "---------"; - a placeholder that displayed as
+            // literal dashes to the user with no indication anything had
+            // gone wrong.
+            return "error#####" + (violationMsg != null ? violationMsg : "Could not save Aadhar numbers due to a validation error.");
         }catch(Exception e){
             e.printStackTrace();
             return "error#####"+e.getLocalizedMessage();
@@ -2320,6 +2495,10 @@ public class StudentService {
             Student s = as.getStudent();
             Map<String, Object> stuMap = new HashMap<>();
             stuMap.put("id",                   s.getId());
+            // Filename only (served via GET /student/images/{filename}, same as the
+            // Fee Submission Neo page's own student-photo lookup) - additive field,
+            // every existing caller of toLeanAcademicStudentMap() just ignores it.
+            stuMap.put("pic",                  s.getPic()                   != null ? s.getPic()                   : "");
             stuMap.put("studentName",          s.getStudentName()          != null ? s.getStudentName()          : "");
             stuMap.put("fatherName",            s.getFatherName()            != null ? s.getFatherName()            : "");
             stuMap.put("motherName",            s.getMotherName()            != null ? s.getMotherName()            : "");

@@ -33,6 +33,11 @@ public class StudentDiscountService {
         return studentDiscountRepository.findBySchool_IdAndAcademicYear_IdAndAcademicStudent_Id(school_id, academic_id, stuId);
     }
 
+    public Optional<StudentDiscount> findById(Long id){
+        log.info("Inside findById");
+        return studentDiscountRepository.findById(id);
+    }
+
     public StudentDiscount save(StudentDiscount studentDiscount){
         log.info("Inside save");
         try{
@@ -55,11 +60,16 @@ public class StudentDiscountService {
         }
     }
 
-    public String deactivateStudentDiscount(Long id){
+    public String deactivateStudentDiscount(Long id, Long schoolId){
         log.info("Inside deactivateStudentDiscount");
         try{
             StudentDiscount studentDiscount = studentDiscountRepository.findById(id).orElse(null);
-            if(studentDiscount!=null){
+            // School-scoped - without this check, any staff member with
+            // STUDENT_DISCOUNT_DELETE at their own school could deactivate
+            // another school's discount record by guessing/incrementing its id
+            // (this used to look the record up by id alone).
+            if(studentDiscount!=null && studentDiscount.getSchool()!=null && schoolId!=null
+                    && schoolId.equals(studentDiscount.getSchool().getId())){
                 studentDiscount.setStatus("Inactive");
                 studentDiscountRepository.save(studentDiscount);
                 return "success";

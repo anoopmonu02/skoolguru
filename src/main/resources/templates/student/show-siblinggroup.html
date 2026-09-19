@@ -6,47 +6,85 @@
 </head>
 <body>
     <section>
+
+        <!-- Read-only detail view, no JS on this page — plain Thymeleaf-rendered
+             markup reusing the app's shared components: .stat-tile-row for the
+             group summary (same pattern as Student List's Total/Inactive/New
+             tiles), and .stu-cell/.stu-avatar + .list-table for the roster
+             table (same pattern as Student List's name column), instead of the
+             earlier one-off .sg-info-card. Contact numbers are masked
+             server-side via DisplayFormatUtils.maskMobile() — the full number
+             is never sent to this page's HTML at all, which is stronger than
+             the click-to-reveal mask on Student List (there the full value is
+             still present in the DOM/AJAX response; see the comment in
+             student.html). No reveal toggle here by design, to keep that
+             real-masking property. -->
+        <style>
+            /* Slightly tighter rows than the default .list-table sizing, for
+               this small single-group roster view. */
+            #siblingRosterTable.list-table thead th { font-size: .64rem; padding: 8px 12px; }
+            #siblingRosterTable.list-table tbody td { font-size: .8rem; padding: 7px 12px; }
+        </style>
+
         <div class="container-fluid px-3">
             <div class="row mt-2">
                 <div class="col-md-12">
-                    <div class="page-header page-header-row">
-                      <h1 class="page-header-title">Sibling Group Detail</h1>
-                      <div class="page-header-actions">
-                        <a class="btn btn-outline-secondary btn-sm" th:href="@{/sibling/sibling-group}"><i class="bi bi-arrow-left"></i> Back to List</a>
+
+                    <div th:replace="~{components/ui :: page-header-actions('Sibling Group Detail', ~{::sgDetailActions})}"></div>
+                    <div style="display:none">
+                      <div th:fragment="sgDetailActions">
+                        <a th:replace="~{components/ui :: back-link('/sibling/sibling-group', 'Back to List')}"></a>
                       </div>
                     </div>
 
-                    <div class="row mb-4">
-                        <div class="col-md-6">
-                            <span class=""><b>Group Name: </b></span><span class="mb-4" th:text="${siblinggroup.groupName}"></span>
+                    <div class="stat-tile-row">
+                        <div class="stat-tile">
+                            <div class="stat-tile-icon" style="background:var(--accent-light);color:var(--accent)"><i class="bi bi-tag-fill"></i></div>
+                            <div>
+                                <div class="stat-tile-val" th:text="${siblinggroup.groupName}">Group Name</div>
+                                <div class="stat-tile-lbl">Group Name</div>
+                            </div>
                         </div>
-
+                        <div class="stat-tile">
+                            <div class="stat-tile-icon" style="background:rgba(124,58,237,.10);color:#7c3aed"><i class="bi bi-person-lines-fill"></i></div>
+                            <div>
+                                <div class="stat-tile-val" th:text="${siblinggroup.getSiblingGroupStudents().size()}">0</div>
+                                <div class="stat-tile-lbl">Siblings</div>
+                            </div>
+                        </div>
                     </div>
 
-                    <table class="table table-bordered table-striped">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Student Name</th>
-                                <th>Grade</th>
-                                <th>Father Name</th>
-                                <th>Mother Name</th>
-                                <th>Contact</th>
-                                <th>School</th>
-                            </tr>
-                        </thead>
-                        <tbody class="table-group-divider">
-                            <tr th:each="stu, iter : ${siblinggroup.getSiblingGroupStudents()}">
-                                <td th:text="${iter.index+1}"></td>
-                                <td th:text="${stu.academicStudent.student.studentName}"></td>
-                                <td th:text="${stu.academicStudent.grade.gradeName}+' - '+${stu.academicStudent.section.sectionName}"></td>
-                                <td th:text="${stu.academicStudent.student.fatherName}"></td>
-                                <td th:text="${stu.academicStudent.student.motherName}"></td>
-                                <td th:text="${stu.academicStudent.student.mobile1}"></td>
-                                <td th:text="${stu.academicStudent.school.schoolName}"></td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div class="list-table-card">
+                        <table class="table table-sm list-table" id="siblingRosterTable">
+                            <thead>
+                                <tr>
+                                    <th>Student Name</th>
+                                    <th>Grade</th>
+                                    <th>Father Name</th>
+                                    <th>Mother Name</th>
+                                    <th>Contact</th>
+                                    <th>School</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="stu : ${siblinggroup.getSiblingGroupStudents()}">
+                                    <td>
+                                        <div class="stu-cell">
+                                            <div class="stu-avatar"
+                                                 th:style="'background:' + ${T(com.smsweb.sms.helper.DisplayFormatUtils).avatarColor(stu.academicStudent.student.id)} + '22;color:' + ${T(com.smsweb.sms.helper.DisplayFormatUtils).avatarColor(stu.academicStudent.student.id)}"
+                                                 th:text="${T(com.smsweb.sms.helper.DisplayFormatUtils).initials(stu.academicStudent.student.studentName)}">PG</div>
+                                            <span th:text="${stu.academicStudent.student.studentName}">Student Name</span>
+                                        </div>
+                                    </td>
+                                    <td th:text="${stu.academicStudent.grade.gradeName}+' - '+${stu.academicStudent.section.sectionName}"></td>
+                                    <td th:text="${stu.academicStudent.student.fatherName}"></td>
+                                    <td th:text="${stu.academicStudent.student.motherName}"></td>
+                                    <td th:text="${T(com.smsweb.sms.helper.DisplayFormatUtils).maskMobile(stu.academicStudent.student.mobile1)}"></td>
+                                    <td th:text="${stu.academicStudent.school.schoolName}"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

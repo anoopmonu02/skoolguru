@@ -72,6 +72,17 @@
 <!-- Custom JS to handle sending message and dynamic fields -->
 <script type="text/javascript" th:inline="javascript">
     const contextPath = /*[[@{/}]]*/ '/';
+
+    // Escapes a value before it is interpolated into an .html()/.innerHTML-
+    // built string. Message content and sender names below come straight from
+    // a JSON response with no server-side escaping - a stored-XSS gap (a
+    // message typed by any sender is rendered here for every other viewer of
+    // the wall). Same fix pattern already applied elsewhere in this pass.
+    const escapeHtml = function (value) {
+        const div = document.createElement('div');
+        div.textContent = value !== undefined && value !== null ? value : '';
+        return div.innerHTML;
+    };
     function sendMessage() {
         let studentId = document.getElementById("studentSelect").value;
         let messageContent = document.getElementById("messageBox").value;
@@ -114,7 +125,7 @@
                 let messageWall = document.getElementById("messageWall");
                 let messageList = data.map(message => `
                 <li class="list-group-item">
-                    <strong>${message.sender.employeeName}</strong>: ${message.content}
+                    <strong>${escapeHtml(message.sender.employeeName)}</strong>: ${escapeHtml(message.content)}
                     <span class="float-right text-muted">${new Date(message.sentAt).toLocaleString()}</span>
                 </li>
             `);

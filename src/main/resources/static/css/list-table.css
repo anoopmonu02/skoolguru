@@ -104,7 +104,7 @@ table.list-table { border: none; }
   font-size: .68rem;
   text-transform: uppercase;
   letter-spacing: .04em;
-  background: var(--body-bg);
+  background: var(--card-bg);
   white-space: nowrap;
   border-top: none !important;
   border-bottom: 1px solid var(--border-color) !important;

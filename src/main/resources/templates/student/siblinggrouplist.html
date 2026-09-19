@@ -10,54 +10,81 @@
             <div class="container-fluid px-3">
                 <div class="row mt-2">
                     <div class="col-md-12">
-                        <div class="page-header page-header-row">
-                          <h1 class="page-header-title">Sibling Group List</h1>
-                          <div class="page-header-actions">
-                            <a sms:access="SIBLING_ADD:CREATE" class="btn btn-success btn-sm" th:href="@{/sibling/sibling-group/add}"><i class="bi bi-plus-lg"></i> Add Sibling-Group</a>
+
+                        <div th:replace="~{components/ui :: list-page-header('Sibling Group List', null, ~{::siblingGroupActions})}"></div>
+                        <!-- siblingGroupActions is only ever meant to render once, inside the
+                             list-page-header call above via ~{::siblingGroupActions}. Wrapped
+                             in a plain display:none div (not th:remove) - see employee.html
+                             for why th:remove on the fragment node itself breaks this. -->
+                        <div style="display:none">
+                          <div th:fragment="siblingGroupActions">
+                            <a class="btn-cta" sms:access="SIBLING_ADD:CREATE" th:href="@{/sibling/sibling-group/add}"><i class="bi bi-plus-lg"></i> Add Sibling-Group</a>
                           </div>
                         </div>
 
-                        <table class="table table-bordered table-striped table-hover table-sm" th:if="${hasSiblingGroup}">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Group Name</th>
-                                    <th>Description</th>
-                                    <th>Siblings#</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody class="table-group-divider">
-                                <tr th:each="sibgrp,iterStat : ${siblingGroups}">
-                                    <td th:text="${iterStat.index + 1}"></td>
-                                    <td th:text="${sibgrp.groupName}"></td>
-                                    <td th:text="${sibgrp.description}"></td>
-                                    <td th:text="${sibgrp.getSiblingGroupStudents().size()}">
-                                        <!--<table class="table table-sm">
-                                            <tr th:each="stu, iter: ${sibgrp.getSiblingGroupStudents()}">
-                                                <td th:text="${iter.index+1}+'. '"></td>
-                                                <td th:text="${stu.academicStudent.student.studentName}"></td>
-                                                <td th:text="${stu.academicStudent.grade.gradeName}+' - '+${stu.academicStudent.section.sectionName}"></td>
-                                            </tr>
-                                        </table>-->
+                        <div class="list-table-card">
+                            <div class="config-list-toolbar list-page-toolbar">
+                                <div class="config-search-wrap">
+                                    <i class="bi bi-search"></i>
+                                    <input type="text" class="form-control form-control-sm" id="sibGroupSearchInput"
+                                           placeholder="Search sibling groups…">
+                                </div>
+                                <div id="sibGroupExportSlot" class="list-export-slot"></div>
+                            </div>
 
-                                    </td>
-                                    <td style="white-space: nowrap" class="text-center">
-                                        <div class="col align-self-center">
-                                            <a class="btn btn-dark" th:href="@{/sibling/sibling-group/show/{id}(id=${sibgrp.id})}" data-bs-toggle="tooltip" data-bs-title="Default tooltip">
-                                                <i class="bi bi-list"></i> </a>
-                                            <!--<a class="btn btn-danger" th:href="@{/sibling/sibling-group/delete/{id}(id=${sibgrp.id})}" data-bs-toggle="tooltip" data-bs-title="Default tooltip">
-                                                <i class="bi bi-trash3-fill"></i> </a>-->
-                                            <a sms:access="SIBLING_DELETE:DELETE" class="btn btn-danger" th:data-id="${sibgrp.id}" data-bs-toggle="modal" data-bs-target="#deleteConfirmationModal" data-bs-title="Default tooltip">
-                                                <i class="bi bi-trash3-fill"></i>
-                                            </a>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        <div th:if="${!hasSiblingGroup}">
-                            <div th:replace="~{components/ui :: empty-state('No Sibling-Group found.', 'bi-inbox')}"></div>
+                            <table class="table table-sm list-table" id="sibling-group-list" th:if="${hasSiblingGroup}">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Group Name</th>
+                                        <th>Description</th>
+                                        <th>Siblings#</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="sibgrp,iterStat : ${siblingGroups}">
+                                        <td th:text="${iterStat.index + 1}"></td>
+                                        <td th:text="${sibgrp.groupName}"></td>
+                                        <td th:text="${sibgrp.description}"></td>
+                                        <td th:text="${sibgrp.getSiblingGroupStudents().size()}"></td>
+                                        <td class="text-nowrap text-center">
+                                            <div class="row-actions">
+                                                <a sms:access="SIBLING_VIEW:VIEW" class="config-icon-btn view" title="View"
+                                                   th:href="@{/sibling/sibling-group/show/{id}(id=${sibgrp.id})}">
+                                                    <i class="bi bi-list"></i></a>
+                                                <button type="button" sms:access="SIBLING_DELETE:DELETE" class="config-icon-btn danger delete-btn" title="Delete"
+                                                        th:data-id="${sibgrp.id}" th:data-groupname="${sibgrp.groupName}"
+                                                        data-bs-toggle="modal" data-bs-target="#deleteConfirmationModal">
+                                                    <i class="bi bi-trash3"></i></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <div th:if="${!hasSiblingGroup}" class="p-3">
+                                <div th:replace="~{components/ui :: empty-state('No Sibling-Group found.', 'bi-inbox')}"></div>
+                            </div>
+
+                            <!-- Custom footer: rows-per-page + "Showing X-Y of Z" + page-number
+                                 pagination — built by the shared initListDataTable() helper
+                                 (static/js/list-table-init.js), same as Academic-Year/Employee/Student List. -->
+                            <div class="list-table-footer" th:if="${hasSiblingGroup}">
+                                <div class="list-footer-left">
+                                    <label class="list-length-label">Rows per page
+                                        <select id="sibGroupPageLength" class="list-length-select">
+                                            <option value="5">5</option>
+                                            <option value="10">10</option>
+                                            <option value="25" selected>25</option>
+                                            <option value="50">50</option>
+                                            <option value="100">100</option>
+                                        </select>
+                                    </label>
+                                    <span id="sibGroupPageInfo" class="list-page-info">Showing 0 of 0 sibling groups</span>
+                                </div>
+                                <div class="list-pagination" id="sibGroupPagination"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -67,23 +94,48 @@
             <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true">
                 <div class="modal-dialog">
                     <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="deleteConfirmationModalLabel">Confirm Deletion</h5>
+                        <div class="modal-header bg-danger-subtle">
+                            <h5 class="modal-title text-danger-emphasis" id="deleteConfirmationModalLabel">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>Remove Sibling Group
+                            </h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
-                            Are you sure you want to delete this record?
+                            <p class="mb-2">You're about to remove the following sibling group:</p>
+                            <div class="border rounded p-3 bg-light">
+                                <small class="text-muted d-block">Group Name</small>
+                                <span class="fw-semibold" id="deleteSibGroupName">-</span>
+                            </div>
+                            <div class="alert alert-warning d-flex align-items-start mb-0 mt-3" role="alert">
+                                <i class="bi bi-info-circle-fill me-2 mt-1"></i>
+                                <div>This cannot be undone — any sibling discount assigned to this group will be affected.</div>
+                            </div>
                         </div>
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-danger" id="confirmDeleteButton">Delete</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancel</button>
+                            <button type="button" class="btn btn-danger" id="confirmDeleteButton"><i class="bi bi-trash3-fill"></i> Remove Sibling Group</button>
                         </div>
                     </div>
                 </div>
             </div>
 
+            <!-- Real POST form the confirm button submits - a state-changing action
+                 needs to go through POST so Spring Security's CSRF check actually
+                 covers it (GET requests are exempt from CSRF, which is what made the
+                 old <a th:href="...delete/{id}"> / window.location.href navigation
+                 here unsafe). Thymeleaf auto-injects the _csrf hidden field for any
+                 th:action form, same as every other POST form in this app. -->
+            <form id="deleteSiblingGroupForm" method="post" th:action="@{/sibling/sibling-group/delete/0}" style="display:none"></form>
+
             <script type="text/javascript" th:inline="javascript">
                 const contextPath = /*[[@{/}]]*/ '/';
+
+                // Flash-attribute success/error banner after redirects (add/delete both
+                // set these server-side already; this page previously never displayed
+                // them).
+                const siblingGroupSuccessMessage = [[${success}]];
+                const siblingGroupErrorMessage   = [[${error}]];
+
                 toastr.options = {
                     "closeButton": true,
                     "debug": false,
@@ -101,24 +153,58 @@
                     "showMethod": "fadeIn",
                     "hideMethod": "fadeOut"
                 }
-                
 
-                
+                $(document).ready(function () {
+                    if (siblingGroupSuccessMessage) showMsg("success", siblingGroupSuccessMessage, "Success");
+                    if (siblingGroupErrorMessage)   showMsg("error", siblingGroupErrorMessage, "Error");
 
+                    // Delete confirmation modal wiring — bound BEFORE the DataTable init
+                    // below (and defensively, via .attr()+row-text rather than jQuery's
+                    // .data() cache) so this keeps working even if DataTable init below
+                    // ever throws for this table. Same pattern as Academic-Year List,
+                    // hardened.
+                    let deleteSibGroupId = null;
+                    $(document).on('click', '.delete-btn', function () {
+                        const btn = $(this);
+                        deleteSibGroupId = btn.attr('data-id');
+                        const groupName = btn.attr('data-groupname') || btn.closest('tr').find('td').eq(1).text().trim() || '-';
+                        $('#deleteSibGroupName').text(groupName);
+                    });
 
+                    $('#confirmDeleteButton').on('click', function () {
+                        if (deleteSibGroupId) {
+                            const $form = $('#deleteSiblingGroupForm');
+                            $form.attr('action', contextPath + 'sibling/sibling-group/delete/' + deleteSibGroupId);
+                            $form.trigger('submit');
+                        }
+                    });
 
-                let deleteId = null;
-
-                // Capture the ID of the record to be deleted when the delete button is clicked
-                $('a[data-bs-target="#deleteConfirmationModal"]').on('click', function () {
-                    deleteId = $(this).data('id');
-                });
-
-                // Handle the deletion when "Delete" button is clicked in the modal
-                $('#confirmDeleteButton').on('click', function () {
-                    if (deleteId) {
-                        // Redirect to the delete URL
-                        window.location.href = `${contextPath}sibling/sibling-group/delete/${deleteId}`;
+                    // DataTable init wrapped in try/catch: initListDataTable()'s own
+                    // internal $(...).DataTable(dtOptions) call is not guarded, so any
+                    // init failure here would otherwise silently abort the rest of this
+                    // ready() callback (nothing below it would run). Guarding it keeps
+                    // this page's other wiring safe regardless, and logs the failure
+                    // instead of swallowing it silently.
+                    if ($('#sibling-group-list').length) {
+                        try {
+                            initListDataTable({
+                                tableSelector: '#sibling-group-list',
+                                searchInputSelector: '#sibGroupSearchInput',
+                                exportSlotSelector: '#sibGroupExportSlot',
+                                lengthSelectSelector: '#sibGroupPageLength',
+                                pageInfoSelector: '#sibGroupPageInfo',
+                                paginationSelector: '#sibGroupPagination',
+                                itemLabel: 'sibling groups',
+                                exportTitle: 'Sibling Group Data export',
+                                exportColumns: [0, 1, 2, 3],
+                                printHeaderText: 'Sibling Groups',
+                                dtOptions: {
+                                    columnDefs: [{ orderable: false, targets: [0, 4] }]
+                                }
+                            });
+                        } catch (e) {
+                            console.error('Sibling Group list: DataTable init failed', e);
+                        }
                     }
                 });
             </script>

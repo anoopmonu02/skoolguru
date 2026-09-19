@@ -82,6 +82,16 @@
   <script type="text/javascript" th:inline="javascript">
     const contextPath = /*[[@{/}]]*/ '/';
 
+    // Escapes a value before it is interpolated into an .html()-built string.
+    // Student name/SR number below come straight from a JSON response with no
+    // server-side escaping - a stored-XSS gap. Same fix pattern already
+    // applied elsewhere in this pass.
+    const escapeHtml = function (value) {
+        const div = document.createElement('div');
+        div.textContent = value !== undefined && value !== null ? value : '';
+        return div.innerHTML;
+    };
+
 
 
     
@@ -165,7 +175,7 @@
       let myMap = new Map();
       studentData.forEach(student => {
         let srno = student.studentObj.classSrNo ? student.studentObj.classSrNo.trim() : '';
-        tbl += `<tr><td>${counter}</td><td>${student.studentName}</td><td>${srno}</td>`;
+        tbl += `<tr><td>${counter}</td><td>${escapeHtml(student.studentName)}</td><td>${escapeHtml(srno)}</td>`;
         let presentCount = 0;
         let absentCount = 0;
         let holidayCount = 0;

@@ -10,11 +10,17 @@ import java.util.List;
 
 public interface GrievanceRepository extends JpaRepository<Grievance, Long> {
 
+    // School-scoped - without the g.school.id check, any authenticated staff
+    // member could read another school's grievance titles/descriptions for a
+    // student just by guessing/incrementing an academicStudentId (there was no
+    // tenant filter here at all before).
     @Query("SELECT DISTINCT g FROM Grievance g LEFT JOIN FETCH g.academicStudent astu " +
             "LEFT JOIN FETCH astu.student LEFT JOIN FETCH astu.grade LEFT JOIN FETCH astu.section " +
             "WHERE g.academicStudent.id = :academicStudentId " +
+            "  AND g.school.id = :schoolId " +
             "ORDER BY g.createdAt DESC")
-    List<Grievance> findAllByAcademicStudentIdOrderByCreatedAtDesc(@Param("academicStudentId") Long academicStudentId);
+    List<Grievance> findAllByAcademicStudentIdAndSchool_IdOrderByCreatedAtDesc(@Param("academicStudentId") Long academicStudentId,
+                                                                                @Param("schoolId") Long schoolId);
 
     /**
      * Dashboard "pending grievances" panel — anything due today or earlier

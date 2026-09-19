@@ -36,21 +36,27 @@ public class GrievanceService {
         return grievanceRepository.save(grievance);
     }
 
-    public List<Grievance> getGrievancesByStudentId(Long academicStudentId) {
+    public List<Grievance> getGrievancesByStudentId(Long academicStudentId, Long schoolId) {
         log.info("Inside getGrievancesByStudentId");
-        return grievanceRepository.findAllByAcademicStudentIdOrderByCreatedAtDesc(academicStudentId);
+        return grievanceRepository.findAllByAcademicStudentIdAndSchool_IdOrderByCreatedAtDesc(academicStudentId, schoolId);
     }
 
     /**
-     * Reschedules the due date. Returns null if the grievance doesn't exist.
-     * Throws IllegalStateException if it's already closed (enforces "no further
-     * action once closed" — the caller/controller should surface this as a 409/400).
+     * Reschedules the due date. Returns null if the grievance doesn't exist OR
+     * doesn't belong to the caller's school (school-scoped - without this check,
+     * any staff member could reschedule another school's grievance by guessing
+     * its id). Throws IllegalStateException if it's already closed (enforces
+     * "no further action once closed" — the caller/controller should surface
+     * this as a 409/400).
      */
-    public Grievance updateDueDate(Long id, Date newDueDate) {
+    public Grievance updateDueDate(Long id, Date newDueDate, Long schoolId) {
         log.info("Inside updateDueDate");
         Optional<Grievance> opt = grievanceRepository.findById(id);
         if (opt.isEmpty()) return null;
         Grievance grievance = opt.get();
+        if (grievance.getSchool() == null || schoolId == null || !schoolId.equals(grievance.getSchool().getId())) {
+            return null;
+        }
         if (grievance.getClosedAt() != null) {
             throw new IllegalStateException("This grievance is already closed; the due date can no longer be changed.");
         }
@@ -60,10 +66,12 @@ public class GrievanceService {
 
     /**
      * Closes the grievance with a mandatory remark. Returns null if the grievance
-     * doesn't exist. Throws IllegalStateException if already closed, and
-     * IllegalArgumentException if the remark is blank.
+     * doesn't exist or doesn't belong to the caller's school (school-scoped - see
+     * updateDueDate's comment above; the same missing check let any staff member
+     * silently close another school's open grievance). Throws IllegalStateException
+     * if already closed, and IllegalArgumentException if the remark is blank.
      */
-    public Grievance closeGrievance(Long id, String remark, UserEntity closedBy) {
+    public Grievance closeGrievance(Long id, String remark, UserEntity closedBy, Long schoolId) {
         log.info("Inside closeGrievance");
         if (remark == null || remark.trim().isEmpty()) {
             throw new IllegalArgumentException("A closing remark is required to close this grievance.");
@@ -71,6 +79,9 @@ public class GrievanceService {
         Optional<Grievance> opt = grievanceRepository.findById(id);
         if (opt.isEmpty()) return null;
         Grievance grievance = opt.get();
+        if (grievance.getSchool() == null || schoolId == null || !schoolId.equals(grievance.getSchool().getId())) {
+            return null;
+        }
         if (grievance.getClosedAt() != null) {
             throw new IllegalStateException("This grievance is already closed.");
         }

@@ -2,6 +2,7 @@ package com.smsweb.sms.services.mobile;
 
 import com.smsweb.sms.dto.mobile.MobileProfileConstants;
 import com.smsweb.sms.dto.mobile.MobileProfileUpdateRequest;
+import com.smsweb.sms.helper.FileHandleHelper;
 import com.smsweb.sms.models.Users.UserEntity;
 import com.smsweb.sms.models.mobile.BankChangeLog;
 import com.smsweb.sms.models.mobile.StudentHealthInfo;
@@ -41,6 +42,7 @@ public class MobileStudentProfileService {
     @Autowired private BankChangeLogRepository bankChangeLogRepository;
     @Autowired private StudentHealthInfoService studentHealthInfoService;
     @Autowired private MobileImageCompressionHelper imageCompressionHelper;
+    @Autowired private FileHandleHelper fileHandleHelper;
 
     // ── Read ─────────────────────────────────────────────────────────────────
 
@@ -200,13 +202,24 @@ public class MobileStudentProfileService {
                 userEntity);
     }
 
-    /** Compresses + saves the uploaded photo, updates Student.pic, returns the new URL. */
+    /**
+     * Compresses + saves the uploaded photo, updates Student.pic, returns the
+     * new URL. A child/parent can re-upload their photo many times via the
+     * app, so the previous file is deleted after a successful save — without
+     * this, every re-upload just overwrote Student.pic and left the old file
+     * orphaned on disk forever (same leak §6 fixed on the web bulk-image page,
+     * reusing the same FileHandleHelper.deleteStudentImage()).
+     */
     @Transactional
     public String updatePhoto(AcademicStudent as, MultipartFile file) throws IOException {
         String fileName = imageCompressionHelper.compressAndSave(file);
         Student student = as.getStudent();
+        String previousPic = student.getPic();
         student.setPic(fileName);
         studentRepository.save(student);
+        if (previousPic != null && !previousPic.isBlank() && !previousPic.equals(fileName)) {
+            fileHandleHelper.deleteStudentImage(previousPic);
+        }
         return "/sms/api/v1/student/pic/" + fileName;
     }
 

@@ -6,58 +6,144 @@
 </head>
 <body>
 <section>
+    <!--
+        Fee Reminder — filter panel and results chrome rebuilt on the same
+        "Neo" design system as fees/feesubmitform-neo.html, fees/fee-receipt.html
+        and fees/pendingbalanceform.html (icon+label card headers, chip/pill
+        controls, shared design tokens). The actual reminder-notice markup
+        built by buildReminderCard() below (what actually gets printed / sent
+        as a notification) is unchanged - only the surrounding page chrome
+        changed. Every id the inline script depends on (medium, grade,
+        section, lastdate, reminder_language, getfee, monthcheckbox,
+        contentToExport, printreceipt, sendReminderNotification) is unchanged.
+
+        Print: the old printDiv() (window.open() + a hardcoded-version CDN
+        Bootstrap <link>) is replaced with the same CDN-free SmsPrintUtils
+        helper (see /js/print-utils.js) already used on fees/fee-receipt.html
+        and fees/receipt.html. PDF export was deliberately NOT added here
+        (unlike the receipt pages) - SmsPrintUtils.downloadElementAsPdf()
+        rasterizes the element onto a single PDF page, which is fine for a
+        one-receipt page but would badly squash a reminder run of more than
+        a handful of students; Print (which paginates properly via the
+        @media print rule below, same 4-per-page layout printDiv used to
+        inject) is the correct fit for this page's multi-page content.
+    -->
+    <style>
+        .fmr-card{ background:var(--card-bg); border:1px solid var(--border-color); border-radius:var(--radius-lg); box-shadow:var(--shadow-xs); }
+
+        .fmr-filtercard{ margin-bottom:22px; }
+        .fmr-icard-hd{ display:flex; align-items:center; gap:9px; padding:14px 18px; border-bottom:1px solid var(--border-color); }
+        .fmr-icard-hd i{ color:var(--accent); font-size:1rem; }
+        .fmr-icard-hd b{ font-size:.88rem; font-family:"Outfit", sans-serif; color:var(--text-primary); }
+        .fmr-filterbody{ padding:18px 20px; }
+
+        .fmr-nomapping{ display:flex; align-items:flex-start; gap:9px; background:#fff7ed; color:#9a5b13; border:1px solid #fed7aa; border-radius:var(--radius-md); padding:11px 14px; font-size:.82rem; line-height:1.45; margin-bottom:16px; }
+        .fmr-nomapping i{ margin-top:2px; flex-shrink:0; }
+
+        .fmr-fieldgroup{ margin-bottom:18px; }
+        .fmr-fieldgroup-label{ display:block; font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); margin-bottom:9px; }
+
+        /* Month chips - the old markup put th:text on a bare <input>, which
+           has no renderable body; browsers were silently dropping that text
+           as a stray node right after the (void) checkbox. Real <label>s now
+           wrap the checkbox + name, and .checked (toggled by a plain JS
+           'change' listener below, not CSS :has()) drives the pill look so
+           this keeps working on older WebView-based office PCs too. */
+        .fmr-months{ display:flex; flex-wrap:wrap; gap:8px; }
+        .fmr-month-chip{ position:relative; display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border:1px solid var(--border-color); border-radius:999px; font-size:.82rem; color:var(--text-primary); cursor:pointer; -webkit-user-select:none; user-select:none; transition:background .12s,border-color .12s,color .12s; }
+        .fmr-month-chip:hover{ border-color:var(--accent); }
+        .fmr-month-chip input{ position:absolute; opacity:0; width:0; height:0; }
+        .fmr-month-chip.checked{ background:var(--accent); border-color:var(--accent); color:#fff; }
+
+        .fmr-fields{ display:grid; grid-template-columns:repeat(5, 1fr) auto; gap:14px; align-items:end; }
+        @media (max-width:1200px){ .fmr-fields{ grid-template-columns:repeat(3, 1fr); } }
+        @media (max-width:700px){ .fmr-fields{ grid-template-columns:1fr; } }
+        .fmr-label{ display:block; font-size:.76rem; font-weight:600; color:var(--text-muted); margin-bottom:6px; }
+        .fmr-field-btn{ display:flex; }
+        .fmr-getbtn{ width:100%; white-space:nowrap; }
+
+        .fmr-resultscard{ padding:18px 20px 20px; }
+        .fmr-resultshd{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+        .fmr-resultshd .fmr-icard-hd{ padding:0; border-bottom:none; }
+        .fmr-actions{ display:flex; align-items:center; gap:8px; }
+
+        .fmr-empty{ padding:36px 18px; text-align:center; color:var(--text-muted); font-size:.88rem; }
+        .fmr-empty i{ display:block; font-size:1.6rem; margin-bottom:8px; color:var(--border-color); }
+
+        /* Same 4-reminder-cards-per-printed-page pagination printDiv() used
+           to inject into its popup window's <head> - now just part of this
+           page's own CSS, which printThis (see /js/print-utils.js) carries
+           into the print iframe along with everything else already on the
+           page, instead of a hand-rolled window.open() copy. */
+        @media print {
+            @page { size: A4 portrait; margin: 10mm; }
+            #contentToExport > div:nth-child(4n) { break-after: page; page-break-after: always; }
+        }
+    </style>
+
     <div class="container-fluid px-3">
         <div class="row mt-2 ">
             <div class="col-md-12">
                 <div th:replace="~{components/ui :: page-header('Fee Reminder')}"></div>
 
-                <div>
-                    <div class="row">
-                        <div class="col-md-2" th:each="mon : ${monthmapping}">
-                            <input type="checkbox" class="form-check form-check-input monthcheckbox form-check-inline" th:id="${mon.monthMaster.id}" th:value="${mon.monthMaster.id}" th:name="months" th:text="${mon.monthMaster.monthName}">
+                <div class="fmr-card fmr-filtercard">
+                    <div class="fmr-icard-hd"><i class="bi bi-funnel"></i><b>Select Criteria</b></div>
+
+                    <div class="fmr-filterbody">
+                        <div th:if="${!hasMonthMapping}" class="fmr-nomapping">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <span>Month mapping isn't set up for this academic year yet, so no months are available below. Please configure it first, then come back here.</span>
                         </div>
-                    </div>
-                    <div class="row mt-3">
-                        <div class="col-md-2">
-                            <label for="medium" class="form-label">Medium</label>
-                            <select name="medium" id="medium" class="form-select">
-                                <option value="">Select Medium</option>
-                                <option th:each="med : ${mediums}" th:value="${med.id}" th:text="${med.mediumName}">Medium</option>
-                            </select>
+
+                        <div class="fmr-fieldgroup">
+                            <span class="fmr-fieldgroup-label">Months</span>
+                            <div class="fmr-months">
+                                <label class="fmr-month-chip" th:each="mon : ${monthmapping}" th:for="${mon.monthMaster.id}">
+                                    <input type="checkbox" class="monthcheckbox" th:id="${mon.monthMaster.id}" th:value="${mon.monthMaster.id}" th:name="months">
+                                    <span th:text="${mon.monthMaster.monthName}">Month</span>
+                                </label>
+                            </div>
                         </div>
-                        <div class="col-md-2">
-                            <label for="grade" class="form-label">Grade</label>
-                            <select name="grade" id="grade" class="form-select">
-                                <option value="">Select Grade</option>
-                                <option th:each="grade : ${grades}" th:value="${grade.id}" th:text="${grade.gradeName}">Grade</option>
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <label for="section" class="form-label">Section</label>
-                            <select name="section" id="section" class="form-select">
-                                <option value="">Select Section</option>
-                                <option th:each="section : ${sections}" th:value="${section.id}" th:text="${section.sectionName}">Section</option>
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <label for="section" class="form-label">Last Date</label>
-                            <input type="text" class="form-control" name="lastdate" id="lastdate"/>
-                        </div>
-                        <div class="col-md-2">
-                            <label for="section" class="form-label">Reminder Language</label>
-                            <select name="reminder_language" id="reminder_language" class="form-select">
-                                <option value="">Select Language</option>
-                                <option value="hi">हिंदी</option>
-                                <option value="en">English</option>
-                            </select>
-                        </div>
-                        <div class="col-md-2 align-self-end">
-                            <div class="col-sm-5">
-                                <button name="getfee" id="getfee" class="btn btn-primary"><i class="bi bi-search"></i> Get List </button>
+
+                        <div class="fmr-fields">
+                            <div class="fmr-field">
+                                <label for="medium" class="fmr-label">Medium</label>
+                                <select name="medium" id="medium" class="form-select">
+                                    <option value="">Select Medium</option>
+                                    <option th:each="med : ${mediums}" th:value="${med.id}" th:text="${med.mediumName}">Medium</option>
+                                </select>
+                            </div>
+                            <div class="fmr-field">
+                                <label for="grade" class="fmr-label">Grade</label>
+                                <select name="grade" id="grade" class="form-select">
+                                    <option value="">Select Grade</option>
+                                    <option th:each="grade : ${grades}" th:value="${grade.id}" th:text="${grade.gradeName}">Grade</option>
+                                </select>
+                            </div>
+                            <div class="fmr-field">
+                                <label for="section" class="fmr-label">Section</label>
+                                <select name="section" id="section" class="form-select">
+                                    <option value="">Select Section</option>
+                                    <option th:each="section : ${sections}" th:value="${section.id}" th:text="${section.sectionName}">Section</option>
+                                </select>
+                            </div>
+                            <div class="fmr-field">
+                                <label for="lastdate" class="fmr-label">Last Date</label>
+                                <input type="text" class="form-control" name="lastdate" id="lastdate"/>
+                            </div>
+                            <div class="fmr-field">
+                                <label for="reminder_language" class="fmr-label">Reminder Language</label>
+                                <select name="reminder_language" id="reminder_language" class="form-select">
+                                    <option value="">Select Language</option>
+                                    <option value="hi">हिंदी</option>
+                                    <option value="en">English</option>
+                                </select>
+                            </div>
+                            <div class="fmr-field fmr-field-btn">
+                                <button name="getfee" id="getfee" class="btn btn-primary fmr-getbtn"><i class="bi bi-search"></i> Get List</button>
                             </div>
                         </div>
                     </div>
-                    <hr/>
                 </div>
 
                 <!-- Loading overlay — shown while fetch is in progress -->
@@ -73,17 +159,16 @@
                     </div>
                 </div>
 
-                <div>
-                    <div class="row show-data mb-5" style="display: none;">
-                        <div class="col-auto">
-                            <button class="btn btn-success" id="printreceipt" onclick="printDiv('contentToExport','receipt')" data-div-id="contentToExport"><i class="bi bi-printer-fill"></i> Print</button>
-                        </div>
-                        <div class="col-auto">
+                <div class="fmr-card fmr-resultscard" id="fmrResultsCard" style="display:none;">
+                    <div class="fmr-resultshd">
+                        <div class="fmr-icard-hd"><i class="bi bi-bell"></i><b>Reminder Notices</b></div>
+                        <div class="fmr-actions show-data" style="display: none;">
+                            <button class="btn btn-outline-secondary" id="printreceipt" title="Print" aria-label="Print"><i class="bi bi-printer-fill"></i></button>
                             <button class="btn btn-primary" id="sendReminderNotification" sms:access="MESSAGE_SEND:CREATE"><i class="bi bi-bell-fill"></i> Send Reminder Notification</button>
                         </div>
                     </div>
 
-                    <div class="fetch-class-value mb-5" id="contentToExport" style="display:grid; grid-template-columns: 1fr; grid-auto-rows: min-content; row-gap: 24px;">
+                    <div class="fetch-class-value" id="contentToExport" style="display:grid; grid-template-columns: 1fr; grid-auto-rows: min-content; row-gap: 24px;">
 
                     </div>
                 </div>
@@ -118,6 +203,9 @@
     <script th:src="@{/js/flatpickr.js}"></script>
     <!--<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>-->
+
+    <script th:src="@{/js/printThis.js}"></script>
+    <script th:src="@{/js/print-utils.js}"></script>
 
     <script type="text/javascript" th:inline="javascript">
         const contextPath = /*[[@{/}]]*/ '/';
@@ -198,6 +286,13 @@
             dateFormat: "d/M/Y",  // Equivalent to dd/MMM/yyyy
         });
 
+        // Chip-style month toggles - .checked mirrors the checkbox's real
+        // :checked state via a plain JS-toggled class (not CSS :has()), so
+        // this keeps working on older WebView-based office PCs too.
+        $('.monthcheckbox').on('change', function () {
+            $(this).closest('.fmr-month-chip').toggleClass('checked', this.checked);
+        });
+
         function showWarningMsg(msgType, msg, headerValue){
             toastr.options = {
                 "closeButton": true,
@@ -222,6 +317,7 @@
         $('#getfee').click(async function() {
             $('.fetch-class-value').html('');
             $('.show-data').hide();
+            $('#fmrResultsCard').hide();
             const medium = $('#medium').val();
             const grade = $('#grade').val();
             const section = $('#section').val();
@@ -282,7 +378,8 @@
                 console.log("res: "+data.finalData);
                 console.log("res: "+data.STUDENT_NOT_FOUND);
                 if(data.STUDENT_NOT_FOUND!=null){
-                    $('.fetch-class-value').html('<p class="text-center">No data found.</p>');
+                    $('.fetch-class-value').html('<div class="fmr-empty"><i class="bi bi-search"></i>No matching students found for the selected filters.</div>');
+                    $('#fmrResultsCard').show();
                     lastReminderMap = null;
                 } else{
                     if(data.finalData!=null){
@@ -312,8 +409,10 @@
                         if(divStr.length>0){
                             $('.fetch-class-value').html(divStr);
                             $('.show-data').show();
+                            $('#fmrResultsCard').show();
                         } else{
-                            $('.fetch-class-value').html('<p class="text-center">No data found.</p>');
+                            $('.fetch-class-value').html('<div class="fmr-empty"><i class="bi bi-search"></i>No matching students found for the selected filters.</div>');
+                            $('#fmrResultsCard').show();
                             lastReminderMap = null;
                         }
 
@@ -406,36 +505,21 @@
             }
         });
 
-        function printDiv(divId, title) {
-            let mywindow = window.open('', 'PRINT', 'height=650,width=900,top=100,left=150');
-
-            // Check if the window opened successfully
-            if (!mywindow) {
-                alert('Popup blocked! Please allow popups for this site.');
+        // Print goes through SmsPrintUtils (see /js/print-utils.js) instead of
+        // the old printDiv() window.open() + hardcoded-CDN-Bootstrap approach -
+        // it reuses this app's own local CSS as already rendered, so the
+        // printed output always matches what's on screen and never depends on
+        // an external CDN being reachable. The 4-cards-per-page pagination
+        // printDiv used to inject into the popup's <head> now lives in the
+        // @media print rule in this page's own <style> block, which printThis
+        // carries into the print iframe along with the rest of this page's CSS.
+        document.getElementById('printreceipt').addEventListener('click', function () {
+            if (!lastReminderMap || Object.keys(lastReminderMap).length === 0) {
+                showWarningMsg('error', 'Please click "Get List" first — no reminder notices to print.', 'Warning');
                 return;
             }
-            //<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
-            mywindow.document.write('<html><head><title>' + title + '</title>');
-            mywindow.document.write('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous"/>');
-            mywindow.document.write('<style>@page { size: A4 portrait; margin: 10mm; } #contentToExport > div:nth-child(4n) { break-after: page; page-break-after: always; }</style>');
-            mywindow.document.write('</head><body>');
-            mywindow.document.write(document.getElementById(divId).outerHTML);
-            mywindow.document.write('</body></html>');
-
-            mywindow.document.close(); // necessary for IE >= 10
-            mywindow.focus(); // necessary for IE >= 10
-
-            // Add a delay before calling print to ensure content is fully loaded
-            setTimeout(function() {
-                mywindow.print();
-                mywindow.close();
-            }, 1000); // Adjust the delay as needed
-        }
-
-        window.onload = function() {
-            // Assign functions to buttons 'contentToExport','receipt'
-            document.querySelector('button[onclick="printDiv(\'contentToExport\',\'receipt\')"]').addEventListener('click', () => printDiv('contentToExport', 'receipt'));
-        }
+            SmsPrintUtils.printElement('contentToExport', 'Fee Reminder');
+        });
 
     </script>
 

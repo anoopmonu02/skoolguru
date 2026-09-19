@@ -95,10 +95,21 @@ public class MidSessionMigrationRestController extends BaseController {
     public ResponseEntity<?> calculatePendingFee(@RequestBody Map<String, Object> body, Model model) {
         log.info("Inside calculatePendingFee (mid session migration)");
         try {
+            School currentSchool = (School) model.getAttribute("school");
+            if (currentSchool == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Unable to resolve your school"));
+            }
             Long academicStudentId = Long.valueOf(String.valueOf(body.get("academicStudentId")));
             AcademicStudent sourceRecord = academicStudentService.findById(academicStudentId).orElse(null);
             if (sourceRecord == null) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Student record not found"));
+            }
+            // Same ownership check as migrateStudentMidSession() further down - without this,
+            // any admin could pass another school's academicStudentId here and read that
+            // student's exact pending-dues figure across tenants, even though the actual
+            // migration save is already blocked for a cross-school source record.
+            if (sourceRecord.getSchool() == null || !currentSchool.getId().equals(sourceRecord.getSchool().getId())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "This student does not belong to your current school"));
             }
             BigDecimal pending = midSessionMigrationService.calculatePendingDueAsOfToday(
                     sourceRecord, sourceRecord.getSchool(), sourceRecord.getAcademicYear());

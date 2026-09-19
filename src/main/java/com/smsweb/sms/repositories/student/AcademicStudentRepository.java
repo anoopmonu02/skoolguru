@@ -50,6 +50,10 @@ public interface AcademicStudentRepository extends JpaRepository<AcademicStudent
     List<AcademicStudent> findAllBySchool_IdAndStatus(Long school, String status);
 
     List<AcademicStudent> findAllByStudent_IdAndStatus(Long student, String status);
+    // School-scoped sibling of the one above - used by
+    // StudentService#deleteStudent/activateStudent so a student id can't be
+    // used to deactivate/reactivate a student belonging to a different school.
+    List<AcademicStudent> findAllByStudent_IdAndStatusAndSchool_Id(Long student, String status, Long school);
 
     /**
      * Batch variant of findAllByStudent_IdAndStatus (feature: Mobile Users admin
@@ -91,6 +95,16 @@ public interface AcademicStudentRepository extends JpaRepository<AcademicStudent
             @Param("schoolId") Long schoolId,
             @Param("academicYearId") Long academicYearId,
             @Param("medium") Long medium);
+
+    // Student Health Report (Grade-wise): Medium + bodyType filter, scoped to
+    // school/academicYear the same way findAllStudentsDetails is — joins Student
+    // only because bodyType lives there, not on AcademicStudent.
+    @Query("SELECT f FROM AcademicStudent f JOIN f.student s WHERE f.school.id = :schoolId AND f.academicYear.id = :academicYearId AND f.medium.id = :medium AND UPPER(s.bodyType) = UPPER(:bodyType) AND f.status='Active'")
+    List<AcademicStudent> findAllStudentsByMediumAndBodyType(
+            @Param("schoolId") Long schoolId,
+            @Param("academicYearId") Long academicYearId,
+            @Param("medium") Long medium,
+            @Param("bodyType") String bodyType);
 
     Optional<AcademicStudent> findById(Long academicStudentId);
 

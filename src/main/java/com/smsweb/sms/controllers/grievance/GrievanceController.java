@@ -3,6 +3,7 @@ package com.smsweb.sms.controllers.grievance;
 import com.smsweb.sms.config.permission.CheckAccess;
 import com.smsweb.sms.models.permission.AccessType;
 import com.smsweb.sms.models.Users.UserEntity;
+import com.smsweb.sms.models.admin.School;
 import com.smsweb.sms.models.grievance.Grievance;
 import com.smsweb.sms.models.student.AcademicStudent;
 import com.smsweb.sms.services.grievance.GrievanceService;
@@ -11,6 +12,7 @@ import com.smsweb.sms.services.users.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import java.text.SimpleDateFormat;
@@ -43,9 +45,13 @@ public class GrievanceController {
 
     @CheckAccess(screen = "MESSAGE_VIEW", type = AccessType.VIEW)
     @GetMapping("/getGrievancesByStudent/{studentId}")
-    public ResponseEntity<List<Map<String, Object>>> getGrievancesByStudent(@PathVariable Long studentId) {
+    public ResponseEntity<List<Map<String, Object>>> getGrievancesByStudent(@PathVariable Long studentId, Model model) {
         log.info("Inside getGrievancesByStudent");
-        List<Grievance> grievances = grievanceService.getGrievancesByStudentId(studentId);
+        // School-scoped - without this, any authenticated staff member could read
+        // another school's grievances for a student just by guessing/incrementing
+        // studentId (this used to look grievances up by studentId alone).
+        School school = (School) model.getAttribute("school");
+        List<Grievance> grievances = grievanceService.getGrievancesByStudentId(studentId, school.getId());
         List<Map<String, Object>> leanList = new ArrayList<>();
         for (Grievance g : grievances) {
             Map<String, Object> m = new HashMap<>();
@@ -64,9 +70,10 @@ public class GrievanceController {
 
     @CheckAccess(screen = "MESSAGE_SEND", type = AccessType.CREATE)
     @PostMapping("/saveGrievance")
-    public ResponseEntity<Map<String, Object>> saveGrievance(@RequestBody Map<String, Object> payload) {
+    public ResponseEntity<Map<String, Object>> saveGrievance(@RequestBody Map<String, Object> payload, Model model) {
         log.info("Inside saveGrievance");
         try {
+            School school = (School) model.getAttribute("school");
             String title = (String) payload.get("title");
             String description = (String) payload.get("description");
             Object studentIdObj = payload.get("studentId");
@@ -91,6 +98,12 @@ public class GrievanceController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Invalid studentId"));
             }
             AcademicStudent student = studentOpt.get();
+            // School-scoped - findById above is a raw, unscoped lookup, so without
+            // this check any staff member could attach a new grievance to another
+            // school's student by tampering the studentId in this request.
+            if (student.getSchool() == null || school == null || !school.getId().equals(student.getSchool().getId())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Invalid studentId"));
+            }
 
             Date dueDate;
             try {
@@ -119,15 +132,16 @@ public class GrievanceController {
     /** Reschedule a grievance's due date. Blocked once the grievance is closed. */
     @CheckAccess(screen = "MESSAGE_SEND", type = AccessType.CREATE)
     @PostMapping("/updateGrievanceDueDate/{id}")
-    public ResponseEntity<Map<String, Object>> updateGrievanceDueDate(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+    public ResponseEntity<Map<String, Object>> updateGrievanceDueDate(@PathVariable Long id, @RequestBody Map<String, Object> payload, Model model) {
         log.info("Inside updateGrievanceDueDate");
         try {
+            School school = (School) model.getAttribute("school");
             String dueDateStr = (String) payload.get("dueDate");
             if (dueDateStr == null || dueDateStr.isBlank()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Due date is required"));
             }
             Date dueDate = new SimpleDateFormat(DATE_PATTERN).parse(dueDateStr);
-            Grievance updated = grievanceService.updateDueDate(id, dueDate);
+            Grievance updated = grievanceService.updateDueDate(id, dueDate, school.getId());
             if (updated == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Grievance not found"));
             }
@@ -147,11 +161,12 @@ public class GrievanceController {
     /** Closes a grievance. A non-blank remark is mandatory. */
     @CheckAccess(screen = "MESSAGE_VIEW", type = AccessType.EDIT)
     @PostMapping("/closeGrievance/{id}")
-    public ResponseEntity<Map<String, Object>> closeGrievance(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+    public ResponseEntity<Map<String, Object>> closeGrievance(@PathVariable Long id, @RequestBody Map<String, Object> payload, Model model) {
         log.info("Inside closeGrievance");
         try {
+            School school = (School) model.getAttribute("school");
             String remark = (String) payload.get("remark");
-            Grievance closed = grievanceService.closeGrievance(id, remark, userService.getLoggedInUser());
+            Grievance closed = grievanceService.closeGrievance(id, remark, userService.getLoggedInUser(), school.getId());
             if (closed == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Grievance not found"));
             }
