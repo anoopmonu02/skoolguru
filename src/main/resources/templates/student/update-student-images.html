@@ -84,6 +84,56 @@
     .aa-empty i { font-size: 26px; display: block; margin-bottom: 8px; color: var(--border-color); }
 
     .usi-row-save-btn .spinner-border { width: .85rem; height: .85rem; }
+
+    /* Camera capture — icon-only button next to the file picker, plus a
+       shared modal (one for the whole page, not per-row) with a live
+       getUserMedia preview -> Capture -> Retake/Use Photo. "Use Photo"
+       feeds the captured/compressed image into the SAME file input + Save
+       flow the file picker already uses (via DataTransfer), so
+       saveStudentImage and its existing validation stay untouched. */
+    .usi-camera-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: var(--radius-md); flex-shrink: 0;
+      border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-primary);
+      font-size: 14px; cursor: pointer;
+      transition: background var(--transition), border-color var(--transition), color var(--transition);
+    }
+    .usi-camera-btn:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+    .usi-camera-btn:disabled { opacity: .55; cursor: default; }
+
+    .usi-cam-overlay {
+      position: fixed; inset: 0; background: rgba(15, 23, 42, .55); z-index: 2000;
+      display: flex; align-items: center; justify-content: center; padding: 16px;
+    }
+    .usi-cam-modal {
+      background: var(--card-bg); border-radius: var(--radius-lg); box-shadow: var(--shadow-md);
+      width: 100%; max-width: 480px; overflow: hidden; display: flex; flex-direction: column;
+    }
+    .usi-cam-modal-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; border-bottom: 1px solid var(--border-color);
+    }
+    .usi-cam-modal-head h5 { margin: 0; font-size: 14.5px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+    .usi-cam-close {
+      border: none; background: transparent; color: var(--text-muted); font-size: 16px; cursor: pointer;
+      width: 30px; height: 30px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center;
+      transition: background var(--transition), color var(--transition);
+    }
+    .usi-cam-close:hover { background: var(--body-bg); color: var(--text-primary); }
+    .usi-cam-modal-body { padding: 16px 18px; }
+    .usi-cam-video-wrap {
+      background: #000; border-radius: var(--radius-md); overflow: hidden;
+      display: flex; align-items: center; justify-content: center; min-height: 240px;
+    }
+    .usi-cam-video-wrap video, .usi-cam-video-wrap canvas { width: 100%; max-height: 340px; display: block; object-fit: contain; }
+    .usi-cam-error {
+      margin-top: 12px; padding: 10px 12px; border-radius: var(--radius-md);
+      background: rgba(220,38,38,.08); color: #dc2626; font-size: 12.5px; font-weight: 600;
+    }
+    .usi-cam-modal-foot {
+      display: flex; align-items: center; gap: 8px; padding: 14px 18px; border-top: 1px solid var(--border-color);
+    }
+    .usi-cam-foot-spacer { flex: 1; }
   </style>
 
   <div class="container-fluid px-3">
@@ -141,6 +191,33 @@
         <a th:href="@{'/student/update-student-details'}" class="aa-btn-outline">
           <i class="bi bi-arrow-left-circle me-1"></i>Update Student Details
         </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Camera Photo Capture — one shared modal for the whole page (not
+       per-row): each row's camera-icon button opens it, and "Use Photo"
+       routes the processed capture back to that row's own file input via
+       usiCamTargetUuid. See script block below. -->
+  <div class="usi-cam-overlay" id="usiCamOverlay" style="display:none;">
+    <div class="usi-cam-modal">
+      <div class="usi-cam-modal-head">
+        <h5><i class="bi bi-camera-fill"></i> Capture Photo</h5>
+        <button type="button" class="usi-cam-close" id="usiCamCloseBtn" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="usi-cam-modal-body">
+        <div class="usi-cam-video-wrap">
+          <video id="usiCamVideo" autoplay playsinline muted></video>
+          <canvas id="usiCamCanvas" style="display:none;"></canvas>
+        </div>
+        <div class="usi-cam-error d-none" id="usiCamError"></div>
+      </div>
+      <div class="usi-cam-modal-foot">
+        <button type="button" class="aa-btn-outline usi-cam-switch d-none" id="usiCamSwitchBtn"><i class="bi bi-arrow-repeat"></i> Switch Camera</button>
+        <div class="usi-cam-foot-spacer"></div>
+        <button type="button" class="aa-btn-outline usi-cam-retake d-none" id="usiCamRetakeBtn"><i class="bi bi-arrow-counterclockwise"></i> Retake</button>
+        <button type="button" class="aa-btn-primary" id="usiCamCaptureBtn" disabled><i class="bi bi-camera"></i> Capture</button>
+        <button type="button" class="aa-btn-primary usi-cam-use d-none" id="usiCamUseBtn"><i class="bi bi-check-lg"></i> Use Photo</button>
       </div>
     </div>
   </div>
@@ -203,6 +280,7 @@
         html += `<td>
                     <div class="usi-photo-cell">
                       <span class="usi-preview-slot" data-preview-uuid="${row.uuid}"></span>
+                      <button type="button" class="usi-camera-btn" data-uuid="${row.uuid}" title="Capture photo with camera"><i class="bi bi-camera-fill"></i></button>
                       <input type="file" accept="image/*" class="form-control form-control-sm usi-file-input image-file-input" data-uuid="${row.uuid}">
                     </div>
                   </td>`;
@@ -249,7 +327,8 @@
     });
 
     // Live preview as soon as a file is chosen (event delegation — rows are
-    // rendered dynamically).
+    // rendered dynamically). Also fires when the camera flow assigns a
+    // captured photo into the same input, so both paths share one preview.
     $(document).on('change', '.image-file-input', function () {
       const file = this.files && this.files[0];
       const uuid = $(this).data('uuid');
@@ -305,6 +384,206 @@
           showMsg('error', 'An error occurred while saving. Please try again.', 'Error');
         })
         .finally(() => setRowSaveLoading($btn, false));
+    });
+
+    // ------------------------------------------------------------------
+    // Camera Photo Capture — icon-only button opens a shared modal with a
+    // live getUserMedia() preview. "Use Photo" downsizes/recompresses the
+    // shot client-side and hands it to the SAME <input type="file"> the
+    // file picker uses (via the DataTransfer trick), so the existing
+    // preview + Save flow above (and /saveStudentImage) needs zero changes.
+    // Secure-context only (https, or localhost specifically) — getUserMedia
+    // is simply unavailable elsewhere, so the file-picker path is the only
+    // graceful fallback there, same as when no camera/permission exists.
+    // ------------------------------------------------------------------
+    let usiCamStream = null;
+    let usiCamTargetUuid = null;
+    let usiCamDevices = [];
+    let usiCamDeviceIndex = 0;
+
+    function usiCameraSupported() {
+      return !!(window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    }
+
+    function usiResetCamUI() {
+      $('#usiCamError').addClass('d-none').text('');
+      $('#usiCamVideo').show();
+      $('#usiCamCanvas').hide();
+      $('#usiCamCaptureBtn').removeClass('d-none').prop('disabled', true);
+      $('#usiCamRetakeBtn, #usiCamUseBtn').addClass('d-none');
+      $('#usiCamSwitchBtn').addClass('d-none');
+    }
+
+    function usiShowCamError(msg) {
+      $('#usiCamError').text(msg).removeClass('d-none');
+      $('#usiCamVideo, #usiCamCanvas').hide();
+      $('#usiCamCaptureBtn, #usiCamRetakeBtn, #usiCamUseBtn, #usiCamSwitchBtn').addClass('d-none');
+    }
+
+    function usiStopCamStream() {
+      if (usiCamStream) {
+        usiCamStream.getTracks().forEach(function (t) { t.stop(); });
+        usiCamStream = null;
+      }
+    }
+
+    function usiStartCameraStream(deviceId) {
+      usiStopCamStream();
+      const constraints = { audio: false, video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: 'user' } };
+      navigator.mediaDevices.getUserMedia(constraints).then(function (stream) {
+        usiCamStream = stream;
+        const video = document.getElementById('usiCamVideo');
+        video.srcObject = stream;
+        const playPromise = video.play();
+        if (playPromise && playPromise.catch) { playPromise.catch(function () {}); }
+        $('#usiCamCaptureBtn').prop('disabled', false);
+
+        return navigator.mediaDevices.enumerateDevices().then(function (devices) {
+          usiCamDevices = devices.filter(function (d) { return d.kind === 'videoinput'; });
+          if (usiCamDevices.length > 1) {
+            const track = stream.getVideoTracks()[0];
+            const settings = track && track.getSettings ? track.getSettings() : {};
+            const idx = usiCamDevices.findIndex(function (d) { return d.deviceId === settings.deviceId; });
+            usiCamDeviceIndex = idx >= 0 ? idx : 0;
+            $('#usiCamSwitchBtn').removeClass('d-none');
+          } else {
+            $('#usiCamSwitchBtn').addClass('d-none');
+          }
+        });
+      }).catch(function (err) {
+        console.error('Camera error', err);
+        let msg = 'Unable to access the camera. You can still upload a photo using the file picker.';
+        if (err && err.name === 'NotAllowedError') {
+          msg = 'Camera permission was denied. Please allow camera access, or upload a photo using the file picker.';
+        } else if (err && (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError')) {
+          msg = 'No camera was found on this device. Please upload a photo using the file picker.';
+        } else if (err && err.name === 'NotReadableError') {
+          msg = 'The camera is already in use by another application. Please close it and try again, or use the file picker.';
+        }
+        usiShowCamError(msg);
+      });
+    }
+
+    function usiOpenCameraModal(uuid) {
+      usiCamTargetUuid = uuid;
+      usiResetCamUI();
+      $('#usiCamOverlay').css('display', 'flex');
+      usiStartCameraStream();
+    }
+
+    function usiCloseCameraModal() {
+      usiStopCamStream();
+      $('#usiCamOverlay').hide();
+      usiCamTargetUuid = null;
+    }
+
+    $(document).on('click', '.usi-camera-btn', function () {
+      if (!usiCameraSupported()) {
+        showMsg('error', "Camera capture needs a secure connection (HTTPS, or localhost) and isn't available here. Please upload a photo using the file picker instead.", 'Camera Unavailable');
+        return;
+      }
+      usiOpenCameraModal($(this).data('uuid'));
+    });
+
+    $('#usiCamCloseBtn').on('click', usiCloseCameraModal);
+    $('#usiCamOverlay').on('click', function (e) { if (e.target === this) usiCloseCameraModal(); });
+    $(document).on('keydown', function (e) {
+      if (e.key === 'Escape' && $('#usiCamOverlay').is(':visible')) usiCloseCameraModal();
+    });
+
+    $('#usiCamCaptureBtn').on('click', function () {
+      const video = document.getElementById('usiCamVideo');
+      const canvas = document.getElementById('usiCamCanvas');
+      if (!video.videoWidth || !video.videoHeight) return;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+      $('#usiCamVideo').hide();
+      $('#usiCamCanvas').show();
+      $('#usiCamCaptureBtn').addClass('d-none');
+      $('#usiCamRetakeBtn, #usiCamUseBtn').removeClass('d-none');
+    });
+
+    $('#usiCamRetakeBtn').on('click', function () {
+      $('#usiCamCanvas').hide();
+      $('#usiCamVideo').show();
+      $('#usiCamCaptureBtn').removeClass('d-none');
+      $('#usiCamRetakeBtn, #usiCamUseBtn').addClass('d-none');
+    });
+
+    $('#usiCamSwitchBtn').on('click', function () {
+      if (!usiCamDevices.length) return;
+      usiCamDeviceIndex = (usiCamDeviceIndex + 1) % usiCamDevices.length;
+      usiResetCamUI();
+      usiStartCameraStream(usiCamDevices[usiCamDeviceIndex].deviceId);
+    });
+
+    // Downscale to max 1280px on the long edge, then re-compress as JPEG,
+    // stepping quality down until comfortably under the backend's existing
+    // ~2MB hard limit (FileHandleHelper.saveImage / MAX_FILE_SIZE) — same
+    // limit the file-picker path already has to satisfy, unchanged.
+    function usiProcessCapturedImage(sourceCanvas, callback) {
+      const MAX_DIM = 1280;
+      const MAX_BYTES = 1.5 * 1024 * 1024;
+      const MIN_QUALITY = 0.5;
+      const width = sourceCanvas.width;
+      const height = sourceCanvas.height;
+      const scale = Math.min(1, MAX_DIM / Math.max(width, height));
+      const outW = Math.max(1, Math.round(width * scale));
+      const outH = Math.max(1, Math.round(height * scale));
+
+      let outCanvas = sourceCanvas;
+      if (scale < 1) {
+        outCanvas = document.createElement('canvas');
+        outCanvas.width = outW;
+        outCanvas.height = outH;
+        outCanvas.getContext('2d').drawImage(sourceCanvas, 0, 0, outW, outH);
+      }
+
+      function tryQuality(q) {
+        outCanvas.toBlob(function (blob) {
+          if (!blob) { callback(null); return; }
+          if (blob.size <= MAX_BYTES || q <= MIN_QUALITY) {
+            callback(blob);
+          } else {
+            tryQuality(Math.round((q - 0.1) * 100) / 100);
+          }
+        }, 'image/jpeg', q);
+      }
+      tryQuality(0.92);
+    }
+
+    $('#usiCamUseBtn').on('click', function () {
+      const uuid = usiCamTargetUuid;
+      if (!uuid) return;
+      const canvas = document.getElementById('usiCamCanvas');
+      const $useBtn = $(this);
+      $useBtn.prop('disabled', true);
+
+      usiProcessCapturedImage(canvas, function (blob) {
+        $useBtn.prop('disabled', false);
+        if (!blob) {
+          showMsg('error', 'Could not process the captured photo. Please try again.', 'Error');
+          return;
+        }
+        const file = new File([blob], 'camera-' + Date.now() + '.jpg', { type: 'image/jpeg' });
+        const $fileInput = $(`.image-file-input[data-uuid="${uuid}"]`);
+        if (!$fileInput.length) {
+          showMsg('error', 'Could not find the photo row to attach the capture to.', 'Error');
+          return;
+        }
+        try {
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          $fileInput[0].files = dt.files;
+          $fileInput.trigger('change');
+        } catch (e) {
+          console.error('DataTransfer assign failed', e);
+          showMsg('error', 'Your browser could not attach the captured photo. Please use the file picker instead.', 'Error');
+          return;
+        }
+        usiCloseCameraModal();
+      });
     });
   </script>
 </section>

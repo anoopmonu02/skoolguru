@@ -110,6 +110,7 @@ public class StudentHealthReportRestController extends BaseController {
                 row.put("height", health != null ? health.getHeight() : null);
                 row.put("weight", health != null ? health.getWeight() : null);
                 row.put("haveHealthIssues", health != null && Boolean.TRUE.equals(health.getHaveHealthIssues()));
+                row.put("healthIssueDescription", health != null && health.getHealthIssueDescription() != null ? health.getHealthIssueDescription() : "");
                 row.put("haveEyeIssue", health != null && Boolean.TRUE.equals(health.getHaveEyeIssue()));
                 return row;
             }).collect(Collectors.toList());

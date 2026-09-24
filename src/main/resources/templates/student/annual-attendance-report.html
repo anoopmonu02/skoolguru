@@ -44,6 +44,30 @@
        card stays the same size as its 3 siblings instead of growing taller. */
     .trend-bars { display: flex; align-items: flex-end; gap: 3px; height: 40px; }
     .trend-bars .bar { flex: 1; border-radius: 2px 2px 0 0; min-height: 3px; }
+
+    /* Filter card — same convention as the other redesigned report pages. */
+    .aa-card {
+        background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-xs); padding: 20px 22px; margin-bottom: 18px;
+    }
+    .aa-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+    .aa-card-head h2 { font-size: 14.5px; font-weight: 800; margin: 0; color: var(--text-primary); }
+    .aa-icon {
+        width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center;
+        justify-content: center; font-size: 14px; flex-shrink: 0;
+    }
+    .aa-icon-accent { background: var(--accent-light); color: var(--accent); }
+    .aa-sub { font-size: 12px; color: var(--text-muted); margin: 2px 0 16px; }
+
+    .aa-btn-primary {
+        background: var(--accent); border: 1px solid var(--accent); color: #fff; padding: 8px 18px;
+        border-radius: var(--radius-md); font-size: 13.5px; font-weight: 700; display: inline-flex;
+        align-items: center; gap: 7px; cursor: pointer; box-shadow: var(--shadow-sm);
+        transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
+    }
+    .aa-btn-primary:hover { background: var(--brand-600); border-color: var(--brand-600); color: #fff; box-shadow: var(--shadow-md); }
+    .aa-btn-primary:active { transform: translateY(1px); }
+    .aa-btn-primary:disabled { opacity: .65; cursor: default; }
   </style>
 
   <div class="container-fluid px-3">
@@ -51,35 +75,37 @@
       <div class="col-md-12">
         <div th:replace="~{components/ui :: page-header('Attendance Report (Annual)')}"></div>
 
-
-        <div class="row mt-3">
-          <div class="col-md-2">
-            <label for="medium" class="form-label">Medium</label>
-            <select id="medium" class="form-select">
-              <option value="">Select Medium</option>
-              <option th:each="med : ${mediums}" th:value="${med.id}" th:text="${med.mediumName}">Medium</option>
-            </select>
-          </div>
-          <div class="col-md-2">
-            <label for="grade" class="form-label">Grade</label>
-            <select id="grade" class="form-select">
-              <option value="">Select Grade</option>
-              <option th:each="grade : ${grades}" th:value="${grade.id}" th:text="${grade.gradeName}">Grade</option>
-            </select>
-          </div>
-          <div class="col-md-2">
-            <label for="section" class="form-label">Section</label>
-            <select id="section" class="form-select">
-              <option value="">Select Section</option>
-              <option th:each="section : ${sections}" th:value="${section.id}" th:text="${section.sectionName}">Section</option>
-            </select>
-          </div>
-          <div class="col-md-2">&nbsp;</div>
-          <div class="col-md-2 align-self-end">
-            <button type="button" id="getReport" class="btn btn-primary w-100"><i class="bi bi-search"></i> Get Report</button>
-          </div>
+        <div class="aa-card">
+            <div class="aa-card-head"><span class="aa-icon aa-icon-accent"><i class="bi bi-funnel-fill"></i></span><h2>Filter</h2></div>
+            <div class="aa-sub">Pick a medium, grade and section, then click Get Report.</div>
+            <div class="row">
+                <div class="col-md-3">
+                    <label for="medium" class="form-label">Medium</label>
+                    <select id="medium" class="form-select">
+                        <option value="">Select Medium</option>
+                        <option th:each="med : ${mediums}" th:value="${med.id}" th:text="${med.mediumName}">Medium</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="grade" class="form-label">Grade</label>
+                    <select id="grade" class="form-select">
+                        <option value="">Select Grade</option>
+                        <option th:each="grade : ${grades}" th:value="${grade.id}" th:text="${grade.gradeName}">Grade</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="section" class="form-label">Section</label>
+                    <select id="section" class="form-select">
+                        <option value="">Select Section</option>
+                        <option th:each="section : ${sections}" th:value="${section.id}" th:text="${section.sectionName}">Section</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex flex-column align-items-start">
+                    <label class="form-label invisible">Action</label>
+                    <button type="button" id="getReport" class="aa-btn-primary flex-fill"><i class="bi bi-search"></i> Get Report</button>
+                </div>
+            </div>
         </div>
-        <hr/>
 
         <div class="row g-3 mb-4" id="summaryCardsRow" style="display:none;">
           <div class="col-xl-3 col-md-6">
@@ -148,7 +174,7 @@
         return div.innerHTML;
     };
 
-    
+
 
     document.getElementById("getReport").onclick = function(){
       let mediumId = $('#medium').val();
@@ -208,7 +234,8 @@
 
     function renderTable(students, months, interactive){
       let targetTableId = interactive ? 'annual-attendance-table' : 'annual-attendance-print-table';
-      let tbl = `<table class="table table-bordered table-sm" id="${targetTableId}"><thead><tr><th>#</th><th>Student Name</th><th>SR</th><th>PSRN</th>`;
+      let tableClass = interactive ? 'table table-sm list-table' : 'table table-bordered table-sm';
+      let tbl = `<table class="${tableClass}" id="${targetTableId}"><thead><tr><th>#</th><th>Student Name</th><th>SR</th><th>PSRN</th>`;
       months.forEach(m => { tbl += `<th>${m}</th>`; });
       tbl += `<th>Total</th></tr></thead><tbody class="table-group-divider">`;
 
@@ -225,40 +252,57 @@
         if($.fn.DataTable.isDataTable('#annual-attendance-table')){
           $('#annual-attendance-table').DataTable().destroy();
         }
-        $('#annual-attendance-data').html('<div class="table-responsive">' + tbl + '</div>');
-        $('#annual-attendance-table').DataTable({
-          scrollX: true,
-          autoWidth: false,
-          layout: {
-            top1Start: {
-              buttons: [
-                {
-                  extend: 'excelHtml5',
-                  text: '<i class="bi bi-file-excel-fill text-success"></i>',
-                  titleAttr: 'Excel',
-                  title: 'Annual Attendance Report'
-                },
-                {
-                  extend: 'csvHtml5',
-                  text: '<i class="bi bi-filetype-csv text-info"></i>',
-                  titleAttr: 'CSV',
-                  title: 'Annual Attendance Report'
-                },
-                {
-                  extend: 'pdfHtml5',
-                  text: '<i class="bi bi-file-pdf-fill text-danger"></i>',
-                  titleAttr: 'PDF',
-                  title: 'Annual Attendance Report'
-                },
-                'colvis'
-              ]
-            }
-          },
-          lengthMenu: [ [10, 25, 50, 100, -1], [10, 25, 50, 100, 'All'] ],
-          pageLength: 25
-        });
-        $(".buttons-excel, .buttons-csv, .buttons-pdf").each(function() {
-          $(this).removeClass("btn-secondary");
+        $('#annual-attendance-data').html(
+          '<div class="list-table-card">' +
+            '<div class="config-list-toolbar list-page-toolbar">' +
+              '<div class="config-search-wrap">' +
+                '<i class="bi bi-search"></i>' +
+                '<input type="text" class="form-control form-control-sm" id="aatSearchInput" placeholder="Search by name, SR, PSRN…">' +
+              '</div>' +
+              '<div id="aatExportSlot" class="list-export-slot"></div>' +
+            '</div>' +
+            '<div class="table-responsive">' + tbl + '</div>' +
+            '<div class="list-table-footer">' +
+              '<div class="list-footer-left">' +
+                '<label class="list-length-label">Rows per page' +
+                  '<select id="aatPageLength" class="list-length-select">' +
+                    '<option value="5">5</option>' +
+                    '<option value="10">10</option>' +
+                    '<option value="25" selected>25</option>' +
+                    '<option value="50">50</option>' +
+                    '<option value="100">100</option>' +
+                  '</select>' +
+                '</label>' +
+                '<span id="aatPageInfo" class="list-page-info">Showing 0 of 0 students</span>' +
+              '</div>' +
+              '<div class="list-pagination" id="aatPagination"></div>' +
+            '</div>' +
+          '</div>'
+        );
+
+        // Each "Get Report" click rebuilds this markup from scratch, so clear
+        // any export buttons/handlers a previous call attached before
+        // re-initializing — initListDataTable() appends rather than replaces,
+        // and the search/length inputs are fresh DOM nodes each time anyway
+        // but this keeps the pattern consistent with the other list pages.
+        $('#aatExportSlot').empty();
+        $('#aatSearchInput').off('input');
+        $('#aatPageLength').off('change');
+
+        initListDataTable({
+          tableSelector: '#annual-attendance-table',
+          searchInputSelector: '#aatSearchInput',
+          exportSlotSelector: '#aatExportSlot',
+          lengthSelectSelector: '#aatPageLength',
+          pageInfoSelector: '#aatPageInfo',
+          paginationSelector: '#aatPagination',
+          itemLabel: 'students',
+          exportTitle: 'Annual Attendance Report',
+          exportColumns: Array.from({length: 4 + months.length + 1}, (_, i) => i),
+          dtOptions: {
+            scrollX: true,
+            autoWidth: false
+          }
         });
       } else {
         $('#annual-attendance-print-data').html(tbl);

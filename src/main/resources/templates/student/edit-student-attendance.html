@@ -8,24 +8,71 @@
 <section>
 
   <style>
-    .stu-avatar {
-      width: 56px; height: 56px; border-radius: 50%;
-      background: #ede9fe; color: #6366f1;
+    /* Search box + result rows — same da-search-wrap/da-result-row pattern
+       used on add-siblinggroup.html / fees/feesubmitform-neo.html. */
+    .da-search-wrap { position: relative; }
+    .da-search-wrap input { padding-left: 38px; }
+    .da-search-wrap .bi-search { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+    .da-search-results { position: absolute; z-index: 20; width: 100%; max-height: 320px; overflow-y: auto; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-xs); margin-top: 4px; display: none; }
+    .da-result-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border-color); }
+    .da-result-row:last-child { border-bottom: none; }
+    .da-result-row:hover { background: var(--accent-light); }
+    .da-result-name { font-weight: 600; color: var(--text-primary); font-size: .86rem; }
+    .da-result-sub { font-size: .72rem; color: var(--text-muted); }
+    .da-result-empty { padding: 14px; color: var(--text-muted); font-size: .85rem; text-align: center; }
+
+    /* Student-info card — name/avatar + meta lines on the left, photo on
+       the right — same fc-combocard layout/typography as fees/feecancel.html
+       (icon-labelled contact row, bold values, pipe separators). */
+    .esa-combocard{ display:flex; gap:16px; align-items:flex-start; width:100%; padding:2px 2px 0; }
+    .esa-combo-left{ flex:1; min-width:0; }
+    .esa-combo-namerow{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+    .esa-combo-namerow .stu-avatar{ width:36px; height:36px; font-size:.78rem; background:var(--accent-light); color:var(--accent); }
+    .esa-name{ font-size:1rem; font-family:"Outfit", sans-serif; font-weight:600; color:var(--text-primary); }
+    .esa-combo-metaline{ font-size:.8rem; color:var(--text-muted); margin-bottom:10px; }
+    .esa-combo-metaline b{ color:var(--text-primary); font-weight:600; }
+    .esa-msep{ color:var(--border-color); margin:0 8px; }
+    .esa-combo-contact{ font-size:.84rem; color:var(--text-muted); display:flex; align-items:center; gap:7px; margin-bottom:0; }
+    .esa-combo-contact i{ color:var(--accent); }
+    .esa-combo-contact b{ color:var(--text-primary); font-weight:600; }
+    .esa-combo-photocol{ flex:none; display:flex; align-items:flex-start; }
+    .esa-combo-photo-img, .esa-combo-photo-fallback{ width:84px; height:96px; border-radius:10px; border:1px solid var(--border-color); }
+    .esa-combo-photo-img{ object-fit:cover; }
+    .esa-combo-photo-fallback{ background:var(--body-bg); color:var(--text-muted); display:flex; align-items:center; justify-content:center; font-size:1.9rem; }
+
+    /* Month-attendance summary card — bigger ring + icon-labelled stat
+       chips (same visual family as student/attendance.html's .sa-stat
+       row) instead of plain inline "Present: X / Working Days: Y" text. */
+    .esa-summarycard{ display:flex; align-items:center; gap:16px; width:100%; padding:2px 2px 0; }
+    .esa-summary-ring {
+      width: 76px; height: 76px; border-radius: 50%; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
-      font-size: 22px; font-weight: 700; flex-shrink: 0;
+      font-size: 17px; font-weight: 700; color: #059669;
+      background: conic-gradient(#10b981 calc(var(--pct) * 1%), var(--body-bg) 0);
     }
-    .summary-ring {
-      width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 15px; font-weight: 700; color: #059669;
-      background: conic-gradient(#10b981 calc(var(--pct) * 1%), #e2e8f0 0);
-    }
-    .summary-ring-inner {
-      width: 50px; height: 50px; border-radius: 50%; background: var(--card-bg);
+    .esa-summary-ring-inner {
+      width: 60px; height: 60px; border-radius: 50%; background: var(--card-bg);
       display: flex; align-items: center; justify-content: center;
     }
-    #ledger-table td, #ledger-table th { vertical-align: middle; }
-    .ledger-edit-btn { padding: 2px 8px; }
+    .esa-summary-title{ font-size:.95rem; font-family:"Outfit", sans-serif; font-weight:600; color:var(--text-primary); margin-bottom:8px; }
+    .esa-summary-stats{ display:flex; gap:10px; flex-wrap:wrap; }
+    .esa-sstat{ display:flex; align-items:center; gap:8px; background:var(--body-bg); border-radius:var(--radius-md); padding:6px 12px; }
+    .esa-sstat-icon{ width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.78rem; flex:none; }
+    .esa-sstat-present .esa-sstat-icon{ background:#dcfce7; color:#16a34a; }
+    .esa-sstat-absent .esa-sstat-icon{ background:#fee2e2; color:#dc2626; }
+    .esa-sstat-days .esa-sstat-icon{ background:var(--accent-light); color:var(--accent); }
+    .esa-sstat-value{ font-weight:700; font-size:.86rem; color:var(--text-primary); line-height:1.2; }
+    .esa-sstat-label{ font-size:.66rem; color:var(--text-muted); }
+
+    /* Ledger table — same Neo table-card look (sticky header, clean rows)
+       as student/show-attendance.html's .sh-table-card. */
+    .esa-table-card{ background:var(--card-bg); border:1px solid var(--border-color); border-radius:var(--radius-lg); box-shadow:var(--shadow-xs); overflow:hidden; }
+    .esa-table-card .table-responsive{ margin:0; max-height:520px; overflow:auto; }
+    .esa-table-card table{ width:100%; margin:0; font-size:.84rem; }
+    .esa-table-card thead th{ position:sticky; top:0; background:var(--card-bg); color:var(--text-muted); font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em; padding:10px; border:none; border-bottom:1px solid var(--border-color); white-space:nowrap; z-index:1; }
+    .esa-table-card td{ padding:9px 10px; border-top:1px solid var(--border-color); vertical-align:middle; }
+    .esa-table-card tbody tr:hover{ background:var(--body-bg); }
+
     .status-badge { font-size: 12px; font-weight: 600; padding: 5px 10px; border-radius: 20px; }
     .toggle-present.active { background:#10b981; color:#fff; border-color:#10b981; }
     .toggle-absent.active { background:#ef4444; color:#fff; border-color:#ef4444; }
@@ -48,9 +95,10 @@
           </div>
           <div class="col-md-6">
             <label for="search-input" class="form-label">Search Student</label>
-            <div class="search-container position-relative">
-              <input oninput="searchStuName()" type="text" class="form-control" id="search-input" placeholder="Type student name (min 3 characters)">
-              <div class="search-result" style="max-height:300px; overflow-y:auto; border:1px solid #dee2e6; border-radius:4px; display:none; position:absolute; z-index:1000; background:#fff; width:100%;"></div>
+            <div class="da-search-wrap">
+              <i class="bi bi-search"></i>
+              <input oninput="searchStuName()" type="text" class="form-control" id="search-input" placeholder="Type student name (min 3 characters)" autocomplete="off">
+              <div class="da-search-results search-result"></div>
             </div>
           </div>
         </div>
@@ -60,34 +108,41 @@
         <div class="row g-3 mb-3" id="studentCardsRow" style="display:none;">
           <div class="col-md-6">
             <div class="card border-0 shadow-sm h-100">
-              <div class="card-body d-flex align-items-center gap-3">
-                <div class="stu-avatar" id="cardStuInitials">--</div>
-                <div class="flex-grow-1">
-                  <div class="fw-semibold fs-5" id="cardStuName">-</div>
-                  <div class="text-muted small">
-                    SR: <span id="cardStuSr">-</span> &nbsp;|&nbsp; PSRN: <span id="cardStuPsrn">-</span>
+              <div class="card-body esa-combocard">
+                <div class="esa-combo-left">
+                  <div class="esa-combo-namerow">
+                    <span class="stu-avatar" id="cardStuInitials">--</span>
+                    <span class="esa-name" id="cardStuName">-</span>
                   </div>
-                  <div class="text-muted small">
-                    <span id="cardStuGradeSection">-</span> &nbsp;|&nbsp; Father: <span id="cardStuFather">-</span>
+                  <div class="esa-combo-metaline">
+                    <span>SR: <b id="cardStuSr">-</b></span><span class="esa-msep">|</span><span>PSRN: <b id="cardStuPsrn">-</b></span><span class="esa-msep">|</span><span>Class: <b id="cardStuGradeSection">-</b></span>
                   </div>
-                  <div class="text-muted small">
-                    Mother: <span id="cardStuMother">-</span> &nbsp;|&nbsp; Contact: <span id="cardStuContact">-</span>
+                  <div class="esa-combo-metaline">
+                    <span>Father: <b id="cardStuFather">-</b></span><span class="esa-msep">|</span><span>Mother: <b id="cardStuMother">-</b></span>
                   </div>
+                  <div class="esa-combo-contact">
+                    <i class="bi bi-telephone-fill"></i><span>Contact:</span> <b id="cardStuContact">-</b>
+                  </div>
+                </div>
+                <div class="esa-combo-photocol">
+                  <img id="cardStuPhoto" class="esa-combo-photo-img" style="display:none;" alt="Student photo">
+                  <div id="cardStuPhotoFallback" class="esa-combo-photo-fallback"><i class="bi bi-person"></i></div>
                 </div>
               </div>
             </div>
           </div>
           <div class="col-md-6">
             <div class="card border-0 shadow-sm h-100">
-              <div class="card-body d-flex align-items-center gap-3">
-                <div class="summary-ring" id="cardSummaryRing" style="--pct:0;">
-                  <div class="summary-ring-inner"><span id="cardSummaryPercent">0%</span></div>
+              <div class="card-body esa-summarycard">
+                <div class="esa-summary-ring" id="cardSummaryRing" style="--pct:0;">
+                  <div class="esa-summary-ring-inner"><span id="cardSummaryPercent">0%</span></div>
                 </div>
                 <div class="flex-grow-1">
-                  <div class="fw-semibold" id="cardSummaryMonth">Month Attendance</div>
-                  <div class="text-muted small">
-                    Present: <span class="fw-semibold text-success" id="cardSummaryPresent">0</span>
-                    &nbsp;/&nbsp; Working Days: <span class="fw-semibold" id="cardSummaryWorkingDays">0</span>
+                  <div class="esa-summary-title" id="cardSummaryMonth">Month Attendance</div>
+                  <div class="esa-summary-stats">
+                    <div class="esa-sstat esa-sstat-present"><span class="esa-sstat-icon"><i class="bi bi-check-lg"></i></span><div><div class="esa-sstat-value" id="cardSummaryPresent">0</div><div class="esa-sstat-label">Present</div></div></div>
+                    <div class="esa-sstat esa-sstat-absent"><span class="esa-sstat-icon"><i class="bi bi-x-lg"></i></span><div><div class="esa-sstat-value" id="cardSummaryAbsent">0</div><div class="esa-sstat-label">Absent</div></div></div>
+                    <div class="esa-sstat esa-sstat-days"><span class="esa-sstat-icon"><i class="bi bi-calendar-week"></i></span><div><div class="esa-sstat-value" id="cardSummaryWorkingDays">0</div><div class="esa-sstat-label">Working Days</div></div></div>
                   </div>
                 </div>
               </div>
@@ -97,19 +152,21 @@
 
         <!-- Ledger -->
         <div id="ledger-wrapper" style="display:none;">
-          <div class="table-responsive">
-            <table class="table table-bordered table-sm align-middle" id="ledger-table">
-              <thead class="table-light">
-                <tr>
-                  <th style="width:80px;">Date</th>
-                  <th style="width:80px;">Day</th>
-                  <th>Status</th>
-                  <th>Remark</th>
-                  <th style="width:70px;">Action</th>
-                </tr>
-              </thead>
-              <tbody id="ledger-body"></tbody>
-            </table>
+          <div class="esa-table-card">
+            <div class="table-responsive">
+              <table class="table table-sm align-middle mb-0" id="ledger-table">
+                <thead>
+                  <tr>
+                    <th style="width:80px;">Date</th>
+                    <th style="width:80px;">Day</th>
+                    <th>Status</th>
+                    <th>Remark</th>
+                    <th style="width:70px;">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="ledger-body"></tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -150,7 +207,20 @@
   <script type="text/javascript" th:inline="javascript">
     const contextPath = /*[[@{/}]]*/ '/';
 
-    
+    // Shared escape/avatar helpers — same technique used across the app's
+    // other search-result dropdowns and masked cells (e.g.
+    // student/add-siblinggroup.html, employee/employee.html). esaEscape
+    // covers & < > " ' so it is safe both inside a text node and inside a
+    // double-quoted HTML attribute.
+    const esaEscape = (value) => String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    const esaAvatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+    const esaInitialsOf = (name) => (name || '').trim().split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+    const esaAvatarColorFor = (id) => esaAvatarColors[Math.abs(id || 0) % esaAvatarColors.length];
 
     /* ── Student search with infinite scroll (same pattern as Fee Submission) ── */
     let _searchQuery = '';
@@ -161,10 +231,21 @@
     let _lastSearchResults = {}; // id -> full lean academic-student object, so selecting a
                                   // row doesn't need a second round-trip to the server
 
+    // Result rows are built from student/father names and grade/section
+    // labels that a user can freely type in elsewhere in the app (no
+    // character-restriction validation on studentName/fatherName), so
+    // every value is run through esaEscape() before it goes into this
+    // .html()-inserted string — this page previously interpolated them
+    // unescaped, which was a stored-XSS gap.
     const renderStudentRow = (student) => {
-      let srval = student.classSrNo != null && student.classSrNo != '' ? ' / ' + student.classSrNo : ' / -';
       _lastSearchResults[student.id] = student;
-      return `<a onclick="loadStudentData(${student.id})" href="#" class='list-group-item list-group-item-action'>${student.student.studentName} / ${student.student.fatherName} / ${student.grade.gradeName}-${student.section.sectionName}${srval}</a>`;
+      let sr = student.classSrNo != null && student.classSrNo !== '' ? ' / SR ' + esaEscape(student.classSrNo) : '';
+      let color = esaAvatarColorFor(student.id);
+      return `<div class="da-result-row" onclick="loadStudentData(${student.id})">` +
+        `<span class="stu-avatar" style="background:${color}22;color:${color}">${esaEscape(esaInitialsOf(student.student.studentName))}</span>` +
+        `<div><div class="da-result-name">${esaEscape(student.student.studentName)}</div>` +
+        `<div class="da-result-sub">${esaEscape(student.student.fatherName)} &middot; ${esaEscape(student.grade.gradeName)}-${esaEscape(student.section.sectionName)}${sr}</div></div>` +
+        `</div>`;
     };
 
     const fetchStudents = (query, page, append) => {
@@ -175,13 +256,17 @@
         _searchLoading = false;
         _searchMore = students.length === 10;
         if (!append) {
-          let html = `<div class='list-group' id='student-list-group'>`;
-          students.forEach(s => { html += renderStudentRow(s); });
-          html += `</div>`;
-          $(".search-result").html(html).show();
+          if (students.length === 0) {
+            $(".search-result").html(`<div class="da-result-empty">No students found.</div>`).show();
+          } else {
+            let html = `<div id='esa-list-group'>`;
+            students.forEach(s => { html += renderStudentRow(s); });
+            html += `</div>`;
+            $(".search-result").html(html).show();
+          }
         } else {
           students.forEach(s => {
-            $('#student-list-group').append(renderStudentRow(s));
+            $('#esa-list-group').append(renderStudentRow(s));
           });
         }
       }).catch(() => { _searchLoading = false; });
@@ -227,10 +312,30 @@
       if (selectedStudent) loadMonthDetail();
     });
 
+    // Student photo — same lookup as fees/feecancel.html's combocard: pic
+    // is just a filename, served via GET /student/images/{filename}. Falls
+    // back to the person icon if there's no pic or the file fails to load.
+    const esaShowStudentPhoto = (pic) => {
+      const img = document.getElementById('cardStuPhoto');
+      const fallback = document.getElementById('cardStuPhotoFallback');
+      if (pic) {
+        img.onerror = () => { img.style.display = 'none'; fallback.style.display = 'flex'; };
+        img.src = `${contextPath}student/images/${encodeURIComponent(pic)}`;
+        img.style.display = '';
+        fallback.style.display = 'none';
+      } else {
+        img.onerror = null;
+        img.removeAttribute('src');
+        img.style.display = 'none';
+        fallback.style.display = 'flex';
+      }
+    };
+
     const renderStudentCard = (s) => {
       let name = s.student.studentName || '-';
-      let initials = name.split(/\s+/).filter(Boolean).slice(0,2).map(w => w[0].toUpperCase()).join('');
-      $('#cardStuInitials').text(initials || '--');
+      let initials = esaInitialsOf(name);
+      let color = esaAvatarColorFor(s.id);
+      $('#cardStuInitials').text(initials || '--').css({ background: color + '22', color: color });
       $('#cardStuName').text(name);
       $('#cardStuSr').text(s.classSrNo || '-');
       $('#cardStuPsrn').text(s.student.psrn || '-');
@@ -238,6 +343,7 @@
       $('#cardStuFather').text(s.student.fatherName || '-');
       $('#cardStuMother').text(s.student.motherName || '-');
       $('#cardStuContact').text(s.student.mobile1 || s.student.mobile2 || '-');
+      esaShowStudentPhoto(s.student.pic);
     };
 
     const loadMonthDetail = () => {
@@ -267,10 +373,16 @@
 
     const renderSummary = (summary) => {
       let pct = summary.percent || 0;
+      let present = summary.present || 0;
+      let workingDays = summary.workingDays || 0;
+      // Purely a display derivation (workingDays - present) for the new
+      // Absent stat chip - no extra server round-trip, nothing persisted.
+      let absent = Math.max(workingDays - present, 0);
       $('#cardSummaryRing').css('--pct', pct);
       $('#cardSummaryPercent').text(pct + '%');
-      $('#cardSummaryPresent').text(summary.present || 0);
-      $('#cardSummaryWorkingDays').text(summary.workingDays || 0);
+      $('#cardSummaryPresent').text(present);
+      $('#cardSummaryAbsent').text(absent);
+      $('#cardSummaryWorkingDays').text(workingDays);
       $('#cardSummaryMonth').text('Month Attendance');
     };
 
@@ -293,13 +405,18 @@
       days.forEach((d, idx) => {
         let actionCell = '-';
         if (d.editable) {
-          actionCell = `<button type="button" class="btn btn-sm btn-outline-primary ledger-edit-btn" onclick="openEditModal(${idx})"><i class="bi bi-pencil-square"></i></button>`;
+          actionCell = `<button type="button" class="config-icon-btn" title="Edit" onclick="openEditModal(${idx})"><i class="bi bi-pencil-square"></i></button>`;
         }
+        // Remark is free-text a staff member enters in the Edit modal below
+        // (no character restriction), so it is escaped before going into
+        // this .html()-inserted row — this page previously interpolated it
+        // unescaped, which was a stored-XSS gap (every viewer of this
+        // ledger would re-execute whatever was saved in a remark).
         rows += `<tr>
           <td>${d.dayOfMonth}</td>
           <td>${d.dayName}</td>
           <td>${statusBadge(d.status)}</td>
-          <td class="text-muted small">${d.remark ? d.remark : '-'}</td>
+          <td class="text-muted small">${d.remark ? esaEscape(d.remark) : '-'}</td>
           <td class="text-center">${actionCell}</td>
         </tr>`;
       });

@@ -7,31 +7,96 @@
 <body>
 <section>
 
+    <!-- Page-specific styling only — same .aa-card filter convention used
+         across the other redesigned report pages. This page does not set
+         page=='datatable' in its controller, so the shared list-table.css /
+         list-table-init.js bundle is never loaded for it (base.html gates
+         that bundle behind the flag) — a page-scoped table style is used
+         here instead rather than depending on classes that would render
+         unstyled. -->
+    <style>
+        .aa-card {
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xs); padding: 20px 22px; margin-bottom: 18px;
+        }
+        .aa-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+        .aa-card-head h2 { font-size: 14.5px; font-weight: 800; margin: 0; color: var(--text-primary); }
+        .aa-icon {
+            width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center;
+            justify-content: center; font-size: 14px; flex-shrink: 0;
+        }
+        .aa-icon-accent { background: var(--accent-light); color: var(--accent); }
+        .aa-sub { font-size: 12px; color: var(--text-muted); margin: 2px 0 16px; }
+
+        .aa-btn-primary {
+            background: var(--accent); border: 1px solid var(--accent); color: #fff; padding: 8px 18px;
+            border-radius: var(--radius-md); font-size: 13.5px; font-weight: 700; display: inline-flex;
+            align-items: center; gap: 7px; cursor: pointer; box-shadow: var(--shadow-sm);
+            transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
+        }
+        .aa-btn-primary:hover { background: var(--brand-600); border-color: var(--brand-600); color: #fff; box-shadow: var(--shadow-md); }
+        .aa-btn-primary:active { transform: translateY(1px); }
+        .aa-btn-primary:disabled { opacity: .65; cursor: default; }
+
+        /* ── Search results table — page-scoped, not the shared .list-table
+             (no page=='datatable' flag on this controller). ─────────────── */
+        .stu-search-card {
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xs); overflow: hidden;
+        }
+        .stu-search-card .table-responsive { margin: 0; }
+        .stu-table { width: 100%; margin: 0; font-size: .82rem; }
+        .stu-table thead th {
+            background: var(--body-bg); color: var(--text-muted); font-weight: 700; font-size: 11.5px;
+            text-transform: uppercase; letter-spacing: .03em; border-bottom: 1px solid var(--border-color);
+            padding: 10px 14px; white-space: nowrap;
+        }
+        .stu-table tbody td {
+            padding: 9px 14px; border-bottom: 1px solid var(--border-color); color: var(--text-primary);
+            vertical-align: middle;
+        }
+        .stu-table tbody tr:last-child td { border-bottom: none; }
+        .stu-table tbody tr:hover td { background: var(--body-bg); }
+
+        .stu-empty {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 46px 20px; color: var(--text-muted); gap: 10px;
+        }
+        .stu-empty i { font-size: 26px; color: var(--text-muted); opacity: .55; }
+        .stu-empty p { margin: 0; font-size: 13.5px; }
+    </style>
+
     <div class="container-fluid px-3">
         <div class="row mt-2 ">
             <div class="col-md-12">
                 <div th:replace="~{components/ui :: page-header('Search Student')}"></div>
 
-                <div class="row">
-                    <div class="col-md-3">
-                        <label for="academic_year" class="form-label">Academic Year</label>
-                        <select name="academic_year" id="academic_year" class="form-select">
-                            <option th:each="med : ${academicYears}" th:value="${med.id}" th:text="${med.sessionFormat}">Academic Year</option>
-                        </select>
-                    </div>
-                    <div class="col-md-6">
-                        <label for="search-student" class="form-label">Student name for search</label>
-                        <input type="text" class="form-control" id="search-student" placeholder="Search student name">
-                    </div>
-                    <div class="col-md-3 d-flex align-items-end">
-                        <button id="search-btn" type="button" class="btn btn-primary" onclick="searchStudentDetail()"><i class="bi bi-search"></i> Search</button>
+                <div class="aa-card">
+                    <div class="aa-card-head"><span class="aa-icon aa-icon-accent"><i class="bi bi-search"></i></span><h2>Search Student</h2></div>
+                    <div class="aa-sub">Pick an academic year and enter a name (or part of it) to search.</div>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label for="academic_year" class="form-label">Academic Year</label>
+                            <select name="academic_year" id="academic_year" class="form-select">
+                                <option th:each="med : ${academicYears}" th:value="${med.id}" th:text="${med.sessionFormat}">Academic Year</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="search-student" class="form-label">Student name for search</label>
+                            <input type="text" class="form-control" id="search-student" placeholder="Search student name">
+                        </div>
+                        <div class="col-md-3 d-flex flex-column align-items-start">
+                            <label class="form-label invisible">Action</label>
+                            <button id="search-btn" type="button" class="aa-btn-primary flex-fill" onclick="searchStudentDetail()"><i class="bi bi-search"></i> Search</button>
+                        </div>
                     </div>
                 </div>
-                <hr/>
             </div>
             <div class="col-md-12">
-                <div class="search-data  d-flex justify-content-center align-items-center" id="search-data">
-                    <p>No Data</p>
+                <div class="stu-search-card">
+                    <div class="search-data" id="search-data">
+                        <div class="stu-empty"><i class="bi bi-search"></i><p>No Data</p></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -41,9 +106,19 @@
 
     <script type="text/javascript" th:inline="javascript">
         const contextPath = /*[[@{/}]]*/ '/';
-        
-        
 
+        // Escape HTML special chars so student/family text fields never break
+        // the table or run as markup — this page previously rendered every
+        // field unescaped with no escHtml() helper defined at all.
+        function escHtml(str) {
+            if (str == null) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
 
         function showWarningMsg(msgType, msg, headerValue){
             toastr.options = {
@@ -70,7 +145,11 @@
             let query=$("#search-student").val();
             let academicYearVal = $("#academic_year").val();
             if(academicYearVal===''){
-                showMsg("error","Academic Year is mandatory","Error");
+                // Was showMsg(...) — that function is never defined anywhere
+                // in this file (only showWarningMsg is), so this validation
+                // path used to throw a ReferenceError instead of warning the
+                // user. Fixed to call the function that actually exists here.
+                showWarningMsg("error","Academic Year is mandatory","Error");
                 return;
             }
             if(query.trim().length>0){
@@ -97,26 +176,26 @@
                     /*console.log("data: "+data);
                     console.log("length: "+data.length);*/
                     if(data.length>0){
-                        let text = `<table class="table table-bordered table-striped table-hover table-sm">
-                            <thead><th>SNo</th><th>Student Name</th><th>SR No</th><th>Grade</th><th>Father Name</th><th>Mother Name</th><th>Aadhaar No</th><th>Religion</th><th>Caste</th><th>Contact No</th><th>Contact No:2</th><th>Address</th></thead>
+                        let text = `<div class="table-responsive"><table class="table stu-table">
+                            <thead><tr><th>SNo</th><th>Student Name</th><th>SR No</th><th>Grade</th><th>Father Name</th><th>Mother Name</th><th>Aadhaar No</th><th>Religion</th><th>Caste</th><th>Contact No</th><th>Contact No:2</th><th>Address</th></tr></thead>
                             <tbody class="table-group-divider">`;
                         let counter = 1;
                         data.forEach((student) =>{
                             let stuStatusClass = (student.student.status||'').toUpperCase()==='ACTIVE'?'':'table-danger';
                             //let classSRNoVal = student.classSrNo==null || student.classSrNo==''?'':student.classSrNo;
                             //console.log("SR: "+classSRNoVal);
-                            text+=`<tr class="${stuStatusClass}"><td>${counter}</td><td>${student.student.studentName}</td><td>${student.classSrNo==null || student.classSrNo==''?'':student.classSrNo}</td><td>${student.grade.gradeName}-${student.section.sectionName}</td>
-                                   <td>${student.student.fatherName}</td><td>${student.student.motherName}</td><td>${student.student.aadharNo}</td><td>${student.student.religion}</td><td>${student.student.cast.castName}</td>
-                                      <td>${student.student.mobile1}</td><td>${student.student.mobile2}</td><td>${student.student.address}</td></tr>`;
+                            text+=`<tr class="${stuStatusClass}"><td>${counter}</td><td>${escHtml(student.student.studentName)}</td><td>${student.classSrNo==null || student.classSrNo==''?'':escHtml(student.classSrNo)}</td><td>${escHtml(student.grade.gradeName)}-${escHtml(student.section.sectionName)}</td>
+                                   <td>${escHtml(student.student.fatherName)}</td><td>${escHtml(student.student.motherName)}</td><td>${escHtml(student.student.aadharNo)}</td><td>${escHtml(student.student.religion)}</td><td>${escHtml(student.student.cast.castName)}</td>
+                                      <td>${escHtml(student.student.mobile1)}</td><td>${escHtml(student.student.mobile2)}</td><td>${escHtml(student.student.address)}</td></tr>`;
                             counter++;
                         });
                         text+= `</tbody>
-                        </table>`;
+                        </table></div>`;
                         $(".search-data").html(text);
                         $(".search-data").show();
                     } else{
-                        $(".search-data").html('No Data');
-                        $(".search-data").hide();
+                        $(".search-data").html('<div class="stu-empty"><i class="bi bi-search"></i><p>No Data</p></div>');
+                        $(".search-data").show();
                     }
 
                 })

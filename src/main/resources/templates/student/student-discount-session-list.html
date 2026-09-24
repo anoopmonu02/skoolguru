@@ -6,38 +6,91 @@
 </head>
 <body>
 <section>
+
+    <!-- Page-specific styling only — same .aa-card filter convention + shared
+         "list page" datatable chrome (list-table.css + list-table-init.js)
+         as the other redesigned fee/student report pages, so this one
+         matches them. -->
+    <style>
+        .aa-card {
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xs); padding: 20px 22px; margin-bottom: 18px;
+        }
+        .aa-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+        .aa-card-head h2 { font-size: 14.5px; font-weight: 800; margin: 0; color: var(--text-primary); }
+        .aa-icon {
+            width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center;
+            justify-content: center; font-size: 14px; flex-shrink: 0;
+        }
+        .aa-icon-accent { background: var(--accent-light); color: var(--accent); }
+        .aa-sub { font-size: 12px; color: var(--text-muted); margin: 2px 0 16px; }
+
+        .aa-btn-primary {
+            background: var(--accent); border: 1px solid var(--accent); color: #fff; padding: 8px 18px;
+            border-radius: var(--radius-md); font-size: 13.5px; font-weight: 700; display: inline-flex;
+            align-items: center; gap: 7px; cursor: pointer; box-shadow: var(--shadow-sm);
+            transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
+        }
+        .aa-btn-primary:hover { background: var(--brand-600); border-color: var(--brand-600); color: #fff; box-shadow: var(--shadow-md); }
+        .aa-btn-primary:active { transform: translateY(1px); }
+        .aa-btn-primary:disabled { opacity: .65; cursor: default; }
+
+        #studentTable, #studentTable th, #studentTable td { font-size: .8rem; }
+    </style>
+
     <div class="container-fluid px-3">
         <div class="row mt-2 ">
             <div class="col-md-12">
                 <div th:replace="~{components/ui :: page-header('Students Eligible For Discount')}"></div>
 
-                <div>
-                    <div class="row mt-3">
+                <div class="aa-card">
+                    <div class="aa-card-head"><span class="aa-icon aa-icon-accent"><i class="bi bi-funnel-fill"></i></span><h2>Filter</h2></div>
+                    <div class="aa-sub">Pick an academic year, then click Get List to load students eligible for discount.</div>
+                    <div class="row">
                         <div class="col-md-3">
                             <label for="academic_year" class="form-label">Academic Year</label>
                             <select name="academic_year" id="academic_year" class="form-select">
                                 <option th:each="med : ${academicYears}" th:value="${med.id}" th:text="${med.sessionFormat}">Academic Year</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
-                            &nbsp;
-                        </div>
-                        <div class="col-md-3 align-self-end">
-                            <div class="col-sm-5">
-                                <button name="getfee" id="getfee" class="btn btn-primary"><i class="bi bi-search"></i> Get List </button>
-                            </div>
+                        <div class="col-md-3 d-flex flex-column align-items-start">
+                            <label class="form-label invisible">Action</label>
+                            <button name="getfee" id="getfee" class="aa-btn-primary flex-fill"><i class="bi bi-search"></i> Get List</button>
                         </div>
                     </div>
-
                 </div>
-                <hr/>
-                <div class="row" id="printable-div" style="display: none">
+
+                <div id="printable-div" style="display: none">
                     <div th:replace="~{components/ui :: page-header('Eligible Students List')}"></div>
 
+                    <div class="list-table-card">
+                        <div class="config-list-toolbar list-page-toolbar">
+                            <div class="config-search-wrap">
+                                <i class="bi bi-search"></i>
+                                <input type="text" class="form-control form-control-sm" id="sdsSearchInput"
+                                       placeholder="Search by name, grade, discount…">
+                            </div>
+                            <div id="sdsExportSlot" class="list-export-slot"></div>
+                        </div>
 
-                    <div class="row">
                         <div class="student-details" id="student-collection-data">
 
+                        </div>
+
+                        <div class="list-table-footer">
+                            <div class="list-footer-left">
+                                <label class="list-length-label">Rows per page
+                                    <select id="sdsPageLength" class="list-length-select">
+                                        <option value="5">5</option>
+                                        <option value="10">10</option>
+                                        <option value="25" selected>25</option>
+                                        <option value="50">50</option>
+                                        <option value="100">100</option>
+                                    </select>
+                                </label>
+                                <span id="sdsPageInfo" class="list-page-info">Showing 0 of 0 students</span>
+                            </div>
+                            <div class="list-pagination" id="sdsPagination"></div>
                         </div>
                     </div>
                 </div>
@@ -78,6 +131,21 @@
                 "hideMethod": "fadeOut"
             }
             toastr[msgType](msg,headerValue);
+        }
+
+        // Escape HTML special chars so student/father names, grade, discount
+        // name and description never break the table or run as markup — this
+        // page previously rendered these fields completely unescaped with no
+        // escHtml() helper defined at all (a genuine XSS gap; the sibling
+        // report pages already had this helper).
+        function escHtml(str) {
+            if (str == null) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         }
 
         $('#getfee').click(async function() {
@@ -121,7 +189,7 @@
                     if(data.stuData!=null){
                         let stulist = data.stuData;
                         $("#printable-div").show();
-                        let tblData = `<table class="table table-striped table-bordered table-sm" id="studentTable">
+                        let tblData = `<table class="table table-sm list-table" id="studentTable">
                             <thead>
                             <tr>
                                 <th>SNo</th>
@@ -133,7 +201,7 @@
                                 <th>Description</th>
                                 <th>Assigned By</th>`;
 
-                        tblData+=`</tr></thead><tbody class="table-group-divider">`;
+                        tblData+=`</tr></thead><tbody>`;
                         let counter = 1;
                         for (let i=0;i<stulist.length;i++) {
                             console.log("key======>>>>>>> "+stulist);
@@ -141,8 +209,8 @@
                             console.log("key====== "+i);
                             tblData += `<tr>
                                     <td>${counter}</td>
-                                    <td>${studentData.grade}</td>
-                                    <td>${studentData.srNo}</td><td>${studentData.studentName}</td><td>${studentData.fatherName}</td><td>${studentData.discount}</td><td>${studentData.description}</td><td>${studentData.assignedBy || ''}</td>`;
+                                    <td>${escHtml(studentData.grade)}</td>
+                                    <td>${escHtml(studentData.srNo)}</td><td>${escHtml(studentData.studentName)}</td><td>${escHtml(studentData.fatherName)}</td><td>${escHtml(studentData.discount)}</td><td>${escHtml(studentData.description)}</td><td>${escHtml(studentData.assignedBy || '')}</td>`;
 
                             tblData+=`</tr>`;
                             counter++;
@@ -150,68 +218,36 @@
                         tblData+=`</tbody></table>`;
                         //console.log("table last-"+tblData)
                         $("#student-collection-data").html(tblData);
-                        const exportColumns = [0,1,2,3,4,5,6,7];
-                        const columnDefs = [{ "orderable": false, "targets": [0] }];
-                        $("#studentTable").DataTable({
-                            scrollX: true,
-                            autoWidth: false,
-                            scrollCollapse: true,
-                            paging: true,
-                            sort: false,
-                            fixedColumns: false,
-                            layout: {
-                                bottomEnd: {
-                                    paging: {
-                                        firstLast: false
-                                    }
-                                },
-                                top1Start: {
-                                    buttons: [
-                                        {
-                                            extend: 'excelHtml5',
-                                            text: '<i class="bi bi-file-excel-fill text-success"></i>',
-                                            titleAttr: 'Excel',
-                                            title: 'Total Students Discount Data export',
-                                            exportOptions: {
-                                                columns: exportColumns
-                                            }
-                                        },
-                                        {
-                                            extend: 'csvHtml5',
-                                            text: '<i class="bi bi-filetype-csv text-info"></i>',
-                                            titleAttr: 'CSV',
-                                            title: 'Total Students Discount Data export'
-                                        },
-                                        {
-                                            extend: 'pdfHtml5',
-                                            text: '<i class="bi bi-file-pdf-fill text-danger"></i>',
-                                            titleAttr: 'PDF',
-                                            /*orientation: 'landscape',
-                                            scale: '40%',
-                                            pageSize: 'A3',*/
-                                            title: 'Total Students Discount Data export',
-                                            /*customize: function (doc) {
-                                                doc.defaultStyle.fontSize = 8; // smaller font helps fit more columns
-                                            },*/
-                                            exportOptions: {
-                                                columns: exportColumns
-                                            }
-                                        },
-                                        'colvis'
-                                    ]
-                                }
-                            },
-                            lengthMenu: [
-                                [5, 10, 25, 50, 100, -1],
-                                [5, 10, 25, 50, 100, 'All']
-                            ],
-                            pageLength: 25,
-                            columnDefs: columnDefs
+
+                        // Reset the search box / export slot / paging-length listeners
+                        // before re-wiring — this handler can fire multiple times (once
+                        // per "Get List" click), while only the table itself is torn
+                        // down and rebuilt.
+                        $('#sdsExportSlot').empty();
+                        $('#sdsSearchInput').off('input');
+                        $('#sdsPageLength').off('change');
+
+                        initListDataTable({
+                            tableSelector: '#studentTable',
+                            searchInputSelector: '#sdsSearchInput',
+                            exportSlotSelector: '#sdsExportSlot',
+                            lengthSelectSelector: '#sdsPageLength',
+                            pageInfoSelector: '#sdsPageInfo',
+                            paginationSelector: '#sdsPagination',
+                            itemLabel: 'students',
+                            exportTitle: 'Total Students Discount Data export',
+                            exportColumns: [0,1,2,3,4,5,6,7],
+                            printHeaderText: 'Total Students Discount Data',
+                            dtOptions: {
+                                scrollX: true,
+                                autoWidth: false,
+                                scrollCollapse: true,
+                                sort: false,
+                                fixedColumns: false,
+                                columnDefs: [{ orderable: false, targets: [0] }]
+                            }
                         });
-                        $(".buttons-excel, .buttons-csv, .buttons-pdf").each(function() {
-                            // Remove the btn-secondary class from each button
-                            $(this).removeClass("btn-secondary");
-                        });
+
                         if(data.error!=null){
                             $("#student-collection-data").empty();
                             $("#printable-div").hide();
