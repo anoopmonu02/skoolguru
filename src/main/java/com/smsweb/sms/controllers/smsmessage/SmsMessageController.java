@@ -111,8 +111,18 @@ public class SmsMessageController extends BaseController {
 
     @CheckAccess(screen = "MESSAGE_VIEW", type = AccessType.VIEW)
     @GetMapping("/getSmsMessagesByStudent/{studentId}")
-    public ResponseEntity<List<Map<String, Object>>> getSmsMessagesByStudent(@PathVariable Long studentId) {
+    public ResponseEntity<List<Map<String, Object>>> getSmsMessagesByStudent(@PathVariable Long studentId, Model model) {
         log.info("Inside getSmsMessagesByStudent");
+        // School-scoped - without this, any authenticated staff member could read
+        // another school's complaint history for a student just by guessing/
+        // incrementing studentId (mirrors the same fix already applied to
+        // GrievanceController.getGrievancesByStudent).
+        School school = (School) model.getAttribute("school");
+        Optional<AcademicStudent> ownerCheck = academicStudentService.findById(studentId);
+        if (ownerCheck.isEmpty() || school == null || ownerCheck.get().getSchool() == null
+                || !school.getId().equals(ownerCheck.get().getSchool().getId())) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
         List<SmsMessage> messages = smsMessageService.getMessagesByStudentId(studentId);
         List<Map<String, Object>> leanList = new ArrayList<>();
         for (SmsMessage msg : messages) {
@@ -130,10 +140,15 @@ public class SmsMessageController extends BaseController {
 
     @CheckAccess(screen = "MESSAGE_VIEW", type = AccessType.VIEW)
     @GetMapping("/getSmsConversationsByMessage/{messageId}")
-    public ResponseEntity<Map<String, Object>> getSmsConversationsByMessage(@PathVariable Long messageId) {
+    public ResponseEntity<Map<String, Object>> getSmsConversationsByMessage(@PathVariable Long messageId, Model model) {
         log.info("Inside getSmsConversationsByMessage");
         Optional<SmsMessage> smsMessageOpt = smsMessageService.findById(messageId);
-        if (smsMessageOpt.isEmpty()) {
+        // School-scoped - without this any staff member could read another
+        // school's conversation thread (and silently mark its messages as seen)
+        // by guessing/incrementing messageId.
+        School school = (School) model.getAttribute("school");
+        if (smsMessageOpt.isEmpty() || school == null || smsMessageOpt.get().getSchool() == null
+                || !school.getId().equals(smsMessageOpt.get().getSchool().getId())) {
             return ResponseEntity.notFound().build();
         }
 
@@ -179,7 +194,7 @@ public class SmsMessageController extends BaseController {
     @CheckAccess(screen = "MESSAGE_SEND", type = AccessType.CREATE)
     @PostMapping("/sendSmsConversation")
     public ResponseEntity<Map<String, Object>> sendSmsConversation(
-            @RequestBody Map<String, Object> payload) {
+            @RequestBody Map<String, Object> payload, Model model) {
         log.info("Inside sendSmsConversation");
 
         // Extract values from the payload
@@ -189,7 +204,11 @@ public class SmsMessageController extends BaseController {
 
         // Validate messageId
         Optional<SmsMessage> smsMessageOpt = smsMessageService.findById(messageId);
-        if (smsMessageOpt.isEmpty()) {
+        // School-scoped - without this a staff member could append a conversation
+        // message onto another school's thread by tampering messageId.
+        School school = (School) model.getAttribute("school");
+        if (smsMessageOpt.isEmpty() || school == null || smsMessageOpt.get().getSchool() == null
+                || !school.getId().equals(smsMessageOpt.get().getSchool().getId())) {
             return ResponseEntity.notFound().build();
         }
 
@@ -222,7 +241,7 @@ public class SmsMessageController extends BaseController {
 
     @CheckAccess(screen = "MESSAGE_SEND", type = AccessType.CREATE)
     @PostMapping("/sendNewMessage")
-    public ResponseEntity<Map<String, Object>> sendNewMessage(@RequestBody Map<String, Object> payload) {
+    public ResponseEntity<Map<String, Object>> sendNewMessage(@RequestBody Map<String, Object> payload, Model model) {
         log.info("Inside sendNewMessage");
         Map<String, Object> response = new HashMap<>();
 
@@ -251,6 +270,14 @@ public class SmsMessageController extends BaseController {
             }
 
             AcademicStudent student = studentOpt.get();
+
+            // School-scoped - without this a staff member from one school could
+            // file a complaint against a student belonging to a different school
+            // just by supplying that student's id.
+            School school = (School) model.getAttribute("school");
+            if (school == null || student.getSchool() == null || !school.getId().equals(student.getSchool().getId())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Invalid studentId"));
+            }
 
             smsMessage = new SmsMessage();
             smsMessage.setSmsHeading(heading);
@@ -282,8 +309,16 @@ public class SmsMessageController extends BaseController {
 
     @CheckAccess(screen = "MESSAGE_VIEW", type = AccessType.EDIT)
     @PostMapping("/resolveSmsMessage/{id}")
-    public ResponseEntity<Map<String, Object>> resolveSmsMessage(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> resolveSmsMessage(@PathVariable Long id, Model model) {
         log.info("Inside resolveSmsMessage");
+        // School-scoped - without this any staff member could resolve another
+        // school's complaint by tampering id.
+        School school = (School) model.getAttribute("school");
+        Optional<SmsMessage> ownerCheck = smsMessageService.findById(id);
+        if (ownerCheck.isEmpty() || school == null || ownerCheck.get().getSchool() == null
+                || !school.getId().equals(ownerCheck.get().getSchool().getId())) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Message not found or already resolved"));
+        }
         Optional<SmsMessage> smsMessageOpt = smsMessageService.resolveSmsMessage(id, userService.getLoggedInUser());
 
         if (smsMessageOpt.isPresent()) {
@@ -490,6 +525,14 @@ public class SmsMessageController extends BaseController {
                     }
                     AcademicStudent student = academicStudentService.findById(studentId)
                             .orElseThrow(() -> new RuntimeException("Student not found with ID: " + studentId));
+                    // School-scoped - without this a staff member could push a
+                    // notification to a specific student belonging to a different
+                    // school while the SmsMessage itself is tagged with their own
+                    // school (school is already resolved above via
+                    // employeeService.getLoggedInEmployeeSchool(...)).
+                    if (student.getSchool() == null || !school.getId().equals(student.getSchool().getId())) {
+                        return ResponseEntity.badRequest().body(Map.of("error", "Invalid studentId."));
+                    }
                     smsMessage.setRecipients(Collections.singletonList(student));
                     break;
 
@@ -554,13 +597,20 @@ public class SmsMessageController extends BaseController {
      */
     @CheckAccess(screen = "MESSAGE_VIEW", type = AccessType.VIEW)
     @GetMapping("/attachment/{id}")
-    public ResponseEntity<Resource> getAttachment(@PathVariable Long id) {
+    public ResponseEntity<Resource> getAttachment(@PathVariable Long id, Model model) {
         log.info("Inside getAttachment — id={}", id);
         Optional<SmsMessageAttachment> attOpt = smsMessageService.findAttachmentById(id);
         if (attOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
         SmsMessageAttachment att = attOpt.get();
+        // School-scoped - without this any staff member could fetch any school's
+        // attachment file just by guessing/incrementing id.
+        School school = (School) model.getAttribute("school");
+        if (school == null || att.getSmsMessage() == null || att.getSmsMessage().getSchool() == null
+                || !school.getId().equals(att.getSmsMessage().getSchool().getId())) {
+            return ResponseEntity.notFound().build();
+        }
         try {
             File file = fileHandleHelper.resolveMessageAttachmentFile(att.getStoredFileName());
             if (file == null) {
@@ -764,23 +814,37 @@ public class SmsMessageController extends BaseController {
 
     @CheckAccess(screen = "MESSAGE_VIEW", type = AccessType.VIEW)
     @GetMapping("/notifications")
-    public ResponseEntity<List<SmsNotificationDto>> getStudentNotifications(@RequestParam(required = false) Long studentId) {
+    public ResponseEntity<List<SmsNotificationDto>> getStudentNotifications(@RequestParam(required = false) Long studentId, Model model) {
         log.info("Inside getStudentNotifications");
         List<SmsNotificationDto> notifications = new ArrayList<>();
         if (studentId != null) {
-            notifications = smsMessageService.getNotificationDtosByStudentId(studentId);
+            // School-scoped - without this any staff member could read another
+            // school's notification history for a student by tampering studentId.
+            // Silently returns an empty list rather than an error for an
+            // out-of-school id, matching this endpoint's existing "no id" behaviour.
+            School school = (School) model.getAttribute("school");
+            Optional<AcademicStudent> ownerCheck = academicStudentService.findById(studentId);
+            if (ownerCheck.isPresent() && school != null && ownerCheck.get().getSchool() != null
+                    && school.getId().equals(ownerCheck.get().getSchool().getId())) {
+                notifications = smsMessageService.getNotificationDtosByStudentId(studentId);
+            }
         }
         return ResponseEntity.ok(notifications);
     }
 
     @CheckAccess(screen = "MESSAGE_SEND", type = AccessType.VIEW)
     @GetMapping("/getStudentDetailForMessage/{id}")
-    public ResponseEntity<Map<String, Object>> getStudentDetailForMessage(@PathVariable("id") Long id) {
+    public ResponseEntity<Map<String, Object>> getStudentDetailForMessage(@PathVariable("id") Long id, Model model) {
         log.info("Inside getStudentDetailForMessage");
         Map<String, Object> result = new HashMap<>();
         try {
+            // School-scoped - without this any staff member could pull full
+            // student detail for any student id across the whole platform just
+            // by guessing/incrementing id.
+            School school = (School) model.getAttribute("school");
             Optional<AcademicStudent> studentOpt = academicStudentService.findById(id);
-            if (studentOpt.isPresent()) {
+            if (studentOpt.isPresent() && school != null && studentOpt.get().getSchool() != null
+                    && school.getId().equals(studentOpt.get().getSchool().getId())) {
                 result.put("student", studentService.toLeanAcademicStudentMap(studentOpt.get()));
             } else {
                 result.put("noAcademicStudent", "Student not found.");

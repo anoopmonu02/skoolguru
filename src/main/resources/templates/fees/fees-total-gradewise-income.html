@@ -7,48 +7,82 @@
 <body>
 <section>
 
+    <!-- Page-specific styling only — same shared "list page" datatable chrome
+         (list-table.css + list-table-init.js) as the other redesigned fee
+         report pages, so this one matches them. -->
+    <style>
+        #student-discount-list, #student-discount-list th, #student-discount-list td { font-size: .8rem; }
+    </style>
+
     <div class="container-fluid px-3">
         <div class="row mt-2 ">
             <div class="col-md-12">
                 <div th:replace="~{components/ui :: page-header('Garde-wise Fees Income')}"></div>
 
-                <table id="student-discount-list" class="table table-bordered table-striped table-hover table-sm" th:if="${hasData}">
-                    <thead>
-                    <tr>
-                        <th>Garde</th>
-                        <th>Section</th>
-                        <th>Total Students</th>
-                        <th>Monthly Fees</th>
-                        <th>Total Students(Discount)</th>
-                        <th>Total Discount Fees</th>
-                        <th>Fee Income(Section)</th>
-                    </tr>
-                    </thead>
-                    <tbody class="table-group-divider">
+                <div th:if="${hasData}" class="list-table-card">
+                    <div class="config-list-toolbar list-page-toolbar">
+                        <div class="config-search-wrap">
+                            <i class="bi bi-search"></i>
+                            <input type="text" class="form-control form-control-sm" id="gwiSearchInput"
+                                   placeholder="Search by grade, section…">
+                        </div>
+                        <div id="gwiExportSlot" class="list-export-slot"></div>
+                    </div>
 
-                    <tr th:each="feelist,iterStat : ${datalist}">
-                        <td th:text="${feelist[0]}"></td>
-                        <td th:text="${feelist[1]}"></td>
-                        <td th:text="${feelist[2]}"></td>
-                        <td th:text="${feelist[3]}"></td>
-                        <td th:text="${feelist[4]}"></td>
-                        <td th:text="${feelist[5]}"></td>
-                        <td th:text="${feelist[6]}"></td>
+                    <table id="student-discount-list" class="table table-sm list-table">
+                        <thead>
+                        <tr>
+                            <th>Garde</th>
+                            <th>Section</th>
+                            <th>Total Students</th>
+                            <th>Monthly Fees</th>
+                            <th>Total Students(Discount)</th>
+                            <th>Total Discount Fees</th>
+                            <th>Fee Income(Section)</th>
+                        </tr>
+                        </thead>
+                        <tbody>
 
-                    </tr>
-                    </tbody>
-                    <tfoot class="table-group-divider">
-                    <tr>
-                        <td></td>
-                        <td></td>
-                        <td th:text="${totalStudentsCount}"></td>
-                        <td></td>
-                        <td th:text="${totalStudentsDiscountCount}"></td>
-                        <td th:text="${@money.rupees(totalDiscountFees)}"></td>
-                        <td th:text="${@money.rupees(totalFeesCollected)}"></td>
-                    </tr>
-                    </tfoot>
-                </table>
+                        <tr th:each="feelist,iterStat : ${datalist}">
+                            <td th:text="${feelist[0]}"></td>
+                            <td th:text="${feelist[1]}"></td>
+                            <td th:text="${feelist[2]}"></td>
+                            <td th:text="${feelist[3]}"></td>
+                            <td th:text="${feelist[4]}"></td>
+                            <td th:text="${feelist[5]}"></td>
+                            <td th:text="${feelist[6]}"></td>
+
+                        </tr>
+                        </tbody>
+                        <tfoot>
+                        <tr>
+                            <td></td>
+                            <td></td>
+                            <td class="text-end" th:text="${totalStudentsCount}"></td>
+                            <td></td>
+                            <td class="text-end" th:text="${totalStudentsDiscountCount}"></td>
+                            <td class="text-end" th:text="${@money.rupees(totalDiscountFees)}"></td>
+                            <td class="text-end" th:text="${@money.rupees(totalFeesCollected)}"></td>
+                        </tr>
+                        </tfoot>
+                    </table>
+
+                    <div class="list-table-footer">
+                        <div class="list-footer-left">
+                            <label class="list-length-label">Rows per page
+                                <select id="gwiPageLength" class="list-length-select">
+                                    <option value="5">5</option>
+                                    <option value="10">10</option>
+                                    <option value="25" selected>25</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                            </label>
+                            <span id="gwiPageInfo" class="list-page-info">Showing 0 of 0 rows</span>
+                        </div>
+                        <div class="list-pagination" id="gwiPagination"></div>
+                    </div>
+                </div>
                 <div th:if="${!hasData}">
                     <div th:replace="~{components/ui :: empty-state('No Grade-wise Fee Income Found.', 'bi-inbox')}"></div>
                 </div>
@@ -57,57 +91,24 @@
     </div>
     <script type="text/javascript" th:inline="javascript">
         $(document).ready(function () {
-            const exportColumns = [0,1,2,3,4,5,6];
-            $('#student-discount-list').DataTable({
-                layout: {
-                    bottomEnd: {
-                        paging: {
-                            firstLast: false
-                        }
-                    },
-                    top1Start: {
-                        buttons: [
-                            {
-                                extend: 'excelHtml5',
-                                text: '<i class="bi bi-file-excel-fill text-success"></i>',
-                                titleAttr: 'Excel',
-                                title: 'Grade-wise Fees Income Data Report',
-                                exportOptions: {
-                                    columns: exportColumns
-                                }
-                            },
-                            {
-                                extend: 'csvHtml5',
-                                text: '<i class="bi bi-filetype-csv text-info"></i>',
-                                titleAttr: 'CSV',
-                                title: 'Grade-wise Fees Income Data Report'
-                            },
-                            {
-                                extend: 'pdfHtml5',
-                                text: '<i class="bi bi-file-pdf-fill text-danger"></i>',
-                                titleAttr: 'PDF',
-                                title: 'Grade-wise Fees Income Data Report',
-                                exportOptions: {
-                                    columns: exportColumns
-                                }
-                            },
-                            'colvis'
-                        ]
+            const hasData = [[${hasData}]];
+            if (hasData) {
+                initListDataTable({
+                    tableSelector: '#student-discount-list',
+                    searchInputSelector: '#gwiSearchInput',
+                    exportSlotSelector: '#gwiExportSlot',
+                    lengthSelectSelector: '#gwiPageLength',
+                    pageInfoSelector: '#gwiPageInfo',
+                    paginationSelector: '#gwiPagination',
+                    itemLabel: 'rows',
+                    exportTitle: 'Grade-wise Fees Income Data Report',
+                    exportColumns: [0,1,2,3,4,5,6],
+                    printHeaderText: 'Grade-wise Fees Income Data Report',
+                    dtOptions: {
+                        columnDefs: [{ orderable: false, targets: [0,6] }]
                     }
-                },
-                lengthMenu: [
-                    [5, 10, 25, 50, 100, -1],
-                    [5, 10, 25, 50, 100, 'All']
-                ],
-                pageLength: 10,
-                columnDefs: [
-                    { "orderable": false, "targets": [0,6] } // Disable sorting on the first and fourth columns
-                ]
-            });
-            $(".buttons-excel, .buttons-csv, .buttons-pdf").each(function() {
-                // Remove the btn-secondary class from each button
-                $(this).removeClass("btn-secondary");
-            });
+                });
+            }
         });
         toastr.options = {
             "closeButton": true,
@@ -128,7 +129,6 @@
         }
 
 
-        
 
 
     </script>

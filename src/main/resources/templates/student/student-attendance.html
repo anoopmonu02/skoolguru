@@ -4,53 +4,105 @@
 <head>
     <meta charset="UTF-8">
     <title>UAIC - Student</title>
-
-
 </head>
 <body>
 <section>
 
+    <!-- Page-specific styling only — the table card/toolbar/export-button/
+         row/footer/pagination look lives in static/css/list-table.css,
+         shared with Student List, Employee List and now this page (see
+         list-page-header fragment usage below too). What's left here is
+         genuinely specific to this page: the header-action button variants
+         and a couple of one-off tweaks. -->
+    <style>
+        .al-btn-outline{
+            display:inline-flex; align-items:center; gap:7px;
+            padding:8px 16px;
+            border-radius:var(--radius-md);
+            border:1px solid var(--border-color);
+            background:var(--card-bg);
+            color:var(--text-primary);
+            font-size:.85rem; font-weight:600;
+            text-decoration:none;
+            transition:background var(--transition), border-color var(--transition), color var(--transition);
+        }
+        .al-btn-outline:hover{ background:var(--accent-light); border-color:var(--accent); color:var(--accent); text-decoration:none; }
+        .al-btn-outline.al-btn-danger:hover{ background:rgba(220,38,38,.08); border-color:#dc2626; color:#dc2626; }
+        #attendance-list td, #attendance-list th{ font-size:.85rem; }
+    </style>
+
     <div class="container-fluid px-3">
         <div class="row mt-2 ">
             <div class="col-md-12">
-                <div th:replace="~{components/ui :: page-header('Attendance List')}"></div>
-
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <strong>Date: </strong><span th:text="${todayDate}"></span>
-                    </div>
-                    <div class="col-md-6 text-end">
-                        <a sms:access="STUDENT_ATTENDANCE_MARK:CREATE" class="btn btn-success" th:href="@{/student/student-submit-attendance}"><i class="bi bi-person-bounding-box"></i> Submit Attendance</a>
-                        <a class="btn btn-outline-success" th:href="@{/student/student-show-attendance}"><i class="bi bi-person-lines-fill"></i> Show Attendance</a>
-                        <a th:if="${hasAttendance}" class="btn btn-outline-danger" th:href="@{/student/student-absent-today}"><i class="bi bi-person-x-fill"></i> Absent Students Today</a>
+                <div th:replace="~{components/ui :: list-page-header('Attendance List', null, ~{::alActions})}"></div>
+                <!-- alActions is only ever meant to render once, inside the
+                     list-page-header call above via ~{::alActions}. See the
+                     identical comment in employee/employee.html for why this
+                     is wrapped in a plain display:none div rather than given
+                     th:remove directly. -->
+                <div style="display:none">
+                    <div th:fragment="alActions">
+                        <a sms:access="STUDENT_ATTENDANCE_MARK:CREATE" class="btn-cta" th:href="@{/student/student-submit-attendance}"><i class="bi bi-person-bounding-box"></i> Submit Attendance</a>
+                        <a class="al-btn-outline" th:href="@{/student/student-show-attendance}"><i class="bi bi-person-lines-fill"></i> Show Attendance</a>
+                        <a th:if="${hasAttendance}" class="al-btn-outline al-btn-danger" th:href="@{/student/student-absent-today}"><i class="bi bi-person-x-fill"></i> Absent Students Today</a>
                     </div>
                 </div>
-                <hr/>
 
-                <table th:if="${hasAttendance}" id="attendance-list" class="table table-bordered table-striped table-hover table-sm">
-                    <thead>
-                        <tr>
-                            <th>SNo.</th>
-                            <th>Medium</th>
-                            <th>Grade-Section</th>
-                            <th>Present</th>
-                            <th>Absent</th>
-                            <!--<th>Action</th>-->
-                        </tr>
-                    </thead>
-                    <tbody class="table-group-divider">
-                        <tr th:each="summary,iterStat : ${attendanceSummary}">
-                            <td th:text="${iterStat.index+1}">1</td>
-                            <td th:text="${summary.mediumName}"></td>
-                            <td th:text="${summary.gradeName+ ' - ' + summary.sectionName}"></td>
-                            <td class="text-center"><span class="badge rounded-pill text-bg-success" th:text="${' '+summary.presentCount+' '}">0</span> </td>
-                            <td class="text-center"><span class="badge rounded-pill text-bg-danger" th:text="${' '+summary.absentCount+' '}">0</span></td>
-                            <!--<td>
-                                <a href="#" class="btn btn-success"><i class="bi bi-arrow-bar-right"></i></a>
-                            </td>-->
-                        </tr>
-                    </tbody>
-                </table>
+                <div class="mb-3">
+                    <strong>Date: </strong><span th:text="${todayDate}"></span>
+                </div>
+
+                <div class="list-table-card" th:if="${hasAttendance}">
+                    <div class="config-list-toolbar list-page-toolbar">
+                        <div class="config-search-wrap">
+                            <i class="bi bi-search"></i>
+                            <input type="text" class="form-control form-control-sm" id="alSearchInput"
+                                   placeholder="Search by medium, grade, section…">
+                        </div>
+                        <div id="alExportSlot" class="list-export-slot"></div>
+                    </div>
+
+                    <table class="table table-sm list-table" id="attendance-list">
+                        <thead>
+                            <tr>
+                                <th>SNo.</th>
+                                <th>Medium</th>
+                                <th>Grade-Section</th>
+                                <th>Present</th>
+                                <th>Absent</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="summary,iterStat : ${attendanceSummary}">
+                                <td th:text="${iterStat.index+1}">1</td>
+                                <td th:text="${summary.mediumName}"></td>
+                                <td th:text="${summary.gradeName+ ' - ' + summary.sectionName}"></td>
+                                <td class="text-center"><span class="badge rounded-pill text-bg-success" th:text="${' '+summary.presentCount+' '}">0</span> </td>
+                                <td class="text-center"><span class="badge rounded-pill text-bg-danger" th:text="${' '+summary.absentCount+' '}">0</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Custom footer: rows-per-page + "Showing X-Y of Z" + page-number
+                         pagination — built by the shared initListDataTable() helper
+                         (static/js/list-table-init.js), same as Student List/Employee List. -->
+                    <div class="list-table-footer">
+                        <div class="list-footer-left">
+                            <label class="list-length-label">Rows per page
+                                <select id="alPageLength" class="list-length-select">
+                                    <option value="5">5</option>
+                                    <option value="10">10</option>
+                                    <option value="25" selected>25</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                            </label>
+                            <span id="alPageInfo" class="list-page-info">Showing 0 of 0 grade-sections</span>
+                        </div>
+                        <div class="list-pagination" id="alPagination"></div>
+                    </div>
+                </div>
+
                 <div th:if="${!hasAttendance}">
                     <div th:replace="~{components/ui :: empty-state('No attendance data found.', 'bi-inbox')}"></div>
                 </div>
@@ -61,76 +113,34 @@
 
     <script type="text/javascript" th:inline="javascript">
         $(document).ready(function() {
-            const hasSuperAdmin = $("#isSuperAdmin").val(); // Get the value of the hasSuperAdmin attribute
-            const exportColumns = hasSuperAdmin ? [0, 1, 2, 3] : [0, 1, 2, 3]; // Adjust export columns based on hasSuperAdmin
-            const columnDefs = hasSuperAdmin
-                ? [{ "orderable": false, "targets": [0] }]  // Remove Actions column from columnDefs
-                : [{ "orderable": false, "targets": [0] }]; // Keep Actions column
+            if (!$('#attendance-list').length) { return; } // empty-state — nothing to wire up
 
-            $('#attendance-list').DataTable({
-                layout: {
-                    bottomEnd: {
-                        paging: {
-                            firstLast: false
-                        }
-                    },
-                    top1Start: {
-                        buttons: [
-                            {
-                                extend: 'excelHtml5',
-                                text: '<i class="bi bi-file-excel-fill text-success"></i>',
-                                titleAttr: 'Excel',
-                                title: 'Students Data export',
-                                exportOptions: {
-                                    columns: exportColumns
-                                }
-                            },
-                            {
-                                extend: 'csvHtml5',
-                                text: '<i class="bi bi-filetype-csv text-info"></i>',
-                                titleAttr: 'CSV',
-                                title: 'Students Data export'
-                            },
-                            {
-                                extend: 'pdfHtml5',
-                                text: '<i class="bi bi-file-pdf-fill text-danger"></i>',
-                                titleAttr: 'PDF',
-                                title: 'Students Data export',
-                                exportOptions: {
-                                    columns: exportColumns
-                                }
-                            },
-                            'colvis'
-                        ]
-                    }
-                },
-                lengthMenu: [
-                    [5, 10, 25, 50, 100, -1],
-                    [5, 10, 25, 50, 100, 'All']
-                ],
-                pageLength: 25,
-                columnDefs: columnDefs
-            });
-            $(".buttons-excel, .buttons-csv, .buttons-pdf").each(function() {
-                // Remove the btn-secondary class from each button
-                $(this).removeClass("btn-secondary");
+            // All the generic chrome (disabling DataTables' own top/bottom UI,
+            // the Excel/CSV/PDF/Print export buttons, the search box, rows-per-
+            // page select, and the "Showing X-Y of Z" + pagination footer) is
+            // handled by the shared helper — see static/js/list-table-init.js.
+            initListDataTable({
+                tableSelector: '#attendance-list',
+                searchInputSelector: '#alSearchInput',
+                exportSlotSelector: '#alExportSlot',
+                lengthSelectSelector: '#alPageLength',
+                pageInfoSelector: '#alPageInfo',
+                paginationSelector: '#alPagination',
+                itemLabel: 'grade-sections',
+                exportTitle: 'Students Attendance export',
+                exportColumns: [0, 1, 2, 3, 4],
+                printHeaderText: 'Attendance List',
+                dtOptions: {
+                    columnDefs: [{ orderable: false, targets: [0] }]
+                }
             });
         });
-
-
-
-        
-
-
-
-        
-
-
     </script>
 
-  <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html
-       now loads them in <head>, so they are available before this page's
-       inline scripts run. They used to be duplicated on every page. -->
+  <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI / DataTables /
+       list-table-init tags removed: base.html now loads them in <head>
+       (page=='datatable'), so they are available before this page's inline
+       scripts run. -->
 </section>
 </body>
 </html>

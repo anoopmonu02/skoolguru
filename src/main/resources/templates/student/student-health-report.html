@@ -76,6 +76,44 @@
 
     .aa-empty { text-align: center; color: var(--text-muted); font-size: 13.5px; padding: 34px 10px; }
     .aa-empty i { font-size: 26px; display: block; margin-bottom: 8px; color: var(--border-color); }
+
+    /* Photo Zoom Preview — the 34px .hr-photo thumbnail becomes
+       interactive: hover shows a larger floating preview near the cursor
+       (desktop/mouse only), click opens a bigger, centered view (desktop
+       and touch). Both live in fixed-position elements outside #hr-table,
+       so they can never be clipped by the table's own borders/scroll
+       container, and Print Report — which clones only #hr-table's plain
+       HTML — is completely unaffected. */
+    .hr-photo-zoomable { cursor: zoom-in; }
+
+    .hr-zoom-preview {
+      position: fixed; width: 220px; height: 220px; z-index: 2000; display: none;
+      border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-md);
+      border: 2px solid var(--card-bg); background: #000; pointer-events: none;
+    }
+    .hr-zoom-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .hr-zoom-overlay {
+      position: fixed; inset: 0; background: rgba(15, 23, 42, .6); z-index: 2100;
+      display: none; align-items: center; justify-content: center; padding: 16px;
+    }
+    .hr-zoom-modal {
+      background: var(--card-bg); border-radius: var(--radius-lg); box-shadow: var(--shadow-md);
+      max-width: 90vw; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;
+    }
+    .hr-zoom-modal-head {
+      display: flex; align-items: center; justify-content: space-between; padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .hr-zoom-modal-head h5 { margin: 0; font-size: 14px; font-weight: 800; color: var(--text-primary); }
+    .hr-zoom-close {
+      border: none; background: transparent; color: var(--text-muted); font-size: 16px; cursor: pointer;
+      width: 30px; height: 30px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center;
+      transition: background var(--transition), color var(--transition);
+    }
+    .hr-zoom-close:hover { background: var(--body-bg); color: var(--text-primary); }
+    .hr-zoom-modal-body { padding: 16px; display: flex; align-items: center; justify-content: center; background: var(--body-bg); }
+    .hr-zoom-modal-body img { max-width: min(480px, 80vw); max-height: 60vh; object-fit: contain; border-radius: var(--radius-md); display: block; }
   </style>
 
   <div class="container-fluid px-3">
@@ -131,6 +169,22 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Photo Zoom Preview — one shared floating preview + one shared modal
+       for the whole page (not per-row); buildTableHtml() below only tags
+       real photo <img> thumbnails with .hr-photo-zoomable, so rows with no
+       photo (the initials-avatar fallback) are never wired up. -->
+  <div class="hr-zoom-preview" id="hrZoomPreview"><img id="hrZoomPreviewImg" src="" alt=""></div>
+
+  <div class="hr-zoom-overlay" id="hrZoomOverlay">
+    <div class="hr-zoom-modal">
+      <div class="hr-zoom-modal-head">
+        <h5 id="hrZoomTitle">Photo</h5>
+        <button type="button" class="hr-zoom-close" id="hrZoomCloseBtn" aria-label="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="hr-zoom-modal-body"><img id="hrZoomModalImg" src="" alt=""></div>
     </div>
   </div>
 
@@ -193,15 +247,16 @@
         '<th>Student</th>' +
         '<th>Father Name</th><th>Mother Name</th><th>Address</th><th>Mobile 1</th><th>Mobile 2</th>' +
         '<th>Body Type</th><th>Blood Group</th><th>Height</th><th>Weight</th>' +
-        '<th>Health Issue</th><th>Eye Issue</th></tr></thead><tbody>';
+        '<th>Health Issue</th><th>Health Description</th><th>Eye Issue</th></tr></thead><tbody>';
 
       rows.forEach((r, idx) => {
         const gradeSection = [r.gradeName, r.sectionName].filter(Boolean).join(' - ');
         const imgUrl = r.pic ? (contextPath + 'student/images/' + encodeURIComponent(r.pic)) : '';
         const color = avatarColors[idx % avatarColors.length];
         const initials = initialsOf(r.studentName);
+        const nameAttr = escapeHtml(r.studentName);
         const photoHtml = imgUrl
-          ? `<img src="${imgUrl}" alt="" class="hr-photo" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'stu-avatar',style:'background:${color}',textContent:'${escapeHtml(initials)}'}))">`
+          ? `<img src="${imgUrl}" alt="" class="hr-photo hr-photo-zoomable" data-photo-large="${imgUrl}" data-student-name="${nameAttr}" onerror="this.classList.remove('hr-photo-zoomable'); this.replaceWith(Object.assign(document.createElement('span'),{className:'stu-avatar',style:'background:${color}',textContent:'${escapeHtml(initials)}'}))">`
           : `<span class="stu-avatar" style="background:${color}">${escapeHtml(initials)}</span>`;
 
         const subParts = [gradeSection, r.classSrNo ? ('SR: ' + r.classSrNo) : ''].filter(Boolean);
@@ -217,6 +272,7 @@
           `<td>${r.height !== null && r.height !== undefined ? escapeHtml(r.height) : '-'}</td>` +
           `<td>${r.weight !== null && r.weight !== undefined ? escapeHtml(r.weight) : '-'}</td>` +
           `<td>${issueBadge(r.haveHealthIssues, 'bi-heart-pulse-fill')}</td>` +
+          `<td>${r.healthIssueDescription ? escapeHtml(r.healthIssueDescription) : '-'}</td>` +
           `<td>${issueBadge(r.haveEyeIssue, 'bi-eye-fill')}</td>` +
           '</tr>';
       });
@@ -284,7 +340,9 @@
       // Print output shows the mask/reveal toggle's current on-screen text
       // (masked unless the user already revealed it) with the inert eye
       // button stripped out — a live toggle button does nothing useful on
-      // a static, already-printed page.
+      // a static, already-printed page. This clone is taken from #hr-table
+      // only, so the zoom preview/modal (siblings outside the table) never
+      // appear in the printed output.
       const printEl = el.cloneNode(true);
       printEl.querySelectorAll('.mask-cell').forEach(function (cell) {
         const text = cell.querySelector('.mask-text');
@@ -340,6 +398,61 @@
         $text.text($text.attr('data-full')).attr('data-revealed', 'true');
         $btn.attr('title', 'Hide').find('i').attr('class', 'bi bi-eye-slash');
       }
+    });
+
+    // ------------------------------------------------------------------
+    // Photo Zoom Preview — the .hr-photo thumbnail (only when a real photo
+    // was rendered — see buildTableHtml above) gets a hover preview and a
+    // click-to-open larger view. Positioned with position:fixed + viewport
+    // coordinates so it is never clipped by the table's own scroll
+    // container/borders and always kept on-screen.
+    // ------------------------------------------------------------------
+    const hrHoverCapable = !!(window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+
+    function hrPositionZoomPreview(e) {
+      const SIZE = 220;
+      const OFFSET = 16;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      let left = e.clientX + OFFSET;
+      let top = e.clientY + OFFSET;
+      if (left + SIZE + 8 > vw) left = e.clientX - SIZE - OFFSET;
+      if (top + SIZE + 8 > vh) top = e.clientY - SIZE - OFFSET;
+      if (left < 4) left = 4;
+      if (top < 4) top = 4;
+      $('#hrZoomPreview').css({ left: left + 'px', top: top + 'px' });
+    }
+
+    if (hrHoverCapable) {
+      $(document).on('mouseenter', '.hr-photo-zoomable', function (e) {
+        const url = $(this).data('photoLarge');
+        if (!url) return;
+        $('#hrZoomPreviewImg').attr('src', url);
+        $('#hrZoomPreview').show();
+        hrPositionZoomPreview(e);
+      });
+      $(document).on('mousemove', '.hr-photo-zoomable', function (e) {
+        hrPositionZoomPreview(e);
+      });
+      $(document).on('mouseleave', '.hr-photo-zoomable', function () {
+        $('#hrZoomPreview').hide();
+      });
+    }
+
+    $(document).on('click', '.hr-photo-zoomable', function () {
+      const url = $(this).data('photoLarge');
+      const name = $(this).data('studentName') || '';
+      if (!url) return;
+      $('#hrZoomPreview').hide();
+      $('#hrZoomTitle').text('Photo — ' + name);
+      $('#hrZoomModalImg').attr('src', url);
+      $('#hrZoomOverlay').css('display', 'flex');
+    });
+
+    $('#hrZoomCloseBtn').on('click', function () { $('#hrZoomOverlay').hide(); });
+    $('#hrZoomOverlay').on('click', function (e) { if (e.target === this) $('#hrZoomOverlay').hide(); });
+    $(document).on('keydown', function (e) {
+      if (e.key === 'Escape') $('#hrZoomOverlay').hide();
     });
   </script>
 </section>

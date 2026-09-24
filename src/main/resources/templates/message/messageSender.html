@@ -2,35 +2,115 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org"
       xmlns:sms="http://www.smsweb.com/thymeleaf" th:replace="~{base::Layout(~{::section})}">
 <head>
-
     <meta charset="UTF-8">
     <title>Send Message</title>
+</head>
+<body>
+<section>
+
+    <!-- Page-specific styling only - lives here (inside <section>) rather
+         than in <head> because this template's th:replace="~{base::Layout(~{::section})}"
+         only passes the <section> content through to the shared layout;
+         anything left in <head> (including the .search-result rules that
+         predate this redesign) is silently dropped by the fragment call and
+         never reaches the rendered page. Same .aa-card convention used by
+         the other redesigned pages (all_students_grade.html etc.), which
+         all place their <style> block here for the same reason. -->
     <style>
         .search-container {
             position: relative;
         }
 
+        /* Result dropdown - deliberately lives INSIDE .ms-search-input-wrap
+           (see the markup below), not as a sibling of the whole #studentSelector
+           card, so `position:absolute` anchors to the small input wrapper's
+           own height rather than the full card (which also contains the
+           student-detail accordion, message history table, etc.) - anchoring
+           to the full card is what pushed the dropdown down to the bottom of
+           the page. Same da-search-results/da-result-row pattern already used
+           on Fee Submission (Neo) and Assign Discount, kept page-scoped here
+           like every other page that uses it. */
         .search-result {
             position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
             z-index: 1050; /* Higher than Bootstrap cards */
+            width: 100%;
+            max-height: 320px;
+            overflow-y: auto;
             background: var(--card-bg);
             border: 1px solid var(--border-color);
-            max-height: 250px;
-            overflow-y: auto;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-xs);
+            margin-top: 4px;
             display: none;
         }
+        .da-result-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border-color); }
+        .da-result-row:last-child { border-bottom: none; }
+        .da-result-row:hover { background: var(--accent-light); }
+        .da-result-name { font-weight: 600; color: var(--text-primary); font-size: .85rem; }
+        .da-result-sub { font-size: .72rem; color: var(--text-muted); }
+        .da-result-empty { padding: 14px; color: var(--text-muted); font-size: .85rem; text-align: center; }
 
-        .search-result a {
-            cursor: pointer;
+        /* Neo card convention - same classes/values used across the other
+           redesigned report pages, defined page-scoped here too. */
+        .aa-card {
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xs); padding: 20px 22px; margin-bottom: 18px;
         }
+        .aa-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+        .aa-card-head h2 { font-size: 14.5px; font-weight: 800; margin: 0; color: var(--text-primary); }
+        .aa-icon {
+            width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center;
+            justify-content: center; font-size: 14px; flex-shrink: 0;
+        }
+        .aa-icon-accent { background: var(--accent-light); color: var(--accent); }
+        .aa-sub { font-size: 12px; color: var(--text-muted); margin: 2px 0 16px; }
+
+        .aa-btn-primary {
+            background: var(--accent); border: 1px solid var(--accent); color: #fff; padding: 8px 18px;
+            border-radius: var(--radius-md); font-size: 13.5px; font-weight: 700; display: inline-flex;
+            align-items: center; gap: 7px; cursor: pointer; box-shadow: var(--shadow-sm);
+            transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
+        }
+        .aa-btn-primary:hover { background: var(--brand-600); border-color: var(--brand-600); color: #fff; box-shadow: var(--shadow-md); }
+        .aa-btn-primary:active { transform: translateY(1px); }
+        .aa-btn-primary:disabled { opacity: .65; cursor: default; }
+
+        /* Student/Academic Detail cards inside the accordion - same aa-card
+           visual language, lighter header (no h2/aa-sub) since these sit one
+           level down inside an already-labelled accordion panel. The <li>
+           rows keep their existing classes (.studname, .cmedium, etc.) and
+           are still fully replaced via .html() by JS - only the surrounding
+           chrome changed here, not the data-insertion markup. */
+        .ms-detail-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); overflow: hidden; height: 100%; }
+        .ms-detail-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border-color); background: var(--body-bg); }
+        .ms-detail-head h3 { font-size: 13px; font-weight: 800; margin: 0; color: var(--text-primary); }
+        .ms-detail-list { list-style: none; margin: 0; padding: 4px 16px; }
+        .ms-detail-list li { padding: 9px 0; border-bottom: 1px solid var(--border-color); font-size: .85rem; color: var(--text-primary); }
+        .ms-detail-list li:last-child { border-bottom: none; }
+        .ms-detail-list li strong { color: var(--text-muted); font-weight: 600; margin-right: 4px; }
+
+        /* Search box with a leading icon - wraps only the <input>, not the
+           whole .search-container, so the dropdown's absolute positioning
+           (anchored to .search-container) is unaffected. */
+        .ms-search-input-wrap { position: relative; max-width: 460px; }
+        .ms-search-input-wrap i {
+            position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+            color: var(--text-muted); font-size: 14px; pointer-events: none;
+        }
+        .ms-search-input-wrap input { padding-left: 34px; }
+
+        /* Message History table - a small per-student, live-rebuilt list (not
+           paginated/exported like a report), so it gets the same visual
+           polish as the shared .list-table (hover/border/padding via
+           list-table.css) without the DataTables plugin/export machinery,
+           which doesn't fit a table this size or this transient. */
+        .ms-history-card {
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xs); overflow: hidden;
+        }
+        .ms-history-card .list-table { margin: 0; }
     </style>
-</head>
-<body>
-<section>
+
     <div class="container-fluid px-3">
         <div class="row mt-3">
             <div class="col-md-12">
@@ -38,34 +118,43 @@
 
 
                 <form id="messageForm">
-                    <div class="row mb-3">
-                        <div class="col-md-3">
-                            <label for="messageType" class="form-label">Message Type</label>
-                            <select id="messageType" name="messageType" class="form-select">
-                                <option value="">Select Message Type</option>
-                                <option value="complaint">Complaint</option>
-                                <option value="notification">Notification</option>
-                                <option value="grievance">Grievance</option>
-                            </select>
+                    <div class="aa-card">
+                        <div class="aa-card-head"><span class="aa-icon aa-icon-accent"><i class="bi bi-chat-square-text-fill"></i></span><h2>Compose Message</h2></div>
+                        <div class="aa-sub">Choose a message type to get started.</div>
+                        <div class="row mb-3">
+                            <div class="col-md-3">
+                                <label for="messageType" class="form-label">Message Type</label>
+                                <select id="messageType" name="messageType" class="form-select">
+                                    <option value="">Select Message Type</option>
+                                    <option value="complaint">Complaint</option>
+                                    <option value="notification">Notification</option>
+                                    <option value="grievance">Grievance</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="recipientTypeDiv" class="row mb-3" style="display: none;">
+                            <div class="col-md-3">
+                                <label for="recipientType" class="form-label">Recipient Type</label>
+                                <select id="recipientType" name="recipientType" class="form-select">
+                                    <option value="">Select Recipient Type</option>
+                                    <option value="ALL">All</option>
+                                    <option value="CLASS">Class</option>
+                                    <option value="STUDENT">Student</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
-                    <div id="recipientTypeDiv" class="row mb-3" style="display: none;">
-                        <div class="col-md-3">
-                            <label for="recipientType" class="form-label">Recipient Type</label>
-                            <select id="recipientType" name="recipientType" class="form-select">
-                                <option value="">Select Recipient Type</option>
-                                <option value="ALL">All</option>
-                                <option value="CLASS">Class</option>
-                                <option value="STUDENT">Student</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div id="studentSelector" class="search-container my-3" style="display: none;">
-                        <input onkeyup="searchStuName()" type="text" class="form-control" id="search-input" placeholder="Search student name">
-                        <div class="search-result" style="max-height:300px; overflow-y:auto; border:1px solid #dee2e6; border-radius:4px; display:none; position:absolute; left:0; right:0; z-index:1050; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.15);">
-
+                    <div id="studentSelector" class="search-container my-3 aa-card" style="display: none;">
+                        <div class="aa-card-head"><span class="aa-icon aa-icon-accent"><i class="bi bi-search"></i></span><h2>Find Student</h2></div>
+                        <div class="ms-search-input-wrap">
+                            <i class="bi bi-search"></i>
+                            <input onkeyup="searchStuName()" type="text" class="form-control" id="search-input" placeholder="Search student name">
+                            <!-- Lives inside .ms-search-input-wrap (not as a sibling of the
+                                 whole #studentSelector card) so it anchors to this small
+                                 input wrapper - see the CSS comment above. -->
+                            <div class="search-result"></div>
                         </div>
                         <hr>
                         <div class="accordion mb-3" id="studentDetailAccordion">
@@ -77,27 +166,27 @@
                                 </h2>
                                 <div id="collapseStudentDetail" class="accordion-collapse collapse" aria-labelledby="headingStudentDetail" data-bs-parent="#studentDetailAccordion">
                                     <div class="accordion-body">
-                                        <div class="row">
+                                        <div class="row g-3">
                                             <div class="col-sm-6">
-                                                <div class="card border-success">
-                                                    <h5 class="card-header">Student Detail</h5>
-                                                    <ul class="list-group list-group-flush">
-                                                        <li class="list-group-item studname"><strong>Student Name:</strong></li>
-                                                        <li class="list-group-item fname"><strong>Father Name:</strong></li>
-                                                        <li class="list-group-item mname"><strong>Mother Name:</strong></li>
-                                                        <li class="list-group-item contactno contact-update-btn"><strong>Contact No:</strong></li>
+                                                <div class="ms-detail-card">
+                                                    <div class="ms-detail-head"><span class="aa-icon aa-icon-accent"><i class="bi bi-person-vcard"></i></span><h3>Student Detail</h3></div>
+                                                    <ul class="ms-detail-list">
+                                                        <li class="studname"><strong>Student Name:</strong></li>
+                                                        <li class="fname"><strong>Father Name:</strong></li>
+                                                        <li class="mname"><strong>Mother Name:</strong></li>
+                                                        <li class="contactno"><strong>Contact No:</strong></li>
                                                     </ul>
                                                 </div>
                                             </div>
 
                                             <div class="col-sm-6">
-                                                <div class="card border-success">
-                                                    <h5 class="card-header">Academic Detail</h5>
-                                                    <ul class="list-group list-group-flush">
-                                                        <li class="list-group-item cmedium"><strong>Medium: </strong></li>
-                                                        <li class="list-group-item cgrade"><strong>Class: </strong></li>
-                                                        <li class="list-group-item csection"><strong>Section: </strong></li>
-                                                        <li class="list-group-item csr"><strong>SR No: </strong></li>
+                                                <div class="ms-detail-card">
+                                                    <div class="ms-detail-head"><span class="aa-icon aa-icon-accent"><i class="bi bi-mortarboard-fill"></i></span><h3>Academic Detail</h3></div>
+                                                    <ul class="ms-detail-list">
+                                                        <li class="cmedium"><strong>Medium: </strong></li>
+                                                        <li class="cgrade"><strong>Class: </strong></li>
+                                                        <li class="csection"><strong>Section: </strong></li>
+                                                        <li class="csr"><strong>SR No: </strong></li>
                                                     </ul>
                                                 </div>
                                             </div>
@@ -109,20 +198,22 @@
                         <div class="row mt-4" id="smsSection" style="display: none;">
                             <div class="col-md-6">
                                 <h5>Message History</h5>
-                                <table class="table table-bordered" id="smsMessagesTable">
-                                    <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Subject</th>
-                                        <th>Date</th>
-                                        <th>Action/Status</th> <!-- New column -->
-                                        <th>Attachment</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    <!-- Dynamically loaded via JS -->
-                                    </tbody>
-                                </table>
+                                <div class="ms-history-card">
+                                    <table class="table table-sm list-table" id="smsMessagesTable">
+                                        <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Subject</th>
+                                            <th>Date</th>
+                                            <th>Action/Status</th> <!-- New column -->
+                                            <th>Attachment</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        <!-- Dynamically loaded via JS -->
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                             <div class="col-md-6" id="conversationDiv" style="display: none;">
                                 <div class="d-flex align-items-center">
@@ -154,71 +245,63 @@
                         <div id="grievanceContent" style="display:none;" class="row g-3">
                             <!-- Left: Entry Form -->
                             <div class="col-md-4">
-                                <div class="card shadow-sm border-0" style="border-left: 4px solid #0d6efd !important;">
-                                    <div class="card-header bg-white border-bottom d-flex align-items-center gap-2 py-2 px-3" style="border-left: 4px solid #0d6efd;">
-                                        <i class="bi bi-pencil-square text-primary"></i>
-                                        <span class="fw-semibold text-primary small text-uppercase ls-1">Add Grievance</span>
+                                <div class="aa-card">
+                                    <div class="aa-card-head"><span class="aa-icon aa-icon-accent"><i class="bi bi-pencil-square"></i></span><h2>Add Grievance</h2></div>
+                                    <div class="mb-2">
+                                        <label for="grievanceTitle" class="form-label form-label-sm mb-1">Title <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control form-control-sm" id="grievanceTitle" placeholder="Enter grievance title" maxlength="200">
                                     </div>
-                                    <div class="card-body px-3 py-3">
-                                        <div class="mb-2">
-                                            <label for="grievanceTitle" class="form-label form-label-sm mb-1">Title <span class="text-danger">*</span></label>
-                                            <input type="text" class="form-control form-control-sm" id="grievanceTitle" placeholder="Enter grievance title" maxlength="200">
-                                        </div>
-                                        <div class="mb-2">
-                                            <label for="grievanceDescription" class="form-label form-label-sm mb-1">Description <span class="text-danger">*</span></label>
-                                            <textarea class="form-control form-control-sm" id="grievanceDescription" rows="4" placeholder="Enter grievance description"></textarea>
-                                        </div>
-                                        <div class="mb-2">
-                                            <label for="grievanceDueDate" class="form-label form-label-sm mb-1">Due Date <span class="text-danger">*</span></label>
-                                            <input type="text" class="form-control form-control-sm" id="grievanceDueDate" placeholder="dd/MMM/yyyy" autocomplete="off">
-                                        </div>
-                                        <div class="text-danger small mb-2 d-none" id="grievanceFormError"></div>
-                                        <button type="button" class="btn btn-primary btn-sm px-3" onclick="saveGrievance()">
-                                            <i class="bi bi-save2-fill me-1"></i>Save Grievance
-                                        </button>
+                                    <div class="mb-2">
+                                        <label for="grievanceDescription" class="form-label form-label-sm mb-1">Description <span class="text-danger">*</span></label>
+                                        <textarea class="form-control form-control-sm" id="grievanceDescription" rows="4" placeholder="Enter grievance description"></textarea>
                                     </div>
+                                    <div class="mb-2">
+                                        <label for="grievanceDueDate" class="form-label form-label-sm mb-1">Due Date <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control form-control-sm" id="grievanceDueDate" placeholder="dd/MMM/yyyy" autocomplete="off">
+                                    </div>
+                                    <div class="text-danger small mb-2 d-none" id="grievanceFormError"></div>
+                                    <button type="button" class="aa-btn-primary" onclick="saveGrievance()">
+                                        <i class="bi bi-save2-fill"></i> Save Grievance
+                                    </button>
                                 </div>
                             </div>
                             <!-- Right: Grievance Table -->
                             <div class="col-md-8">
-                                <div class="card shadow-sm border-0">
-                                    <div class="card-header bg-white border-bottom d-flex align-items-center gap-2 py-2 px-3">
-                                        <i class="bi bi-list-ul text-secondary"></i>
-                                        <span class="fw-semibold text-secondary small text-uppercase">Grievance History</span>
-                                    </div>
-                                    <div class="card-body p-2">
-                                        <div id="grievanceTableContainer">
-                                            <p class="text-muted text-center small py-3">No grievances found for this student.</p>
-                                        </div>
+                                <div class="aa-card">
+                                    <div class="aa-card-head"><span class="aa-icon aa-icon-accent"><i class="bi bi-list-ul"></i></span><h2>Grievance History</h2></div>
+                                    <div id="grievanceTableContainer">
+                                        <p class="text-muted text-center small py-3">No grievances found for this student.</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div id="classSectionSelector" class="row mb-3" style="display: none;">
-                        <div class="col-md-3">
-                            <label for="grade" class="form-label">Grade</label>
-                            <select id="grade" name="grade" class="form-select">
-                                <option value="">Select Grade</option>
-                                <option th:each="grade : ${grades}" th:value="${grade.id}" th:text="${grade.gradeName}">Grade</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="section" class="form-label">Section</label>
-                            <select id="section" name="section" class="form-select">
-                                <option value="">Select Section</option>
-                                <option th:each="section : ${sections}" th:value="${section.id}" th:text="${section.sectionName}">Section</option>
-                            </select>
+                    <div id="classSectionSelector" class="aa-card" style="display: none;">
+                        <div class="aa-card-head"><span class="aa-icon aa-icon-accent"><i class="bi bi-people-fill"></i></span><h2>Class / Section</h2></div>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label for="grade" class="form-label">Grade</label>
+                                <select id="grade" name="grade" class="form-select">
+                                    <option value="">Select Grade</option>
+                                    <option th:each="grade : ${grades}" th:value="${grade.id}" th:text="${grade.gradeName}">Grade</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="section" class="form-label">Section</label>
+                                <select id="section" name="section" class="form-select">
+                                    <option value="">Select Section</option>
+                                    <option th:each="section : ${sections}" th:value="${section.id}" th:text="${section.sectionName}">Section</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
-                    <button sms:access="MESSAGE_SEND:CREATE" type="submit" id="sendNewMessage"  class="btn btn-primary mt-3"><i class="bi bi-send-plus-fill"></i> Send New Message</button>
+                    <button sms:access="MESSAGE_SEND:CREATE" type="submit" id="sendNewMessage"  class="aa-btn-primary mt-3"><i class="bi bi-send-plus-fill"></i> Send New Message</button>
                 </form>
             </div>
         </div>
     </div>
-    <div id="NotificationList"></div>
 
     <!-- Modal -->
     <div class="modal fade" id="newMessageModal" tabindex="-1" role="dialog" aria-labelledby="newMessageModalLabel" aria-hidden="true">
@@ -227,7 +310,7 @@
 
                 <div class="modal-header">
                     <h5 class="modal-title" id="newMessageModalLabel">New Message</h5>
-                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
                 <div class="modal-body">
@@ -255,7 +338,7 @@
 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-success" onclick="submitNewMessage()">Send <i class="bi bi-send"></i></button>
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 </div>
 
             </div>
@@ -480,7 +563,20 @@
 
 
         let _msQuery = '', _msPage = 0, _msMore = false, _msLoading = false;
-        const _msRow = (s) => `<a onclick="loadStudentData(${s.id})" href="#" class='list-group-item list-group-item-action'>${escapeHtml(s.student.studentName)} / ${escapeHtml(s.student.fatherName)} / ${escapeHtml(s.grade.gradeName)}-${escapeHtml(s.section.sectionName)}</a>`;
+        // Avatar + name/sub row, matching the da-result-row pattern used by
+        // Fee Submission (Neo) - same searchStudentForFeePage response shape
+        // (s.student.studentName/fatherName, s.grade.gradeName, s.section.sectionName).
+        const _msAvatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+        const _msInitialsOf = (name) => (name || '').trim().split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+        const _msAvatarColorFor = (id) => _msAvatarColors[Math.abs(id || 0) % _msAvatarColors.length];
+        const _msRow = (s) => {
+            const color = _msAvatarColorFor(s.id);
+            return `<div class="da-result-row" onclick="loadStudentData(${s.id})">` +
+                `<div class="stu-avatar" style="background:${color}22;color:${color}">${escapeHtml(_msInitialsOf(s.student.studentName))}</div>` +
+                `<div><div class="da-result-name">${escapeHtml(s.student.studentName)}</div>` +
+                `<div class="da-result-sub">${escapeHtml(s.student.fatherName)} &middot; ${escapeHtml(s.grade.gradeName)}-${escapeHtml(s.section.sectionName)}</div></div>` +
+                `</div>`;
+        };
         const _msFetch = (query, page, append) => {
             if (_msLoading) return;
             _msLoading = true;
@@ -489,19 +585,32 @@
                     _msLoading = false;
                     _msMore = data.length === 10;
                     if (!append) {
-                        let html = `<div class='list-group' id='ms-list-group'>`;
-                        data.forEach(s => { html += _msRow(s); });
-                        $(".search-result").html(html + `</div>`).show();
+                        if (data.length === 0) {
+                            $(".search-result").html(`<div class="da-result-empty">No students found for "${escapeHtml(query)}"</div>`).show();
+                        } else {
+                            let html = `<div id='ms-list-group'>`;
+                            data.forEach(s => { html += _msRow(s); });
+                            html += `</div>`;
+                            $(".search-result").html(html).show();
+                        }
                     } else {
                         data.forEach(s => { $('#ms-list-group').append(_msRow(s)); });
                     }
                 }).catch(() => { _msLoading = false; });
         };
+        // Debounced so a fetch only fires ~280ms after the user stops typing,
+        // instead of on every single keystroke past 2 characters (the previous
+        // behaviour) - same debounce convention used by the shared
+        // list-table-init.js search box elsewhere in the app.
+        let _msSearchDebounce;
         const searchStuName = () => {
-            let query = $("#search-input").val();
-            if (query.trim().length > 2) {
-                if (query !== _msQuery) { _msQuery = query; _msPage = 0; _msFetch(query, 0, false); }
-            } else { _msQuery = ''; $(".search-result").hide(); }
+            clearTimeout(_msSearchDebounce);
+            _msSearchDebounce = setTimeout(() => {
+                let query = $("#search-input").val();
+                if (query.trim().length > 2) {
+                    if (query !== _msQuery) { _msQuery = query; _msPage = 0; _msFetch(query, 0, false); }
+                } else { _msQuery = ''; $(".search-result").hide(); }
+            }, 280);
         };
         document.querySelector('.search-result').addEventListener('scroll', function() {
             if (!_msMore || _msLoading) return;
@@ -582,6 +691,10 @@
         }
 
         const loadSmsMessagesForStudent = (studentId) => {
+            // Immediate feedback while this panel reloads, instead of a blank
+            // table until the fetch resolves.
+            $('#smsSection').show();
+            $('#smsMessagesTable tbody').html('<tr><td colspan="5" class="text-center text-muted">Loading…</td></tr>');
             let url = `${contextPath}message/getSmsMessagesByStudent/${studentId}`;
             fetch(url)
                 .then(res => {
@@ -642,6 +755,10 @@
         };
 
         const loadNotificationsForStudent = (studentId) => {
+            // Immediate feedback while this panel reloads, instead of a blank
+            // table until the fetch resolves.
+            $('#smsSection').show();
+            $('#smsMessagesTable tbody').html('<tr><td colspan="5" class="text-center text-muted">Loading…</td></tr>');
             let url = `${contextPath}message/notifications?studentId=${studentId}`;
             fetch(url)
                 .then(res => {
@@ -818,7 +935,7 @@
         };
 
 
-        $('form').on('submit', function(e) {
+        $('#messageForm').on('submit', function(e) {
             e.preventDefault(); // Prevent form submission
         });
 
@@ -940,7 +1057,7 @@
             };
 
             // Prevent default form submission if inside a form element
-            $('form').on('submit', function(e) {
+            $('#messageForm').on('submit', function(e) {
                 e.preventDefault();  // Stop the page from refreshing
             });
         });
@@ -1205,80 +1322,10 @@
         }
 
 
-        function fetchMessagesAndPopulateTable() {
-            const messageType = document.getElementById("messageTypeSelect")?.value;
-            const recipientType = document.getElementById("recipientTypeSelect")?.value;
-
-            const requestData = {
-                messageType: messageType,
-                recipientType: recipientType
-            };
-
-            if (recipientType === "CLASS") {
-                const selectedClass = document.getElementById("classSelect")?.value;
-                const selectedSection = document.getElementById("sectionSelect")?.value;
-
-                if (!selectedClass || !selectedSection) {
-                    alert("Please select both class and section.");
-                    return;
-                }
-
-                requestData.className = selectedClass;
-                requestData.section = selectedSection;
-
-            } else if (recipientType === "STUDENT") {
-                const studentId = document.getElementById("studentIdInput")?.value;
-
-                if (!studentId) {
-                    alert("Please enter a student ID.");
-                    return;
-                }
-
-                requestData.studentId = studentId;
-            }
-
-            fetch(`${contextPath}api/sms/fetch`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestData)
-            })
-                .then(response => response.json())
-                .then(data => {
-                    const tableHtml = `
-            <table id="messagesTable" class="table table-bordered table-striped" style="width:100%">
-                <thead>
-                    <tr>
-                        <th>Message Type</th>
-                        <th>Recipient Type</th>
-                        <th>Class</th>
-                        <th>Section</th>
-                        <th>Student</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        `;
-
-                    document.getElementById("NotificationList").innerHTML = tableHtml;
-
-                    $('#messagesTable').DataTable({
-                        data: data,
-                        columns: [
-                            { data: 'messageType' },
-                            { data: 'recipientType' },
-                            { data: 'className', defaultContent: '' },
-                            { data: 'section', defaultContent: '' },
-                            { data: 'studentName', defaultContent: '' }
-                        ]
-                    });
-                })
-                .catch(error => {
-                    console.error("Error fetching messages:", error);
-                    alert("Failed to fetch messages.");
-                });
-        }
+        // (Removed: fetchMessagesAndPopulateTable() - dead code, posted to
+        // /api/sms/fetch which has no matching @RequestMapping anywhere in the
+        // backend, referenced DOM ids that don't exist on this page, and was
+        // never called from anywhere in this file.)
 
         // === Grievance ===
         let grievanceDataTable = null;
@@ -1287,6 +1334,11 @@
             // Reveal panels, hide placeholder
             document.getElementById("grievancePlaceholder").style.display = "none";
             document.getElementById("grievanceContent").style.display = "";
+            // Immediate feedback while this panel reloads, instead of the old
+            // "No grievances found" placeholder staying up until the fetch resolves.
+            if (grievanceDataTable) { grievanceDataTable.destroy(); grievanceDataTable = null; }
+            document.getElementById("grievanceTableContainer").innerHTML =
+                '<p class="text-muted text-center small py-3"><span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Loading grievances…</p>';
 
             const url = `${contextPath}grievance/getGrievancesByStudent/${studentId}`;
             fetch(url)
@@ -1310,7 +1362,18 @@
                 grievanceDataTable = null;
             }
 
-            let tableHtml = `<table id="grievanceTable" class="table table-bordered table-striped table-hover table-sm" style="width:100%">
+            // Row cells are left as empty placeholders here and filled in below,
+            // after the table is in the DOM, via .text()/jQuery event binding -
+            // title/description/closing remark are free text a staff member
+            // typed, and the previous version interpolated them (and the Close
+            // button's onclick="...('${g.title}')") straight into the HTML/JS
+            // string, escaping only a literal single-quote. That still left a
+            // gap: a title containing a double-quote could break out of the
+            // onclick attribute itself (which is double-quoted). Binding the
+            // click handler via a closure over the real g.title value, and
+            // setting text via .text(), removes the string-escaping question
+            // entirely rather than trying to get a two-layer escape exactly right.
+            let tableHtml = `<table id="grievanceTable" class="table table-sm list-table" style="width:100%">
                 <thead>
                     <tr>
                         <th>#</th>
@@ -1325,102 +1388,136 @@
                 </thead>
                 <tbody>`;
 
-            if (grievances && grievances.length > 0) {
-                grievances.forEach((g, idx) => {
-                    let dt = '';
-                    if (g.createdAt) {
-                        let d = new Date(g.createdAt);
-                        dt = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replaceAll(' ', '/');
-                    }
-                    // Due date shown read-only as text ("dd/MMM/yyyy", same format as the Date column),
-                    // with a small reschedule control — a flatpickr text input, pre-filled with the
-                    // current value in the same "d/M/Y" format (blank if never set).
-                    let dueDateFormatted = '';
-                    let dueDateDisplay = '<span class="text-muted">Not set</span>';
-                    if (g.dueDate) {
-                        let dd = new Date(g.dueDate);
-                        dueDateFormatted = dd.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replaceAll(' ', '/');
-                        dueDateDisplay = dueDateFormatted;
-                    }
-                    const isClosed = !!g.closed;
-                    const statusCell = isClosed
-                        ? `<span class="badge text-bg-success" title="${(g.closerStatementRemark || '').replace(/"/g, '&quot;')}">Closed</span>`
-                        : `<span class="badge text-text-bg-warning">Pending</span>`;
-                    // Once closed: no reschedule control, no close button — read-only due date, action column empty.
-                    const dueDateCell = isClosed
-                        ? `<span class="small">${dueDateDisplay}</span>`
-                        : `<div class="d-flex align-items-center gap-1" style="min-width:170px;">
-                                <span class="due-date-display small">${dueDateDisplay}</span>
-                                <input type="text" class="form-control form-control-sm due-date-input" placeholder="dd/MMM/yyyy" autocomplete="off" style="display:none;width:140px;" value="${dueDateFormatted}">
-                                <button type="button" class="btn btn-sm btn-outline-secondary reschedule-btn" title="Reschedule" onclick="toggleDueDateEdit(this)"><i class="bi bi-pencil"></i></button>
-                                <button type="button" class="btn btn-sm btn-outline-success save-due-date-btn" style="display:none;" title="Save" onclick="updateGrievanceDueDate(${g.id}, this)"><i class="bi bi-check-lg"></i></button>
-                           </div>`;
-                    const actionCell = isClosed
-                        ? ''
-                        : `<button type="button" class="btn btn-sm btn-outline-danger" title="Close" onclick="openCloseGrievanceModal(${g.id}, '${(g.title || '').replace(/'/g, "\\'")}')"><i class="bi bi-x-circle"></i></button>`;
-                    const closingRemarkCell = isClosed
-                        ? (g.closerStatementRemark || '')
-                        : '<span class="text-muted">&mdash;</span>';
-                    tableHtml += `<tr>
-                        <td>${idx + 1}</td>
-                        <td>${g.title || ''}</td>
-                        <td>${g.description || ''}</td>
-                        <td>${dt}</td>
-                        <td>${dueDateCell}</td>
-                        <td>${statusCell}</td>
-                        <td>${closingRemarkCell}</td>
-                        <td>${actionCell}</td>
-                    </tr>`;
-                });
-            }
+            (grievances || []).forEach((g, idx) => {
+                let dt = '';
+                if (g.createdAt) {
+                    let d = new Date(g.createdAt);
+                    dt = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replaceAll(' ', '/');
+                }
+                tableHtml += `<tr data-grv-idx="${idx}">
+                    <td>${idx + 1}</td>
+                    <td class="grv-title-cell"></td>
+                    <td class="grv-desc-cell"></td>
+                    <td>${dt}</td>
+                    <td class="grv-duedate-cell"></td>
+                    <td class="grv-status-cell"></td>
+                    <td class="grv-remark-cell"></td>
+                    <td class="grv-action-cell"></td>
+                </tr>`;
+            });
             tableHtml += `</tbody></table>`;
-            container.innerHTML = tableHtml;
+
+            container.innerHTML = `
+                <div class="list-table-card">
+                    <div class="config-list-toolbar list-page-toolbar">
+                        <div class="config-search-wrap">
+                            <i class="bi bi-search"></i>
+                            <input type="text" class="form-control form-control-sm" id="grvSearchInput" placeholder="Search grievances…">
+                        </div>
+                        <div id="grvExportSlot" class="list-export-slot"></div>
+                    </div>
+                    <div class="table-responsive">${tableHtml}</div>
+                    <div class="list-table-footer">
+                        <div class="list-footer-left">
+                            <label class="list-length-label">Rows per page
+                                <select id="grvPageLength" class="list-length-select">
+                                    <option value="5" selected>5</option>
+                                    <option value="10">10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                </select>
+                            </label>
+                            <span id="grvPageInfo" class="list-page-info">Showing 0 of 0 grievances</span>
+                        </div>
+                        <div class="list-pagination" id="grvPagination"></div>
+                    </div>
+                </div>`;
+
+            // Fill in each row's escaped text cells and interactive controls now
+            // that the table is in the DOM - g.id/g.title etc. stay in JS/closures,
+            // never interpolated into an HTML attribute or onclick string.
+            (grievances || []).forEach((g, idx) => {
+                const $row = $(`#grievanceTable tbody tr[data-grv-idx="${idx}"]`);
+                $row.find('.grv-title-cell').text(g.title || '');
+                $row.find('.grv-desc-cell').text(g.description || '');
+
+                const isClosed = !!g.closed;
+                const $statusCell = $row.find('.grv-status-cell');
+                if (isClosed) {
+                    const $badge = $('<span class="badge text-bg-success">Closed</span>');
+                    $badge.attr('title', g.closerStatementRemark || '');
+                    $statusCell.append($badge);
+                } else {
+                    $statusCell.html('<span class="badge text-bg-warning">Pending</span>');
+                }
+
+                $row.find('.grv-remark-cell').text(isClosed ? (g.closerStatementRemark || '') : '\u2014');
+
+                let dueDateFormatted = '';
+                let dueDateDisplay = 'Not set';
+                if (g.dueDate) {
+                    let dd = new Date(g.dueDate);
+                    dueDateFormatted = dd.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replaceAll(' ', '/');
+                    dueDateDisplay = dueDateFormatted;
+                }
+                const $dueDateCell = $row.find('.grv-duedate-cell');
+                if (isClosed) {
+                    $dueDateCell.append($('<span class="small"></span>').text(dueDateDisplay));
+                } else {
+                    const $wrap = $('<div class="d-flex align-items-center gap-1" style="min-width:170px;"></div>');
+                    const $display = $('<span class="due-date-display small"></span>').text(dueDateDisplay);
+                    const $input = $('<input type="text" class="form-control form-control-sm due-date-input" placeholder="dd/MMM/yyyy" autocomplete="off" style="display:none;width:140px;">').val(dueDateFormatted);
+                    const $rescheduleBtn = $('<button type="button" class="btn btn-sm btn-outline-secondary reschedule-btn" title="Reschedule"><i class="bi bi-pencil"></i></button>')
+                        .on('click', function () { toggleDueDateEdit(this); });
+                    const $saveBtn = $('<button type="button" class="btn btn-sm btn-outline-success save-due-date-btn" style="display:none;" title="Save"><i class="bi bi-check-lg"></i></button>')
+                        .on('click', function () { updateGrievanceDueDate(g.id, this); });
+                    $wrap.append($display).append($input).append($rescheduleBtn).append($saveBtn);
+                    $dueDateCell.append($wrap);
+                }
+
+                const $actionCell = $row.find('.grv-action-cell');
+                if (!isClosed) {
+                    const $closeBtn = $('<button type="button" class="btn btn-sm btn-outline-danger" title="Close"><i class="bi bi-x-circle"></i></button>');
+                    $closeBtn.on('click', function () { openCloseGrievanceModal(g.id, g.title || ''); });
+                    $actionCell.append($closeBtn);
+                }
+            });
 
             // Wire flatpickr onto every reschedule input in this render — same d/M/Y format as everywhere else.
             flatpickr('.due-date-input', { dateFormat: "d/M/Y" });
 
-            grievanceDataTable = $('#grievanceTable').DataTable({
-                language: { emptyTable: "No grievances found for this student." },
-                scrollX: true,
-                autoWidth: false,
-                scrollCollapse: true,
-                paging: true,
-                layout: {
-                    bottomEnd: { paging: { firstLast: false } },
-                    top1Start: {
-                        buttons: [
-                            {
-                                extend: 'excelHtml5',
-                                text: '<i class="bi bi-file-excel-fill text-success"></i>',
-                                titleAttr: 'Excel',
-                                title: 'Student Grievances',
-                                exportOptions: { columns: [0,1,2,3,4,5,6] }
-                            },
-                            {
-                                extend: 'csvHtml5',
-                                text: '<i class="bi bi-filetype-csv text-info"></i>',
-                                titleAttr: 'CSV',
-                                title: 'Student Grievances'
-                            },
-                            {
-                                extend: 'pdfHtml5',
-                                text: '<i class="bi bi-file-pdf-fill text-danger"></i>',
-                                titleAttr: 'PDF',
-                                title: 'Student Grievances',
-                                exportOptions: { columns: [0,1,2,3,4,5,6] }
-                            },
-                            'colvis'
-                        ]
-                    }
-                },
-                lengthMenu: [ [5, 10, 25, 50, -1], [5, 10, 25, 50, 'All'] ],
-                pageLength: 10,
-                columnDefs: [{ orderable: false, targets: [0, 4, 7] }],
-                order: []
-            });
+            $('#grvExportSlot').empty();
+            $('#grvSearchInput').off('input');
+            $('#grvPageLength').off('change');
 
-            // Remove Bootstrap secondary styling from export buttons
-            $(".buttons-excel, .buttons-csv, .buttons-pdf").removeClass("btn-secondary");
+            // th:inline="javascript" note: lengthMenu's two arrays are built from
+            // named variables (not a nested array literal) on purpose — two
+            // adjacent opening square brackets here would be misread by
+            // Thymeleaf's JS-inlining preprocessor as the start of an inlined
+            // output expression (same pitfall documented in update-aadhar.html).
+            const grvPageSizeValues = [5, 10, 25, 50];
+            const grvPageSizeLabels = [5, 10, 25, 50];
+
+            grievanceDataTable = initListDataTable({
+                tableSelector: '#grievanceTable',
+                searchInputSelector: '#grvSearchInput',
+                exportSlotSelector: '#grvExportSlot',
+                lengthSelectSelector: '#grvPageLength',
+                pageInfoSelector: '#grvPageInfo',
+                paginationSelector: '#grvPagination',
+                itemLabel: 'grievances',
+                exportTitle: 'Student Grievances',
+                exportColumns: [0,1,2,3,4,5,6],
+                dtOptions: {
+                    language: { emptyTable: "No grievances found for this student." },
+                    scrollX: true,
+                    autoWidth: false,
+                    columnDefs: [{ orderable: false, targets: [0, 4, 7] }],
+                    order: [],
+                    pageLength: 5,
+                    lengthMenu: [grvPageSizeValues, grvPageSizeLabels]
+                }
+            });
         }
 
         function saveGrievance() {

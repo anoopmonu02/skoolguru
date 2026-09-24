@@ -777,6 +777,7 @@ public class StudentService {
                 row.put("studentName", as.getStudent() != null ? as.getStudent().getStudentName() : "");
                 row.put("classSrNo", as.getClassSrNo() != null ? as.getClassSrNo() : "");
                 row.put("fatherName", as.getStudent() != null ? as.getStudent().getFatherName() : "");
+                row.put("motherName", as.getStudent() != null ? as.getStudent().getMotherName() : "");
                 row.put("mediumName", as.getMedium() != null ? as.getMedium().getMediumName() : "");
                 row.put("gradeSection", (as.getGrade() != null ? as.getGrade().getGradeName() : "")
                         + (as.getSection() != null ? " - " + as.getSection().getSectionName() : ""));

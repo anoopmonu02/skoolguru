@@ -1,6 +1,7 @@
 package com.smsweb.sms.controllers.grievance;
 
 import com.smsweb.sms.config.permission.CheckAccess;
+import com.smsweb.sms.controllers.BaseController;
 import com.smsweb.sms.models.permission.AccessType;
 import com.smsweb.sms.models.Users.UserEntity;
 import com.smsweb.sms.models.admin.School;
@@ -29,7 +30,7 @@ import org.slf4j.LoggerFactory;
 @RestController
 @RequestMapping("/grievance")
 @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN','ROLE_TEACHER','ROLE_ACCOUNTENT','ROLE_STAFF')")
-public class GrievanceController {
+public class GrievanceController extends BaseController {
     private static final Logger log = LoggerFactory.getLogger(GrievanceController.class);
     private static final String DATE_PATTERN = "dd/MMM/yyyy"; // matches flatpickr's "d/M/Y" format used app-wide
 
@@ -107,7 +108,11 @@ public class GrievanceController {
 
             Date dueDate;
             try {
-                dueDate = new SimpleDateFormat(DATE_PATTERN).parse(dueDateStr);
+                // Explicit Locale.ENGLISH so month-name parsing doesn't depend on the
+                // JVM's default locale (en_IN/en_GB render "Sept" for September instead
+                // of the "Sep" that flatpickr always sends), which was silently
+                // rejecting every valid due date as "Invalid due date format".
+                dueDate = new SimpleDateFormat(DATE_PATTERN, Locale.ENGLISH).parse(dueDateStr);
             } catch (Exception ex) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Invalid due date format"));
             }
@@ -140,7 +145,8 @@ public class GrievanceController {
             if (dueDateStr == null || dueDateStr.isBlank()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Due date is required"));
             }
-            Date dueDate = new SimpleDateFormat(DATE_PATTERN).parse(dueDateStr);
+            // Explicit Locale.ENGLISH - see the comment on the identical fix in saveGrievance() above.
+            Date dueDate = new SimpleDateFormat(DATE_PATTERN, Locale.ENGLISH).parse(dueDateStr);
             Grievance updated = grievanceService.updateDueDate(id, dueDate, school.getId());
             if (updated == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Grievance not found"));

@@ -121,6 +121,20 @@ table.list-table { border: none; }
 .list-table tbody tr:hover td { background-color: var(--body-bg) !important; }
 .list-table tbody tr:last-child td { border-bottom: none !important; }
 
+/* Totals/footer row — bold, same padding as the data rows above it (a
+   tfoot cell with no explicit padding falls back to Bootstrap's default
+   table padding, which is narrower than .list-table tbody td's 9px/14px
+   and reads as a slight misalignment against the columns above it), plus
+   a top border and tinted background to set it apart as a summary row. */
+.list-table tfoot td {
+  padding: 9px 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  background: var(--body-bg) !important;
+  border-top: 1px solid var(--border-color) !important;
+  border-bottom: none !important;
+}
+
 /* Name cell with an avatar-initials chip. */
 .list-cell { display: flex; align-items: center; gap: 10px; }
 .list-avatar {

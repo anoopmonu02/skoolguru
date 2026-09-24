@@ -8,60 +8,176 @@
 <body>
 <section>
 
+    <!-- Page-specific styling only — the table card/toolbar/export-button/
+         row/footer/pagination look lives in static/css/list-table.css
+         (shared with Student List/Employee List/Attendance List). What's
+         left here is specific to this page: the header-action button, the
+         Student cell (name + avatar, with Grade-Section | SR stacked
+         below, no separate Grade-Section column), and the confirm-popup
+         restyle. -->
+    <style>
+        .abt-btn-outline{
+            display:inline-flex; align-items:center; gap:7px;
+            padding:8px 16px;
+            border-radius:var(--radius-md);
+            border:1px solid var(--border-color);
+            background:var(--card-bg);
+            color:var(--text-primary);
+            font-size:.85rem; font-weight:600;
+            text-decoration:none;
+            transition:background var(--transition), border-color var(--transition), color var(--transition);
+        }
+        .abt-btn-outline:hover{ background:var(--accent-light); border-color:var(--accent); color:var(--accent); text-decoration:none; }
+
+        /* Merged Student Name + SR cell, avatar filled in client-side (see
+           script below) — same technique as Employee List/Student List. */
+        .abt-namecell{ display:flex; align-items:center; gap:10px; }
+        .abt-namecell .stu-avatar{ width:28px; height:28px; font-size:.66rem; flex:none; }
+        .abt-namecell-name{ font-weight:600; color:var(--text-primary); }
+
+        /* Grade-Section merged with SR, stacked below the student name in
+           the same cell — "Grade-Section | SR" — same separator look as
+           the "Name | SR No: XXXX" pattern on student-submit-attendance. */
+        .abt-gs{ font-size:.78rem; color:var(--text-muted); white-space:nowrap; margin-top:1px; }
+        .abt-gs-sep{ color:var(--border-color); margin:0 4px; }
+
+        /* Confirm-attendance action row below the table. */
+        .abt-confirm-row{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:18px; }
+
+        /* Confirm Attendance modal — centered icon-circle pattern, matching
+           the Save Attendance modal on student-submit-attendance. */
+        .abt-modal-icon{ width:52px; height:52px; border-radius:50%; background:rgba(217,119,6,.12); color:#d97706; display:flex; align-items:center; justify-content:center; font-size:1.5rem; margin:4px auto 14px; }
+        .abt-modal-title{ text-align:center; font-family:"Outfit", sans-serif; font-size:1.05rem; color:var(--text-primary); }
+        .abt-modal-text{ text-align:center; color:var(--text-muted); font-size:.86rem; margin-top:2px; }
+        .abt-modal-stats{ display:flex; justify-content:center; gap:10px; margin-top:16px; flex-wrap:wrap; }
+        .abt-stat{ background:var(--body-bg); border-radius:var(--radius-md); padding:8px 14px; text-align:center; min-width:78px; }
+        .abt-stat-val{ font-weight:700; font-size:1rem; color:var(--text-primary); }
+        .abt-stat-lbl{ font-size:.68rem; color:var(--text-muted); margin-top:2px; }
+        .abt-stat-success .abt-stat-val{ color:#16a34a; }
+        .abt-stat-danger .abt-stat-val{ color:#dc2626; }
+    </style>
+
     <div class="container-fluid px-3">
         <div class="row mt-2 ">
             <div class="col-md-12">
-                <div th:replace="~{components/ui :: page-header('Absent Students Today')}"></div>
-
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <strong>Date: </strong><span th:text="${todayDate}"></span>
-                    </div>
-                    <div class="col-md-6 text-end">
-                        <a class="btn btn-outline-secondary btn-sm" th:href="@{/student/student-attendance}"><i class="bi bi-arrow-left"></i> Back to Attendance List</a>
+                <div th:replace="~{components/ui :: list-page-header('Absent Students Today', null, ~{::abtActions})}"></div>
+                <!-- abtActions is only ever meant to render once, inside the
+                     list-page-header call above via ~{::abtActions}. See the
+                     identical comment in employee/employee.html for why this
+                     is wrapped in a plain display:none div rather than given
+                     th:remove directly. -->
+                <div style="display:none">
+                    <div th:fragment="abtActions">
+                        <a class="abt-btn-outline" th:href="@{/student/student-attendance}"><i class="bi bi-arrow-left"></i> Back to Attendance List</a>
                     </div>
                 </div>
-                <hr/>
 
-                <table th:if="${hasAbsent}" id="absent-list" class="table table-bordered table-striped table-hover table-sm">
-                    <thead>
-                        <tr>
-                            <th>SNo.</th>
-                            <th>Student Name</th>
-                            <th>SR</th>
-                            <th>Grade-Section</th>
-                            <th>Father Name</th>
-                            <th>Medium</th>
-                            <th>Contact No</th>
-                        </tr>
-                    </thead>
-                    <tbody class="table-group-divider">
-                        <tr th:each="row : ${absentList}">
-                            <td th:text="${row.sno}">1</td>
-                            <td th:text="${row.studentName}"></td>
-                            <td th:text="${row.classSrNo}"></td>
-                            <td th:text="${row.gradeSection}"></td>
-                            <td th:text="${row.fatherName}"></td>
-                            <td th:text="${row.mediumName}"></td>
-                            <td th:text="${row.contactNo}"></td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div class="mb-3">
+                    <strong>Date: </strong><span th:text="${todayDate}"></span>
+                </div>
+
+                <!-- Total/Present/Absent at a glance — same data already
+                     backing the Confirm Attendance modal below
+                     (StudentController#studentAbsentTodayForm ->
+                     getTodaysAttendanceSummary), no extra queries.
+                     .stat-tile-row/.stat-tile are shared/global, see
+                     components.css (Employee List uses the same classes). -->
+                <div class="stat-tile-row" th:if="${attendanceSummary != null}">
+                    <div class="stat-tile">
+                        <div class="stat-tile-icon" style="background:var(--accent-light);color:var(--accent)"><i class="bi bi-people-fill"></i></div>
+                        <div>
+                            <div class="stat-tile-val" th:text="${attendanceSummary.totalCount ?: 0}">0</div>
+                            <div class="stat-tile-lbl">Total Marked</div>
+                        </div>
+                    </div>
+                    <div class="stat-tile">
+                        <div class="stat-tile-icon" style="background:rgba(22,163,74,.10);color:#16a34a"><i class="bi bi-check-circle-fill"></i></div>
+                        <div>
+                            <div class="stat-tile-val" th:text="${attendanceSummary.presentCount ?: 0}">0</div>
+                            <div class="stat-tile-lbl">Present</div>
+                        </div>
+                    </div>
+                    <div class="stat-tile">
+                        <div class="stat-tile-icon" style="background:rgba(220,38,38,.10);color:#dc2626"><i class="bi bi-x-circle-fill"></i></div>
+                        <div>
+                            <div class="stat-tile-val" th:text="${attendanceSummary.absentCount ?: 0}">0</div>
+                            <div class="stat-tile-lbl">Absent</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="list-table-card" th:if="${hasAbsent}">
+                    <div class="config-list-toolbar list-page-toolbar">
+                        <div class="config-search-wrap">
+                            <i class="bi bi-search"></i>
+                            <input type="text" class="form-control form-control-sm" id="abtSearchInput"
+                                   placeholder="Search by name, SR, grade, father/mother's name…">
+                        </div>
+                        <div id="abtExportSlot" class="list-export-slot"></div>
+                    </div>
+
+                    <table class="table table-sm list-table" id="absent-list">
+                        <thead>
+                            <tr>
+                                <th>SNo.</th>
+                                <th>Student</th>
+                                <th>Father Name</th>
+                                <th>Mother Name</th>
+                                <th>Medium</th>
+                                <th>Contact No</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="row : ${absentList}">
+                                <td th:text="${row.sno}">1</td>
+                                <td>
+                                    <div class="abt-namecell">
+                                        <span class="stu-avatar abt-avatar"></span>
+                                        <div>
+                                            <div class="abt-namecell-name" th:text="${row.studentName}"></div>
+                                            <div class="abt-gs"><span th:text="${row.gradeSection}"></span><span class="abt-gs-sep">|</span><span th:text="'SR: ' + ${row.classSrNo}"></span></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td th:text="${row.fatherName}"></td>
+                                <td th:text="${row.motherName}"></td>
+                                <td th:text="${row.mediumName}"></td>
+                                <td th:text="${row.contactNo}"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Custom footer: rows-per-page + "Showing X-Y of Z" + page-number
+                         pagination — built by the shared initListDataTable() helper
+                         (static/js/list-table-init.js). -->
+                    <div class="list-table-footer">
+                        <div class="list-footer-left">
+                            <label class="list-length-label">Rows per page
+                                <select id="abtPageLength" class="list-length-select">
+                                    <option value="5">5</option>
+                                    <option value="10">10</option>
+                                    <option value="25" selected>25</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                            </label>
+                            <span id="abtPageInfo" class="list-page-info">Showing 0 of 0 students</span>
+                        </div>
+                        <div class="list-pagination" id="abtPagination"></div>
+                    </div>
+                </div>
                 <div th:if="${!hasAbsent}">
                     <div th:replace="~{components/ui :: empty-state('No absent students today.', 'bi-inbox')}"></div>
                 </div>
 
-                <hr/>
-                <div class="row mt-2">
-                    <div class="col-md-8">
-                        <button sms:access="STUDENT_ATTENDANCE_CONFIRM:EDIT" type="button" class="btn btn-primary"
-                                id="confirmAttendanceBtn" onclick="openConfirmAttendanceModal()">
-                            <i class="bi bi-check2-circle"></i> Confirm Attendance
-                        </button>
-                        <div class="mt-2 small text-muted" id="lastConfirmedNote" style="display:none;">
-                            <i class="bi bi-check-circle-fill text-success"></i>
-                            Last confirmed by <strong id="lastConfirmedBy">-</strong> at <strong id="lastConfirmedAt">-</strong>
-                        </div>
+                <div class="abt-confirm-row">
+                    <button sms:access="STUDENT_ATTENDANCE_CONFIRM:EDIT" type="button" class="btn-cta"
+                            id="confirmAttendanceBtn" onclick="openConfirmAttendanceModal()">
+                        <i class="bi bi-check2-circle"></i> Confirm Attendance
+                    </button>
+                    <div class="small text-muted" id="lastConfirmedNote" style="display:none;">
+                        <i class="bi bi-check-circle-fill text-success"></i>
+                        Last confirmed by <strong id="lastConfirmedBy">-</strong> at <strong id="lastConfirmedAt">-</strong>
                     </div>
                 </div>
             </div>
@@ -72,37 +188,39 @@
     <div class="modal fade" id="confirmAttendanceModal" tabindex="-1" aria-labelledby="confirmAttendanceModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="confirmAttendanceModalLabel"><i class="bi bi-exclamation-triangle-fill text-warning me-1"></i> Confirm Today's Attendance</h5>
+                <div class="modal-header border-0 pb-0">
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <p class="text-muted mb-3">Please review before continuing:</p>
-                    <div class="border rounded p-3 bg-light mb-3">
-                        <div class="d-flex justify-content-between align-items-center py-1">
-                            <span class="text-muted">Date</span>
-                            <span class="fw-bold" th:text="${todayDate}">-</span>
+                <div class="modal-body pt-0">
+                    <div class="abt-modal-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                    <h5 class="abt-modal-title" id="confirmAttendanceModalLabel">Confirm today's attendance?</h5>
+                    <div class="abt-modal-text">Please review before continuing.</div>
+
+                    <div class="abt-modal-stats">
+                        <div class="abt-stat">
+                            <div class="abt-stat-val" th:text="${todayDate}">-</div>
+                            <div class="abt-stat-lbl">Date</div>
                         </div>
-                        <hr class="my-1"/>
-                        <div class="d-flex justify-content-between align-items-center py-1">
-                            <span class="text-muted">Total Students Marked</span>
-                            <span class="fw-bold" th:text="${attendanceSummary != null ? attendanceSummary.totalCount : 0}">0</span>
+                        <div class="abt-stat">
+                            <div class="abt-stat-val" th:text="${attendanceSummary != null ? attendanceSummary.totalCount : 0}">0</div>
+                            <div class="abt-stat-lbl">Total Marked</div>
                         </div>
-                        <div class="d-flex justify-content-between align-items-center py-1">
-                            <span class="text-muted">Present</span>
-                            <span class="fw-bold text-success" th:text="${attendanceSummary != null ? attendanceSummary.presentCount : 0}">0</span>
+                        <div class="abt-stat abt-stat-success">
+                            <div class="abt-stat-val" th:text="${attendanceSummary != null ? attendanceSummary.presentCount : 0}">0</div>
+                            <div class="abt-stat-lbl">Present</div>
                         </div>
-                        <div class="d-flex justify-content-between align-items-center py-1">
-                            <span class="text-muted">Total Absent</span>
-                            <span class="fw-bold text-danger" th:text="${attendanceSummary != null ? attendanceSummary.absentCount : 0}">0</span>
+                        <div class="abt-stat abt-stat-danger">
+                            <div class="abt-stat-val" th:text="${attendanceSummary != null ? attendanceSummary.absentCount : 0}">0</div>
+                            <div class="abt-stat-lbl">Absent</div>
                         </div>
                     </div>
-                    <div class="alert alert-danger py-2 mb-0 small d-flex align-items-start">
+
+                    <div class="alert alert-danger py-2 mt-3 mb-0 small d-flex align-items-start">
                         <i class="bi bi-exclamation-octagon-fill me-2 mt-1"></i>
                         <span>This will make today's attendance <strong>visible to parents</strong> in the mobile app.</span>
                     </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modal-footer border-0 justify-content-center pt-0">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancel</button>
                     <button type="button" class="btn btn-success" id="confirmAttendanceSaveBtn" onclick="submitConfirmAttendance()">
                         <span class="normal-state"><i class="bi bi-check-lg"></i> Yes, Confirm</span>
@@ -120,8 +238,6 @@
         const initiallyConfirmed = /*[[${attendanceSummary != null ? attendanceSummary.alreadyConfirmed : false}]]*/ false;
         const initialConfirmedBy = /*[[${attendanceSummary != null ? attendanceSummary.confirmedByName : null}]]*/ null;
         const initialConfirmedAt = /*[[${attendanceSummary != null ? attendanceSummary.confirmedAtDisplay : null}]]*/ null;
-
-        
 
         function showLastConfirmedNote(by, at) {
             document.getElementById('lastConfirmedBy').innerText = by || '-';
@@ -165,62 +281,108 @@
                 showLastConfirmedNote(initialConfirmedBy, initialConfirmedAt);
             }
 
-            const exportColumns = [0, 1, 2, 3, 4, 5, 6];
-            const columnDefs = [{ "orderable": false, "targets": [0] }];
+            if (!$('#absent-list').length) { return; } // empty-state — nothing to wire up
 
-            $('#absent-list').DataTable({
-                layout: {
-                    bottomEnd: {
-                        paging: {
-                            firstLast: false
-                        }
-                    },
-                    top1Start: {
-                        buttons: [
-                            {
-                                extend: 'excelHtml5',
-                                text: '<i class="bi bi-file-excel-fill text-success"></i>',
-                                titleAttr: 'Excel',
-                                title: 'Absent Students Today',
-                                exportOptions: {
-                                    columns: exportColumns
-                                }
-                            },
-                            {
-                                extend: 'csvHtml5',
-                                text: '<i class="bi bi-filetype-csv text-info"></i>',
-                                titleAttr: 'CSV',
-                                title: 'Absent Students Today'
-                            },
-                            {
-                                extend: 'pdfHtml5',
-                                text: '<i class="bi bi-file-pdf-fill text-danger"></i>',
-                                titleAttr: 'PDF',
-                                title: 'Absent Students Today',
-                                exportOptions: {
-                                    columns: exportColumns
-                                }
-                            },
-                            'colvis'
-                        ]
-                    }
-                },
-                lengthMenu: [
-                    [5, 10, 25, 50, 100, -1],
-                    [5, 10, 25, 50, 100, 'All']
-                ],
-                pageLength: 25,
-                columnDefs: columnDefs
+            // Avatar-initials chip built client-side over the already
+            // server-rendered rows (this table is plain DOM rows, not
+            // ajax/serverSide), same technique as Employee List/Student
+            // List. Must run BEFORE initListDataTable() below — DataTables
+            // indexes the existing DOM rows once at construction for a
+            // non-ajax table, and only reads/reorders those same nodes
+            // afterwards, so content injected beforehand survives sort/
+            // search/paging. Only .text()/.css() are used here (never
+            // .html()), so this is safe regardless of what characters are
+            // in a student's name.
+            const abtAvatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+            const abtInitialsOf = function (name) {
+                return (name || '').trim().split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+            };
+
+            // Contact No masking — same escape/mask technique as Employee
+            // List's Mobile column (employee/employee.html). abtEscapeAttr
+            // covers & " ' < > so it is safe to interpolate into a
+            // double-quoted HTML attribute (unlike the plain escapeHtml()
+            // used on some other pages here, which only covers & < >).
+            // This is display-only masking - it hides the value on screen
+            // with a click-to-reveal eye icon, it does not stop someone
+            // reading the real value elsewhere (e.g. view-source, this
+            // page's own DOM, or the Excel/PDF export, which is why the
+            // export also only ever sees the masked text).
+            const abtEscapeAttr = function (value) {
+                return String(value == null ? '' : value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+            };
+            const abtMaskMobile = function (raw) {
+                var v = String(raw || '');
+                if (v.length <= 4) { return v; }
+                return v.slice(0, 2) + 'x'.repeat(v.length - 4) + v.slice(-2);
+            };
+            const abtMaskedCell = function (raw) {
+                if (!raw) { return ''; }
+                var full = abtEscapeAttr(raw);
+                var masked = abtEscapeAttr(abtMaskMobile(raw));
+                return '<span class="mask-cell">' +
+                    '<span class="mask-text" data-full="' + full + '" data-masked="' + masked + '">' + masked + '</span>' +
+                    '<button type="button" class="mask-toggle" title="Show"><i class="bi bi-eye"></i></button>' +
+                    '</span>';
+            };
+
+            $('#absent-list tbody tr').each(function (idx) {
+                const $avatar = $(this).find('.abt-avatar');
+                const name = $(this).find('.abt-namecell-name').text().trim();
+                const color = abtAvatarColors[idx % abtAvatarColors.length];
+                $avatar.text(abtInitialsOf(name)).css({ background: color + '22', color: color });
+
+                const $contactTd = $(this).find('td').eq(5);
+                const contact = $contactTd.text().trim();
+                $contactTd.html(abtMaskedCell(contact));
             });
-            $(".buttons-excel, .buttons-csv, .buttons-pdf").each(function() {
-                $(this).removeClass("btn-secondary");
+
+            // Mask/reveal toggle for the Contact No cell — same
+            // event-delegation pattern as Employee List's Mobile column.
+            $(document).on('click', '.mask-toggle', function () {
+                const $btn = $(this);
+                const $text = $btn.siblings('.mask-text');
+                const revealed = $text.attr('data-revealed') === 'true';
+                if (revealed) {
+                    $text.text($text.attr('data-masked')).attr('data-revealed', 'false');
+                    $btn.attr('title', 'Show').find('i').attr('class', 'bi bi-eye');
+                } else {
+                    $text.text($text.attr('data-full')).attr('data-revealed', 'true');
+                    $btn.attr('title', 'Hide').find('i').attr('class', 'bi bi-eye-slash');
+                }
+            });
+
+            // All the generic chrome (disabling DataTables' own top/bottom UI,
+            // the Excel/CSV/PDF/Print export buttons, the search box, rows-per-
+            // page select, and the "Showing X-Y of Z" + pagination footer) is
+            // handled by the shared helper — see static/js/list-table-init.js.
+            initListDataTable({
+                tableSelector: '#absent-list',
+                searchInputSelector: '#abtSearchInput',
+                exportSlotSelector: '#abtExportSlot',
+                lengthSelectSelector: '#abtPageLength',
+                pageInfoSelector: '#abtPageInfo',
+                paginationSelector: '#abtPagination',
+                itemLabel: 'students',
+                exportTitle: 'Absent Students Today',
+                exportColumns: [0, 1, 2, 3, 4, 5],
+                printHeaderText: 'Absent Students Today',
+                dtOptions: {
+                    columnDefs: [{ orderable: false, targets: [0] }]
+                }
             });
         });
     </script>
 
-  <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html
-       now loads them in <head>, so they are available before this page's
-       inline scripts run. They used to be duplicated on every page. -->
+  <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI / DataTables /
+       list-table-init tags removed: base.html now loads them in <head>
+       (page=='datatable'), so they are available before this page's inline
+       scripts run. -->
 </section>
 </body>
 </html>
