@@ -61,6 +61,7 @@
        report pages' #hr-table/#usi-table/#fuc-table conventions. */
     .fuc-table.table { border: none; width: 100%; margin-bottom: 0; }
     .fuc-table, .fuc-table th, .fuc-table td { font-size: .82rem; }
+    .fuc-table .stu-avatar { width: 22px; height: 22px; font-size: .6rem; }
     .fuc-table thead th {
       text-align: left; padding: 10px 12px; color: var(--text-muted); font-weight: 700;
       font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; background: var(--card-bg) !important;
@@ -271,6 +272,13 @@
             .replace(/'/g, '&#39;');
     }
 
+    // Avatar-initials chip shown next to the student's name (same
+    // palette/convention as Student List's .stu-avatar).
+    const avatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+    const initialsOf = function (name) {
+        return (name || '').trim().split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+    };
+
     const validateAndSubmit=()=>{
       const selectedOption = $('input[name="dateOption"]:checked').val();
       let url = "";
@@ -378,8 +386,6 @@
                     <thead>
                         <tr>
                             <th>SNo</th>
-                            <th>Grade</th>
-                            <th>SR No</th>
                             <th>Student Name</th>
                             <th>Father Name</th>
                             <th>Months</th>
@@ -429,9 +435,15 @@
                         }
                         tblData += `<tr>
                                 <td>${counter}</td>
-                                <td>${escHtml(feeSubmission.academicStudent.grade.gradeName)} - ${escHtml(feeSubmission.academicStudent.section.sectionName)}</td>
-                                <td>${escHtml(srno)}</td>
-                                <td>${escHtml(feeSubmission.academicStudent.student.studentName)}</td>
+                                <td>
+                                    <div class="stu-cell">
+                                        <div class="stu-avatar" style="background:${avatarColors[counter % avatarColors.length]}22;color:${avatarColors[counter % avatarColors.length]}">${initialsOf(feeSubmission.academicStudent.student.studentName)}</div>
+                                        <div class="stu-name-stack">
+                                            <span class="stu-name-text">${escHtml(feeSubmission.academicStudent.student.studentName)}</span>
+                                            <span class="stu-sub-text">Grade: ${escHtml(feeSubmission.academicStudent.grade.gradeName)} - ${escHtml(feeSubmission.academicStudent.section.sectionName)} &nbsp;|&nbsp; SR No.: ${escHtml(srno) || '\u2014'}</span>
+                                        </div>
+                                    </div>
+                                </td>
                                 <td>${escHtml(feeSubmission.academicStudent.student.fatherName)}</td>
                                 <td style="white-space: normal; word-break: break-word; min-width: 90px; max-width: 160px;">${escHtml(month_names)}</td>
                                 ${selectedOption === 'range' ? `<td>${escHtml(dt)}</td>` : ''}
@@ -454,7 +466,7 @@
                         onlineAmount+=feeSubmission.onlineAmount || 0;
                         counter++;
                     });
-                    const totalCols = selectedOption === 'range' ? 13 : 12;
+                    const totalCols = selectedOption === 'range' ? 11 : 10;
                     const col1 = Math.floor(totalCols / 4);
                     const col2 = Math.floor(totalCols / 4);
                     const col3 = Math.floor(totalCols / 4);
@@ -544,6 +556,16 @@
             '.aa-card-head h2 { font-size: 12px; font-weight: 700; margin: 0; }' +
             '.aa-icon { display: none; }' +
             '.fuc-meta-bar { display: flex; gap: 16px; font-size: 10px; color: #555; margin-bottom: 6px; }' +
+            // Browsers strip background colors/graphics from print/PDF output
+            // by default (to save ink) unless told otherwise - without this,
+            // the avatar-initials badge below renders as plain text with no
+            // circle/background at all in the printed and exported-PDF output.
+            '* { -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact; }' +
+            '.stu-cell { display: flex; align-items: center; gap: 6px; }' +
+            '.stu-avatar { width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 7px; font-weight: 700; flex-shrink: 0; }' +
+            '.stu-name-stack { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }' +
+            '.stu-name-text { font-size: 8px; }' +
+            '.stu-sub-text { font-size: 7px; color: #64748b; font-weight: 400; }' +
             'table { table-layout: fixed; width: 100%; border-collapse: collapse; margin-bottom: 0; }' +
             'table td, table th { white-space: normal; word-break: break-word; overflow-wrap: break-word; font-size: 8px; padding: 3px 4px; line-height: 1.25; border: 1px solid #d0d5dd; }' +
             'thead th { background: #f1f5f9; text-transform: uppercase; letter-spacing: .02em; }' +
@@ -554,7 +576,7 @@
             '.text-bg-success { background: #16a34a; }' +
             '.fuc-alert { border-radius: 6px; padding: 6px 8px; font-size: 9px; }' +
             '.fuc-alert-danger { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }' +
-            '#userwise-collection-data table td:nth-child(6), #userwise-collection-data table th:nth-child(6) { width: 15%; }' +
+            '#userwise-collection-data table td:nth-child(4), #userwise-collection-data table th:nth-child(4) { width: 15%; }' +
             '</style>'
         );
         printWindow.document.write('</head><body>');

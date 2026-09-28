@@ -121,6 +121,11 @@
                             <tr>
                                 <th>SNo.</th>
                                 <th>Student</th>
+                                <!-- Hidden in the UI (columnDefs visible:false below) — exist only so
+                                     Excel/CSV/PDF export gets Class/Section and SR No. as their OWN
+                                     columns instead of squashed into the "Student" cell's sub-line. -->
+                                <th>Class/Section</th>
+                                <th>SR No.</th>
                                 <th>Father Name</th>
                                 <th>Mother Name</th>
                                 <th>Medium</th>
@@ -139,10 +144,12 @@
                                         </div>
                                     </div>
                                 </td>
+                                <td th:text="${row.gradeSection}"></td>
+                                <td th:text="${row.classSrNo}"></td>
                                 <td th:text="${row.fatherName}"></td>
                                 <td th:text="${row.motherName}"></td>
                                 <td th:text="${row.mediumName}"></td>
-                                <td th:text="${row.contactNo}"></td>
+                                <td class="mobile-cell" th:text="${row.contactNo}"></td>
                             </tr>
                         </tbody>
                     </table>
@@ -337,7 +344,7 @@
                 const color = abtAvatarColors[idx % abtAvatarColors.length];
                 $avatar.text(abtInitialsOf(name)).css({ background: color + '22', color: color });
 
-                const $contactTd = $(this).find('td').eq(5);
+                const $contactTd = $(this).find('td.mobile-cell');
                 const contact = $contactTd.text().trim();
                 $contactTd.html(abtMaskedCell(contact));
             });
@@ -370,10 +377,37 @@
                 paginationSelector: '#abtPagination',
                 itemLabel: 'students',
                 exportTitle: 'Absent Students Today',
-                exportColumns: [0, 1, 2, 3, 4, 5],
+                exportColumns: [0, 1, 2, 3, 4, 5, 6, 7],
+                // Student cell (col 1) packs an avatar-initials badge + name + a
+                // "Grade-Section | SR: X" sub-line into one display cell. Class/
+                // Section and SR No. already get their own hidden export columns
+                // (2 and 3 above), so Excel/CSV/PDF should show ONLY the
+                // student's name here, not the avatar markup or a second copy
+                // of the sub-line text.
+                // Contact No (col 7) is built as a .mask-cell widget above,
+                // BEFORE this call. Without this, DataTables' default export
+                // would fall back to whatever plain text is visible in that
+                // cell (the masked text) - export should show the REAL
+                // number instead: masking is a screen-glance protection,
+                // not an export permission; who can export this page is
+                // controlled separately, not by which value is shown here.
+                // Print is untouched - it clones the live table DOM as-is.
+                exportBodyFormat: function (data, row, column, node) {
+                    const $maskText = $(node).find('.mask-text').first();
+                    if ($maskText.length) {
+                        return $maskText.attr('data-full') || '';
+                    }
+                    if (column === 1) {
+                        return $(node).find('.abt-namecell-name').first().text().trim();
+                    }
+                    return data;
+                },
                 printHeaderText: 'Absent Students Today',
                 dtOptions: {
-                    columnDefs: [{ orderable: false, targets: [0] }]
+                    columnDefs: [
+                        { orderable: false, targets: [0] },
+                        { visible: false, targets: [2, 3] }
+                    ]
                 }
             });
         });

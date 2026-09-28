@@ -20,9 +20,10 @@
 
         <div class="row">
             <div class="col-md-3">
-                <button class="btn btn-success" onclick="printDiv('contentToExport','balance-receipt')">
-                    <i class="bi bi-printer-fill"></i> Print
-                </button>
+                <div class="d-flex gap-2" role="group" aria-label="Receipt actions">
+                    <button class="btn btn-success" id="printreceipt" title="Print" aria-label="Print"><i class="bi bi-printer-fill"></i></button>
+                    <button class="btn btn-danger" id="downloadreceiptpdf" title="Download PDF" aria-label="Download PDF"><i class="bi bi-file-earmark-pdf"></i></button>
+                </div>
             </div>
             <div class="col-md-3">
                 <a class="btn btn-outline-secondary btn-sm" th:href="@{/fees/collect-balance}">
@@ -37,125 +38,60 @@
                     <h5 class="card-header">Balance Payment Receipt</h5>
                     <div class="card-body" id="contentToExport">
 
-                        <!-- School Header -->
-                        <div class="text-center"><strong th:text="${school['schoolName']?.toUpperCase()}"></strong></div>
-                        <div class="text-center"><strong th:text="${school['address']?.toUpperCase()}"></strong></div>
-                        <div class="text-center">
-                            <strong>CONTACT NO: (+91) <span th:text="${school['mobile1']}"></span>
-                            <span th:if="${school['mobile2'] != null and school['mobile2'] != ''}">
-                                , <span th:text="${school['mobile2']}"></span>
-                            </span></strong>
+                        <div class="rn-header">
+                          <div class="rn-qr" id="rnQr" aria-hidden="true"></div>
+                          <h1 th:text="${school['schoolName']?.toUpperCase()}"></h1>
+                          <p class="rn-addr" th:text="${school['address']?.toUpperCase()}"></p>
+                          <p class="rn-contact">
+                            Contact No: (+91) [[${school['mobile1']}]]<span th:if="${school['mobile2'] != null and school['mobile2'] != ''}">, [[${school['mobile2']}]]</span>
+                            <span th:if="${school['email'] != null and school['email'] != ''}">&nbsp;|&nbsp; Email: [[${school['email']}]]</span>
+                          </p>
                         </div>
-                        <div class="text-center" th:if="${school['email'] != null and school['email'] != ''}">
-                            <strong>Email: <span th:text="${school['email']}"></span></strong>
-                        </div>
-                        <hr/>
+                        <div class="rn-title-strip">Balance Payment Receipt</div>
 
-                        <!-- Receipt Meta Row -->
-                        <div class="row">
-                            <div class="col-md-6">
-                                <label class="col-md-4 col-form-label"><strong>Academic Year: </strong></label>
-                                <label class="col-md-5 col-form-label" th:text="${academicYear}"></label>
+                        <div class="rn-info-block">
+                          <div class="rn-info-line">
+                            <div class="rn-field"><span class="rn-k">Receipt No.</span><span class="rn-v" th:text="${feeSubmission['receiptNo']}"></span></div>
+                            <div class="rn-field"><span class="rn-k">Academic Year</span><span class="rn-v" th:text="${academicYear}"></span></div>
+                            <div class="rn-field">
+                              <span class="rn-k">Payment Mode</span>
+                              <span class="rn-v" th:text="${feeSubmission['paymentDisplay']}"
+                                    th:style="${feeSubmission['paymentDisplay'] != null and #strings.contains(feeSubmission['paymentDisplay'], '+')} ? 'font-size:8.5px;' : ''"></span>
                             </div>
-                            <div class="col-md-6">
-                                <label class="col-md-2"></label>
-                                <label class="col-md-4 col-form-label"><strong>Submission Date: </strong></label>
-                                <label class="col-md-5 col-form-label"
-                                       th:text="${#dates.format(feeSubmission['feeSubmissionDate'],'dd-MMM-yyyy HH:mm:ss')}"></label>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="col-md-4 col-form-label"><strong>Receipt No: </strong></label>
-                                <label class="col-md-5 col-form-label" th:text="${feeSubmission['receiptNo']}"></label>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="col-md-2"></label>
-                                <label class="col-md-4 col-form-label"><strong>Payment: </strong></label>
-                                <label class="col-md-5 col-form-label" th:text="${feeSubmission['paymentDisplay']}"
-                                       th:style="${feeSubmission['paymentDisplay'] != null and #strings.contains(feeSubmission['paymentDisplay'], '+')} ? 'font-size:0.78rem;' : ''"></label>
-                            </div>
-                        </div>
-                        <hr/>
-
-                        <!-- Student Detail Row -->
-                        <div class="row">
-                            <div class="col-md-6">
-                                <label class="col-md-4 col-form-label"><strong>Student Name: </strong></label>
-                                <label class="col-md-5 col-form-label" th:text="${student['studentName']}"></label>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="col-md-1"></label>
-                                <label class="col-md-4 col-form-label"><strong>Class: </strong></label>
-                                <label class="col-md-4 col-form-label"
-                                       th:text="${student['grade'] + '-' + student['section']}"></label>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="col-md-4 col-form-label"><strong>Father Name: </strong></label>
-                                <label class="col-md-5 col-form-label" th:text="${student['fatherName']}"></label>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="col-md-1"></label>
-                                <label class="col-md-4 col-form-label"><strong>SR No: </strong></label>
-                                <label class="col-md-4 col-form-label" th:text="${student['classSrNo']}"></label>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="col-md-4 col-form-label"><strong>Mother Name: </strong></label>
-                                <label class="col-md-5 col-form-label" th:text="${student['motherName']}"></label>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="col-md-1"></label>
-                                <label class="col-md-4 col-form-label"><strong>Contact No: </strong></label>
-                                <label class="col-md-5 col-form-label"
-                                       th:text="'(+91) ' + ${student['mobile1']}"></label>
-                            </div>
-                        </div>
-                        <hr/>
-
-                        <!-- Remark -->
-                        <div class="row amountdetails">
-                            <div class="col-md-4"></div>
-                            <div class="col-md-8">
-                                <strong>Remark: </strong>
-                                <span th:text="${feeSubmission['feeRemark']}"></span>
-                            </div>
-                        </div>
-                        <hr/>
-
-                        <!-- Previous Balance (pending balance being collected) -->
-                        <th:block th:if="${feeSubmission['previousFeeBalanceRemark'] != null
-                                          and feeSubmission['previousFeeBalanceRemark'].toString().trim() != ''
-                                          and feeSubmission['previousFeeBalanceRemark'].toString().trim() != '0'}">
-                            <div class="row">
-                                <div class="col-md-4"></div>
-                                <div class="col-md-4"><strong>Previous Balance: </strong></div>
-                                <div class="col-md-4 text-end"
-                                     <!-- NOT a currency value: previousFeeBalanceRemark is a String (can be "") -->
-                                th:text="'&#8377; ' + ${feeSubmission['previousFeeBalanceRemark']}"></div>
-                            </div>
-                            <hr/>
-                        </th:block>
-
-                        <!-- Amounts -->
-                        <div class="row">
-                            <div class="col-md-4"></div>
-                            <div class="col-md-4"><strong>Total Amount: </strong></div>
-                            <div class="col-md-4 text-end"
-                                 th:text="${@money.rupees(feeSubmission['totalAmount'])}"></div>
-
-                            <div class="col-md-4"></div>
-                            <div class="col-md-4"><strong>Paid Amount: </strong></div>
-                            <div class="col-md-4 text-end"
-                                 th:text="${@money.rupees(feeSubmission['paidAmount'])}"></div>
-
-                            <div class="col-md-4"></div>
-                            <div class="col-md-4"><strong>Balance Amount: </strong></div>
-                            <div class="col-md-4 text-end"
-                                 th:text="${@money.rupees(feeSubmission['balanceAmount'])}"></div>
+                          </div>
+                          <div class="rn-info-line">
+                            <div class="rn-field"><span class="rn-k">Student Name</span><span class="rn-v" th:text="${student['studentName']}"></span></div>
+                            <div class="rn-field"><span class="rn-k">Submission Date</span><span class="rn-v" th:text="${#dates.format(feeSubmission['feeSubmissionDate'],'dd-MMM-yyyy HH:mm:ss')}"></span></div>
+                          </div>
+                          <div class="rn-info-line">
+                            <div class="rn-field"><span class="rn-k">Father's Name</span><span class="rn-v" th:text="${student['fatherName']}"></span></div>
+                            <div class="rn-field"><span class="rn-k">Mother's Name</span><span class="rn-v" th:text="${student['motherName']}"></span></div>
+                          </div>
+                          <div class="rn-info-line">
+                            <div class="rn-field"><span class="rn-k">Class</span><span class="rn-v" th:text="${student['grade'] + '-' + student['section']}"></span></div>
+                            <div class="rn-field"><span class="rn-k">SR No.</span><span class="rn-v" th:text="${student['classSrNo']}"></span></div>
+                            <div class="rn-field"><span class="rn-k">Contact No.</span><span class="rn-v" th:text="'(+91) ' + ${student['mobile1']}"></span></div>
+                          </div>
                         </div>
 
-                        <br/><br/>
-                        <div class="row mb-3">
-                            <div class="col-md-12 text-end">(Authorized Signatory)</div>
+                        <div class="rn-remark-line" th:if="${feeSubmission['feeRemark'] != null and feeSubmission['feeRemark'] != ''}">
+                          <b>Remark:</b> <span th:text="${feeSubmission['feeRemark']}"></span>
                         </div>
+
+                        <div class="rn-totals">
+                          <table>
+                            <tr><td>Total Amount</td><td class="rn-v" th:text="${@money.rupees(feeSubmission['totalAmount'])}"></td></tr>
+                            <tr><td>Paid Amount</td><td class="rn-v" th:text="${@money.rupees(feeSubmission['paidAmount'])}"></td></tr>
+                            <tr class="rn-final"><td>Balance Amount</td><td class="rn-v" th:text="${@money.rupees(feeSubmission['balanceAmount'])}"></td></tr>
+                          </table>
+                        </div>
+                        <div class="rn-paid-badge"
+                             th:if="${feeSubmission['balanceAmount'] != null and feeSubmission['balanceAmount'].compareTo(T(java.math.BigDecimal).ZERO) &lt;= 0}">
+                          &#10003; FULLY PAID
+                        </div>
+
+                        <div class="rn-sign-row"><div class="rn-sign-box">Authorized Signatory</div></div>
+                        <div class="rn-footnote">Computer generated receipt &mdash; no signature required for validity.</div>
 
                     </div><!-- /card-body -->
                 </div><!-- /card -->
@@ -168,7 +104,56 @@
     </div>
   </div>
 
+  <style>
+    /* "Neo" receipt look — same styling family as fees/receipt-neo.html's own
+       #contentToExport, ported here for the Balance Payment Receipt so every
+       receipt type in the app reads as one family. Scoped to #contentToExport,
+       not a wrapper class - deliberate, same reason as receipt-neo.html:
+       printThis's clone of #contentToExport into the print iframe drops its
+       ANCESTORS, so a rule rooted on some outer wrapper class would never
+       match there even though it works on-screen. Every selector is prefixed
+       .rn- so it can't collide with the rest of this page/app's CSS. Two
+       classes here (.rn-remark-line, .rn-paid-badge) are new - this receipt's
+       data (Remark + a simple Total/Paid/Balance, no fee breakup table or
+       month grid) is simpler than the main Fee Receipt's. */
+    #contentToExport{ font-family: Georgia, 'Times New Roman', serif; color:#000; }
+    #contentToExport .rn-header{ text-align:center; padding-bottom:6px; border-bottom:2px double #000; position:relative; }
+    #contentToExport .rn-qr{ position:absolute; top:0; right:0; width:52px; height:52px; }
+    #contentToExport .rn-qr img{ width:100%; height:100%; display:block; }
+    #contentToExport .rn-header h1{ margin:0; font-size:18px; letter-spacing:.6px; }
+    #contentToExport .rn-addr{ margin:3px 0 0; font-size:10px; color:#444; font-family:Arial,sans-serif; }
+    #contentToExport .rn-contact{ margin:2px 0 0; font-size:10px; color:#444; font-family:Arial,sans-serif; }
+    #contentToExport .rn-title-strip{ text-align:center; margin:8px 0 6px; font-family:Arial,sans-serif; font-size:10.5px; font-weight:bold; letter-spacing:1.6px; text-transform:uppercase; color:#444; }
+
+    #contentToExport .rn-info-block{ margin:8px 0 12px; }
+    #contentToExport .rn-info-line{ display:flex; gap:16px; margin-bottom:4px; font-family:Arial,sans-serif; font-size:10.5px; flex-wrap:wrap; }
+    #contentToExport .rn-field{ flex:1; display:flex; gap:5px; min-width:0; }
+    #contentToExport .rn-k{ color:#444; white-space:nowrap; }
+    #contentToExport .rn-v{ font-weight:bold; border-bottom:1px dotted #bbb; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    #contentToExport .rn-remark-line{ font-family:Arial,sans-serif; font-size:10.5px; color:#444; margin:10px 0; padding:8px 11px; background:#f8f8f6; border:1px solid #e5e5e0; border-radius:4px; }
+    #contentToExport .rn-remark-line b{ color:#000; }
+
+    #contentToExport .rn-totals{ font-family:Arial,sans-serif; font-size:10.5px; margin-top:12px; width:100%; }
+    #contentToExport .rn-totals table{ width:100%; border-collapse:collapse; }
+    #contentToExport .rn-totals td{ padding:4px 0; }
+    #contentToExport .rn-totals td.rn-v{ text-align:right; font-variant-numeric:tabular-nums; }
+    #contentToExport .rn-totals tr.rn-final td{ border-top:1.2px solid #000; padding-top:7px; font-weight:bold; font-size:12px; }
+
+    #contentToExport .rn-paid-badge{ display:inline-block; margin-top:9px; font-family:Arial,sans-serif; font-size:9.5px; font-weight:bold; letter-spacing:.5px; background:#e8f7ee; color:#16803d; border:1px solid #b8e6c8; border-radius:20px; padding:3.5px 11px; }
+
+    #contentToExport .rn-sign-row{ display:flex; justify-content:flex-end; margin-top:24px; font-family:Arial,sans-serif; font-size:10px; }
+    #contentToExport .rn-sign-box{ width:170px; text-align:center; padding-top:4px; color:#444; }
+    #contentToExport .rn-footnote{ text-align:center; margin-top:12px; font-family:Arial,sans-serif; font-size:9px; color:#666; }
+  </style>
+
   <link type="text/css" rel="stylesheet" th:href="@{/css/toastr.min.css}"/>
+
+    <script th:src="@{/js/printThis.js}"></script>
+    <script th:src="@{/js/html2canvas.min.js}"></script>
+    <script th:src="@{/js/jspdf.umd.min.js}"></script>
+    <script th:src="@{/js/print-utils.js}"></script>
+    <script th:src="@{/js/qrcode.js}"></script>
 
   <script type="text/javascript" th:inline="javascript">
     const successMessage = /*[[${success}]]*/ null;
@@ -186,18 +171,46 @@
         toastr[type](msg, header);
     }
 
-    function printDiv(divId, title) {
-        let mywindow = window.open('', 'PRINT', 'height=650,width=900,top=100,left=150');
-        if (!mywindow) { alert('Popup blocked! Please allow popups for this site.'); return; }
-        mywindow.document.write('<html><head><title>' + title + '</title>');
-        mywindow.document.write('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous"/>');
-        mywindow.document.write('</head><body>');
-        mywindow.document.write(document.getElementById(divId).innerHTML);
-        mywindow.document.write('</body></html>');
-        mywindow.document.close();
-        mywindow.focus();
-        setTimeout(function() { mywindow.print(); mywindow.close(); }, 1000);
-    }
+    // Print and PDF-export both go through SmsPrintUtils (see /js/print-utils.js),
+    // same as fees/receipt.html and fees/receipt-neo.html - printThis.js for Print,
+    // html2canvas+jsPDF for a real PDF download - replacing the old printDiv()
+    // window.open()+hardcoded-CDN approach so this page no longer depends on any
+    // CDN, and the output matches the on-screen design exactly. Same known
+    // limitation as those pages: Download PDF rasterizes #contentToExport onto a
+    // single fixed PDF page and does not look at @media print rules.
+    window.addEventListener('DOMContentLoaded', function () {
+        var receiptNo = /*[[${feeSubmission != null ? feeSubmission['receiptNo'] : null}]]*/ 'receipt';
+
+        try {
+            var rnQr = document.getElementById('rnQr');
+            if (rnQr && typeof qrcode === 'function') {
+                var qr = qrcode(0, 'M');
+                qr.addData(window.location.href);
+                qr.make();
+                // Render at 3x the on-screen box size for a crisp downscale, then let CSS
+                // (above) shrink the <img> to the actual 52px display size.
+                var qrTargetPx = 52, qrRenderScale = 3, qrMarginModules = 2;
+                var qrModuleCount = qr.getModuleCount();
+                var qrCellSize = Math.max(1, Math.floor((qrTargetPx * qrRenderScale) / (qrModuleCount + qrMarginModules * 2)));
+                rnQr.innerHTML = qr.createImgTag(qrCellSize, qrMarginModules * qrCellSize);
+                var qrImg = rnQr.querySelector('img');
+                if (qrImg) {
+                    qrImg.style.width = '100%';
+                    qrImg.style.height = '100%';
+                    qrImg.style.display = 'block';
+                }
+            }
+        } catch (qrErr) {
+            console.error('QR code generation failed', qrErr);
+        }
+
+        document.getElementById('printreceipt').addEventListener('click', function () {
+            SmsPrintUtils.printElement('contentToExport', 'Balance Receipt - ' + receiptNo);
+        });
+        document.getElementById('downloadreceiptpdf').addEventListener('click', function () {
+            SmsPrintUtils.downloadElementAsPdf('contentToExport', 'Balance-Receipt-' + receiptNo + '.pdf');
+        });
+    });
   </script>
 
   <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html

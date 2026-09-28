@@ -199,16 +199,31 @@
         margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
     }
     .chart-legend {
-        display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;
+        display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0;
     }
     .legend-item {
-        display: flex; align-items: center; gap: 5px;
+        display: flex; align-items: center; gap: 6px;
         font-size: 11px; color: var(--text-muted);
     }
     .legend-dot {
         width: 8px; height: 8px; border-radius: 2px;
         display: inline-block; flex-shrink: 0;
     }
+
+    /* Donut chart (left) + legend column (right), values right-aligned */
+    .donut-wrap {
+        display: flex; align-items: center; gap: 14px; min-width: 0;
+    }
+    .donut-canvas-box {
+        position: relative; width: 108px; height: 108px; flex: none;
+    }
+
+    /* Grid-blowout fix: without this, a grid item's default min-width:auto
+       lets un-shrinkable content (long titles, legend text) force the whole
+       row wider than its container — which is what pushed the last Insights
+       card off-screen when the sidebar left less room than the viewport
+       alone would suggest. min-width:0 lets each cell shrink/wrap instead. */
+    .qa-row > div, .insights-row > div { min-width: 0; }
 
     /* ── Info panels (holidays / birthdays / absent) ─────────────── */
     .info-panel {
@@ -270,6 +285,25 @@
         font-size: 9.5px; color: var(--text-muted); white-space: nowrap;
         text-transform: uppercase; letter-spacing: .06em;
     }
+
+    /* ── Quick Actions: single row of 6 (responsive) ─────────────── */
+    .qa-row {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 1rem; margin-bottom: 1.5rem;
+    }
+
+    /* ── Insights: 5 chart cards — reflow by actual available width
+         (auto-fit), not viewport width, since the sidebar changes how
+         much real space the row has independent of window size ──── */
+    .insights-row {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem; margin-bottom: 1.5rem;
+    }
+
+    /* Readable legend values — bump size, show real count next to each label */
+    .legend-item { font-size: 12px; }
+    .legend-dot { width: 9px; height: 9px; }
+    .legend-val { font-weight: 700; color: var(--text-primary); margin-left: auto; padding-left: 10px; }
 
 </style>
 
@@ -355,15 +389,15 @@
     </div>
 
     <!-- ══════════════════════════════════════════════════════════
-         ROW 2 — QUICK ACTIONS (3×2, full width)
+         ROW 2 — QUICK ACTIONS (single row, 6 actions)
     ══════════════════════════════════════════════════════════════ -->
     <div class="dash-section-hd">
         <i class="bi bi-lightning-charge-fill" style="color:#f59e0b;" aria-hidden="true"></i>
         Quick Actions
     </div>
-    <div class="row g-3 mb-4">
+    <div class="qa-row">
 
-        <div class="col-md-4 col-sm-6">
+        <div>
             <a th:href="@{/student/student}" class="action-card">
                 <div class="action-icon" style="background:#eef2ff; color:#4f46e5;">
                     <i class="bi bi-people-fill" aria-hidden="true"></i>
@@ -376,7 +410,7 @@
             </a>
         </div>
 
-        <div class="col-md-4 col-sm-6">
+        <div>
             <a th:href="@{/fees/fee-submit-form}" class="action-card">
                 <div class="action-icon" style="background:#fef3c7; color:#d97706;">
                     <i class="bi bi-receipt-cutoff" aria-hidden="true"></i>
@@ -389,7 +423,7 @@
             </a>
         </div>
 
-        <div class="col-md-4 col-sm-6">
+        <div>
             <a th:href="@{/message/sendMessage}" class="action-card">
                 <div class="action-icon" style="background:#f0fdf4; color:#16a34a;">
                     <i class="bi bi-chat-dots-fill" aria-hidden="true"></i>
@@ -402,7 +436,7 @@
             </a>
         </div>
 
-        <div class="col-md-4 col-sm-6">
+        <div>
             <a th:href="@{/student/look-up-student}" class="action-card">
                 <div class="action-icon" style="background:#fff1f2; color:#e11d48;">
                     <i class="bi bi-search" aria-hidden="true"></i>
@@ -415,7 +449,7 @@
             </a>
         </div>
 
-        <div class="col-md-4 col-sm-6">
+        <div>
             <a th:href="@{/fees/fees-user-wise-collection}" class="action-card">
                 <div class="action-icon" style="background:#f5f3ff; color:#7c3aed;">
                     <i class="bi bi-bar-chart-fill" aria-hidden="true"></i>
@@ -428,7 +462,7 @@
             </a>
         </div>
 
-        <div class="col-md-4 col-sm-6">
+        <div>
             <a th:href="@{/student/student-attendance}" class="action-card">
                 <div class="action-icon" style="background:#fff7ed; color:#ea580c;">
                     <i class="bi bi-person-check-fill" aria-hidden="true"></i>
@@ -485,101 +519,136 @@
     </div>
 
     <!-- ══════════════════════════════════════════════════════════
-         ROW 3 — INSIGHTS (4 doughnut charts)
+         ROW 3 — INSIGHTS (5 doughnut charts)
     ══════════════════════════════════════════════════════════════ -->
     <div class="dash-section-hd">
         <i class="bi bi-graph-up" style="color:#6366f1;" aria-hidden="true"></i>
         Insights
     </div>
-    <div class="row g-3 mb-4">
+    <div class="insights-row">
 
         <!-- Aadhaar chart -->
-        <div class="col-xl-3 col-md-6">
+        <div>
             <div class="chart-card">
                 <div class="chart-card-title">
                     <i class="bi bi-card-text" style="color:#059669;" aria-hidden="true"></i>
                     Aadhaar Coverage
                 </div>
-                <div style="position:relative; height:160px;">
-                    <canvas id="aadharChart" role="img"
-                            aria-label="Doughnut chart showing Aadhaar linkage percentage for students"></canvas>
-                </div>
-                <div class="chart-legend">
-                    <span class="legend-item">
-                        <span class="legend-dot" style="background:#10b981;"></span> Linked
+                <div class="donut-wrap">
+                    <div class="donut-canvas-box">
+                        <canvas id="aadharChart" role="img"
+                                aria-label="Doughnut chart showing Aadhaar linkage percentage for students"></canvas>
+                    </div>
+                    <div class="chart-legend">
+                        <span class="legend-item">
+                        <span class="legend-dot" style="background:#10b981;"></span> Linked <span class="legend-val" th:text="${totalAadhaar}">0</span>
                     </span>
                     <span class="legend-item">
-                        <span class="legend-dot" style="background:#e2e8f0;"></span> Not linked
+                        <span class="legend-dot" style="background:#e2e8f0;"></span> Not linked <span class="legend-val" th:text="${totalStudents - totalAadhaar}">0</span>
                     </span>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Attendance chart -->
-        <div class="col-xl-3 col-md-6">
+        <div>
             <div class="chart-card">
                 <div class="chart-card-title">
                     <i class="bi bi-person-check-fill" style="color:#6366f1;" aria-hidden="true"></i>
                     Today's Attendance
                 </div>
-                <div style="position:relative; height:160px;">
-                    <canvas id="attendanceChart" role="img"
-                            aria-label="Doughnut chart showing present vs absent students today"></canvas>
-                </div>
-                <div class="chart-legend">
-                    <span class="legend-item">
-                        <span class="legend-dot" style="background:#6366f1;"></span> Present
+                <div class="donut-wrap">
+                    <div class="donut-canvas-box">
+                        <canvas id="attendanceChart" role="img"
+                                aria-label="Doughnut chart showing present vs absent students today"></canvas>
+                    </div>
+                    <div class="chart-legend">
+                        <span class="legend-item">
+                        <span class="legend-dot" style="background:#6366f1;"></span> Present <span class="legend-val" th:text="${totalPresent}">0</span>
                     </span>
                     <span class="legend-item">
-                        <span class="legend-dot" style="background:#fca5a5;"></span> Absent
+                        <span class="legend-dot" style="background:#fca5a5;"></span> Absent <span class="legend-val" th:text="${totalAbsent}">0</span>
                     </span>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Absent gender-wise chart -->
-        <div class="col-xl-3 col-md-6">
+        <div>
             <div class="chart-card">
                 <div class="chart-card-title">
                     <i class="bi bi-gender-ambiguous" style="color:#d97706;" aria-hidden="true"></i>
                     Absent by Gender
                 </div>
-                <div style="position:relative; height:160px;">
-                    <canvas id="attendanceGenderChart" role="img"
-                            aria-label="Doughnut chart showing today's absent students split by gender"></canvas>
-                </div>
-                <div class="chart-legend">
-                    <span class="legend-item">
-                        <span class="legend-dot" style="background:#3b82f6;"></span> Boys
+                <div class="donut-wrap">
+                    <div class="donut-canvas-box">
+                        <canvas id="attendanceGenderChart" role="img"
+                                aria-label="Doughnut chart showing today's absent students split by gender"></canvas>
+                    </div>
+                    <div class="chart-legend">
+                        <span class="legend-item">
+                        <span class="legend-dot" style="background:#3b82f6;"></span> Boys <span class="legend-val" th:text="${totalBoysAbsentCount}">0</span>
                     </span>
                     <span class="legend-item">
-                        <span class="legend-dot" style="background:#ec4899;"></span> Girls
+                        <span class="legend-dot" style="background:#ec4899;"></span> Girls <span class="legend-val" th:text="${totalGirlsAbsentCount}">0</span>
                     </span>
                     <span class="legend-item">
-                        <span class="legend-dot" style="background:#94a3b8;"></span> NP
+                        <span class="legend-dot" style="background:#94a3b8;"></span> NP <span class="legend-val" th:text="${totalNPAbsentCount}">0</span>
                     </span>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- SR Number chart -->
-        <div class="col-xl-3 col-md-6">
+        <div>
             <div class="chart-card">
                 <div class="chart-card-title">
                     <i class="bi bi-file-earmark-check-fill" style="color:#7c3aed;" aria-hidden="true"></i>
                     SR Number Status
                 </div>
-                <div style="position:relative; height:160px;">
-                    <canvas id="srChart" role="img"
-                            aria-label="Doughnut chart showing SR number assignment completion"></canvas>
+                <div class="donut-wrap">
+                    <div class="donut-canvas-box">
+                        <canvas id="srChart" role="img"
+                                aria-label="Doughnut chart showing SR number assignment completion"></canvas>
+                    </div>
+                    <div class="chart-legend">
+                        <span class="legend-item">
+                        <span class="legend-dot" style="background:#8b5cf6;"></span> Assigned <span class="legend-val" th:text="${totalSR}">0</span>
+                    </span>
+                    <span class="legend-item">
+                        <span class="legend-dot" style="background:#ede9fe;"></span> Pending <span class="legend-val" th:text="${totalStudents - totalSR}">0</span>
+                    </span>
+                    </div>
                 </div>
-                <div class="chart-legend">
-                    <span class="legend-item">
-                        <span class="legend-dot" style="background:#8b5cf6;"></span> Assigned
+            </div>
+        </div>
+
+        <!-- Gender Ratio chart -->
+        <div>
+            <div class="chart-card">
+                <div class="chart-card-title">
+                    <i class="bi bi-gender-ambiguous" style="color:#4338ca;" aria-hidden="true"></i>
+                    Gender Ratio
+                </div>
+                <div class="donut-wrap">
+                    <div class="donut-canvas-box">
+                        <canvas id="genderRatioChart" role="img"
+                                aria-label="Doughnut chart showing overall student gender distribution"></canvas>
+                    </div>
+                    <div class="chart-legend">
+                        <span class="legend-item">
+                        <span class="legend-dot" style="background:#3b82f6;"></span> Boys <span class="legend-val" th:text="${totalBoysCount}">0</span>
                     </span>
                     <span class="legend-item">
-                        <span class="legend-dot" style="background:#ede9fe;"></span> Pending
+                        <span class="legend-dot" style="background:#ec4899;"></span> Girls <span class="legend-val" th:text="${totalGirlsCount}">0</span>
                     </span>
+                    <span class="legend-item">
+                        <span class="legend-dot" style="background:#94a3b8;"></span> NP <span class="legend-val" th:text="${totalNPCount}">0</span>
+                    </span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -794,6 +863,9 @@
     const boysAbsent     = /*[[${totalBoysAbsentCount}]]*/ 0;
     const girlsAbsent    = /*[[${totalGirlsAbsentCount}]]*/ 0;
     const npAbsent       = /*[[${totalNPAbsentCount}]]*/ 0;
+    const totalBoysCountJs  = /*[[${totalBoysCount}]]*/ 0;
+    const totalGirlsCountJs = /*[[${totalGirlsCount}]]*/ 0;
+    const totalNPCountJs    = /*[[${totalNPCount}]]*/ 0;
 
     /* ── Chart helpers ──────────────────────────────────────────── */
     function pct(n, total) {
@@ -871,6 +943,18 @@
             ['Assigned', 'Pending'],
             [pct(totalSR, totalStudents), pct(totalStudents - totalSR, totalStudents)],
             ['#8b5cf6', '#ede9fe']
+        );
+
+        /* Gender Ratio (overall) */
+        makeDonut(
+            'genderRatioChart',
+            ['Boys', 'Girls', 'No preference'],
+            [
+                pct(totalBoysCountJs, totalStudents),
+                pct(totalGirlsCountJs, totalStudents),
+                pct(totalNPCountJs, totalStudents)
+            ],
+            ['#3b82f6', '#ec4899', '#94a3b8']
         );
 
         /* Attendance Trend — last 7 days line chart */

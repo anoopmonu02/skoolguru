@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sms="http://www.smsweb.com/thymeleaf" th:replace="~{base::Layout(~{::section})}">
+<head>
+  <meta charset="UTF-8">
+  <title>UAIC - Student</title>
+</head>
+<body>
+<section>
+
+  <div class="container-fluid px-3">
+    <div class="row mt-2 ">
+      <div class="col-md-12">
+
+        <div class="card-header fs-3">Fee Receipt (New Layout) <span th:if="${studentError == null}"> - [[${student.student.studentName}]]</span></div>
+        <div th:if="${studentError!=null}">
+          <div th:replace="~{components/ui :: empty-state('No Student found.', 'bi-inbox')}"></div>
+        </div>
+        <hr/>
+        <div class="row">
+            <div class="col-md-3">
+                <div class="d-flex gap-2" role="group" aria-label="Receipt actions">
+                    <button class="btn btn-success" id="printreceipt" data-div-id="contentToExport" title="Print" aria-label="Print"><i class="bi bi-printer-fill"></i></button>
+                    <button class="btn btn-danger" id="downloadreceiptpdf" data-div-id="contentToExport" title="Download PDF" aria-label="Download PDF"><i class="bi bi-file-earmark-pdf"></i></button>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <a class="btn btn-outline-secondary btn-sm" th:href="@{/fees/fee-submit-form-neo}"><i class="bi bi-arrow-left"></i> Back to Fee Submission</a>
+            </div>
+
+        </div>
+
+
+        <div class="row mt-4">
+            <div class="col-sm-8">
+                <div class="card">
+                    <h5 class="card-header">Fee Receipt</h5>
+                    <div class="card-body" id="contentToExport">
+                        <input type="hidden" id="feeid" th:value="${feeSubmission.id}">
+
+                        <div class="rn-header">
+                          <div class="rn-qr" id="rnQr" aria-hidden="true"></div>
+                          <h1 th:text="${school.schoolName?.toUpperCase()}"></h1>
+                          <p class="rn-addr" th:text="${school.address?.toUpperCase()}"></p>
+                          <p class="rn-contact">
+                            Contact No: (+91) [[${school.mobile1}]]<span th:if="${school.mobile2 != null and school.mobile2 != ''}">, [[${school.mobile2}]]</span>
+                            <span th:if="${school.email != null and school.email != ''}">&nbsp;|&nbsp; Email: [[${school.email}]]</span>
+                          </p>
+                        </div>
+                        <div class="rn-title-strip">Fee Payment Receipt</div>
+
+                        <div class="rn-info-block">
+                          <div class="rn-info-line">
+                            <div class="rn-field"><span class="rn-k">Receipt No.</span><span class="rn-v" th:text="${feeSubmission.receiptNo}"></span></div>
+                            <div class="rn-field"><span class="rn-k">Academic Year</span><span class="rn-v" th:text="${academicYear}"></span></div>
+                            <div class="rn-field">
+                              <span class="rn-k">Payment Mode</span>
+                              <span class="rn-v" th:text="${feeSubmission.paymentDisplay}"
+                                    th:style="${feeSubmission.paymentDisplay != null and #strings.contains(feeSubmission.paymentDisplay, '+')} ? 'font-size:8.5px;' : ''"></span>
+                            </div>
+                          </div>
+                          <div class="rn-info-line">
+                            <div class="rn-field"><span class="rn-k">Student Name</span><span class="rn-v" th:text="${student.student.studentName}"></span></div>
+                            <div class="rn-field"><span class="rn-k">Submission Date</span><span class="rn-v" th:text="${#dates.format(feeSubmission.feeSubmissionDate,'dd-MMM-yyyy HH:mm:ss')}"></span></div>
+                          </div>
+                          <div class="rn-info-line">
+                            <div class="rn-field"><span class="rn-k">Father's Name</span><span class="rn-v" th:text="${student.student.fatherName}"></span></div>
+                            <div class="rn-field"><span class="rn-k">Mother's Name</span><span class="rn-v" th:text="${student.student.motherName}"></span></div>
+                          </div>
+                          <div class="rn-info-line">
+                            <div class="rn-field"><span class="rn-k">Class</span><span class="rn-v" th:text="${student.grade.gradeName + '-' + student.section.sectionName}"></span></div>
+                            <div class="rn-field"><span class="rn-k">SR No.</span><span class="rn-v" th:text="${student.classSrNo}"></span></div>
+                            <div class="rn-field"><span class="rn-k">Contact No.</span><span class="rn-v" th:text="'(+91) ' + ${student.student.mobile1}"></span></div>
+                          </div>
+                        </div>
+
+                        <div class="rn-month-block">
+                          <div class="rn-months-title">Month-wise Status</div>
+                          <div class="rn-month-grid">
+                            <div class="rn-m3" th:each="feelist, iterStat : ${feeSubmittedMonths}" th:classappend="${!feelist.contains('PAID')} ? ' rn-empty' : ''">
+                              <b th:text="${feelist.split('####')[1].replaceAll('[():]', '').trim()}"></b>
+                              <span th:if="${feelist.contains('PAID')}">&mdash; &#10003; <span th:text="${feelist.split('####')[2].replace('PAID', 'Paid')}"></span></span>
+                              <span th:unless="${feelist.contains('PAID')}">&mdash; Not paid</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div class="rn-sec-title">Fee Breakup</div>
+                        <table class="rn-fees">
+                          <thead><tr><th>S.No.</th><th>Head Name</th><th>Unit</th><th class="rn-amt">Amount</th></tr></thead>
+                          <tbody>
+                            <tr th:each="fsub, iter: ${feesublist}">
+                              <td th:text="${iter.index + 1}+'.'"></td>
+                              <td th:text="${fsub.feehead.feeHeadName}"></td>
+                              <td th:text="${fsub.quantity != null ? fsub.rate + ' x ' + fsub.quantity : '-'}"></td>
+                              <td class="rn-amt" th:text="${@money.rupees(fsub.amount)}"></td>
+                            </tr>
+                          </tbody>
+                        </table>
+
+                        <div class="rn-totals">
+                          <table>
+                            <tr class="rn-remark">
+                              <td>Fine Remark: <span th:text="${feeSubmission.fineRemark}"></span></td>
+                              <td class="rn-v">Fine Amount: <span th:text="${@money.rupees(feeSubmission.fineAmount)}"></span></td>
+                            </tr>
+                            <tr class="rn-remark" th:if="${feeSubmission['discounthead'] != null}">
+                              <td>Discount Remark: <span th:text="${feeSubmission['discounthead']['discountName']}"></span></td>
+                              <td class="rn-v">Discount Amount: <span th:text="${@money.rupees(feeSubmission['discountAmount'])}"></span></td>
+                            </tr>
+                            <tr class="rn-remark" th:if="${feeSubmission['previousFeeBalanceRemark'] != null and feeSubmission['previousFeeBalanceRemark'].toString().trim() != '' and feeSubmission['previousFeeBalanceRemark'].toString().trim() != '0'}">
+                              <td>Previous Balance:</td>
+                              <td class="rn-v" th:text="'&#8377; ' + ${feeSubmission['previousFeeBalanceRemark']}"></td>
+                            </tr>
+                            <tr class="rn-remark" th:if="${feeSubmission['migrationDiscountAmount'] != null and feeSubmission['migrationDiscountAmount'].compareTo(T(java.math.BigDecimal).ZERO) > 0}">
+                              <td>Special Discount (Admin):</td>
+                              <td class="rn-v" th:text="${@money.rupees(feeSubmission['migrationDiscountAmount'])}"></td>
+                            </tr>
+                            <tr class="rn-final"><td>Total Amount</td><td class="rn-v" th:text="${@money.rupees(feeSubmission.totalAmount)}"></td></tr>
+                            <tr><td>Paid Amount</td><td class="rn-v" th:text="${@money.rupees(feeSubmission.paidAmount)}"></td></tr>
+                            <tr class="rn-final"><td>Balance Amount</td><td class="rn-v" th:text="${@money.rupees(feeSubmission.balanceAmount)}"></td></tr>
+                          </table>
+                        </div>
+
+                        <div class="rn-sign-row"><div class="rn-sign-box">Authorized Signatory</div></div>
+                        <div class="rn-footnote">Computer generated receipt &mdash; no signature required for validity.</div>
+
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-4"></div>
+        </div>
+        <div class="mb-5"></div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    /* Scoped to #contentToExport, not a wrapper class - deliberate. This is the
+       exact element SmsPrintUtils.printElement() (via printThis.js) clones into
+       the print iframe, and printThis's clone carries the element's OWN id/class
+       but drops its ANCESTORS - so a rule like ".receipt-neo .rn-header" (with
+       ".receipt-neo" on the parent .card, an ancestor of #contentToExport) never
+       matches in the print iframe, even though it works fine on-screen. Rooting
+       every selector at #contentToExport instead keeps it working in all three
+       contexts this page is used in: on-screen, Print (cloned iframe), and
+       Download PDF (html2canvas, which reads the live on-screen DOM directly and
+       was unaffected by this). Every selector below is still prefixed .rn- so it
+       can't collide with the rest of the app's CSS; this block is local to
+       fees/receipt-neo.html only - fees/receipt.html and everything else is
+       untouched. */
+    #contentToExport{ font-family: Georgia, 'Times New Roman', serif; color:#000; }
+    #contentToExport .rn-header{ text-align:center; padding-bottom:6px; border-bottom:2px double #000; position:relative; }
+    #contentToExport .rn-qr{ position:absolute; top:0; right:0; width:52px; height:52px; }
+    #contentToExport .rn-qr img{ width:100%; height:100%; display:block; }
+    #contentToExport .rn-header h1{ margin:0; font-size:18px; letter-spacing:.6px; }
+    #contentToExport .rn-addr{ margin:3px 0 0; font-size:10px; color:#444; font-family:Arial,sans-serif; }
+    #contentToExport .rn-contact{ margin:2px 0 0; font-size:10px; color:#444; font-family:Arial,sans-serif; }
+    #contentToExport .rn-title-strip{ text-align:center; margin:8px 0 6px; font-family:Arial,sans-serif; font-size:10.5px; font-weight:bold; letter-spacing:1.6px; text-transform:uppercase; color:#444; }
+
+    #contentToExport .rn-info-block{ margin:8px 0 12px; }
+    #contentToExport .rn-info-line{ display:flex; gap:16px; margin-bottom:4px; font-family:Arial,sans-serif; font-size:10.5px; flex-wrap:wrap; }
+    #contentToExport .rn-field{ flex:1; display:flex; gap:5px; min-width:0; }
+    #contentToExport .rn-k{ color:#444; white-space:nowrap; }
+    #contentToExport .rn-v{ font-weight:bold; border-bottom:1px dotted #bbb; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    #contentToExport .rn-months-title{ font-family:Arial,sans-serif; font-size:9.5px; font-weight:bold; text-transform:uppercase; letter-spacing:.7px; color:#444; margin-bottom:4px; }
+    #contentToExport .rn-month-grid{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+    #contentToExport .rn-m3{ flex:0 0 calc(33.333% - 4px); box-sizing:border-box; border:1px solid #bbb; padding:3.5px 7px; font-family:Arial,sans-serif; font-size:9.5px; white-space:nowrap; }
+    #contentToExport .rn-m3 b{ font-weight:bold; }
+    #contentToExport .rn-m3.rn-empty{ color:#888; }
+
+    #contentToExport .rn-sec-title{ font-family:Arial,sans-serif; font-size:9.5px; font-weight:bold; text-transform:uppercase; letter-spacing:.7px; color:#444; margin:4px 0 5px; }
+    #contentToExport table.rn-fees{ width:100%; border-collapse:collapse; font-family:Arial,sans-serif; font-size:10.5px; margin-bottom:2px; }
+    #contentToExport table.rn-fees th{ background:#f0f0f0; border:1px solid #000; padding:4px 8px; text-align:left; font-size:9px; text-transform:uppercase; letter-spacing:.4px; }
+    #contentToExport table.rn-fees td{ border:1px solid #bbb; padding:4.5px 8px; }
+    #contentToExport table.rn-fees td.rn-amt, #contentToExport table.rn-fees th.rn-amt{ text-align:right; font-variant-numeric:tabular-nums; }
+
+    #contentToExport .rn-totals{ font-family:Arial,sans-serif; font-size:10.5px; margin-top:9px; width:100%; }
+    #contentToExport .rn-totals table{ width:100%; border-collapse:collapse; }
+    #contentToExport .rn-totals td{ padding:3px 0; }
+    #contentToExport .rn-totals td.rn-v{ text-align:right; font-variant-numeric:tabular-nums; }
+    #contentToExport .rn-totals tr.rn-remark td{ font-size:9.5px; color:#444; font-style:italic; }
+    #contentToExport .rn-totals tr.rn-final td{ border-top:1.2px solid #000; padding-top:6px; font-weight:bold; }
+
+    #contentToExport .rn-sign-row{ display:flex; justify-content:flex-end; margin-top:24px; font-family:Arial,sans-serif; font-size:10px; }
+    #contentToExport .rn-sign-box{ width:170px; text-align:center; padding-top:4px; color:#444; }
+    #contentToExport .rn-footnote{ text-align:center; margin-top:12px; font-family:Arial,sans-serif; font-size:9px; color:#666; }
+  </style>
+
+    <script th:src="@{/js/printThis.js}"></script>
+    <script th:src="@{/js/html2canvas.min.js}"></script>
+    <script th:src="@{/js/jspdf.umd.min.js}"></script>
+    <script th:src="@{/js/print-utils.js}"></script>
+    <script th:src="@{/js/qrcode.js}"></script>
+
+  <script type="text/javascript" th:inline="javascript">
+
+    function showWarningMsg(msgType, msg, headerValue){
+        toastr.options = {
+            "closeButton": true,
+            "debug": false,
+            "newestOnTop": false,
+            "progressBar": false,
+            "positionClass": "toast-top-right",
+            "preventDuplicates": false,
+            "onclick": null,
+            "showDuration": "500",
+            "hideDuration": "1000",
+            "timeOut": "5000",
+            "extendedTimeOut": "1000",
+            "showEasing": "swing",
+            "hideEasing": "linear",
+            "showMethod": "fadeIn",
+            "hideMethod": "fadeOut"
+        }
+      toastr[msgType](msg,headerValue);
+
+    }
+
+    // Print and PDF-export both go through SmsPrintUtils (see /js/print-utils.js),
+    // same as fees/receipt.html - same known limitation applies here too: Download
+    // PDF rasterizes #contentToExport onto a single fixed PDF page and does not
+    // look at @media print rules, so it can't paginate.
+    window.addEventListener('DOMContentLoaded', function () {
+        var receiptNo = /*[[${feeSubmission.receiptNo}]]*/ 'receipt';
+
+        try {
+            var rnQr = document.getElementById('rnQr');
+            if (rnQr && typeof qrcode === 'function') {
+                var qr = qrcode(0, 'M');
+                qr.addData(window.location.href);
+                qr.make();
+                // Render at 3x the on-screen box size for a crisp downscale, then let CSS
+                // (below) shrink the <img> to the actual 52px display size.
+                var qrTargetPx = 52, qrRenderScale = 3, qrMarginModules = 2;
+                var qrModuleCount = qr.getModuleCount();
+                var qrCellSize = Math.max(1, Math.floor((qrTargetPx * qrRenderScale) / (qrModuleCount + qrMarginModules * 2)));
+                rnQr.innerHTML = qr.createImgTag(qrCellSize, qrMarginModules * qrCellSize);
+                var qrImg = rnQr.querySelector('img');
+                if (qrImg) {
+                    qrImg.style.width = '100%';
+                    qrImg.style.height = '100%';
+                    qrImg.style.display = 'block';
+                }
+            }
+        } catch (qrErr) {
+            console.error('QR code generation failed', qrErr);
+        }
+
+        document.getElementById('printreceipt').addEventListener('click', function () {
+            SmsPrintUtils.printElement('contentToExport', 'Fee Receipt - ' + receiptNo);
+        });
+        document.getElementById('downloadreceiptpdf').addEventListener('click', function () {
+            SmsPrintUtils.downloadElementAsPdf('contentToExport', 'Receipt-' + receiptNo + '.pdf');
+        });
+    });
+
+  </script>
+
+</section>
+</body>
+</html>
