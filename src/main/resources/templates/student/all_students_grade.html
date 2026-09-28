@@ -40,6 +40,7 @@
         .aa-btn-primary:disabled { opacity: .65; cursor: default; }
 
         #studentTable, #studentTable th, #studentTable td { font-size: .8rem; }
+        #studentTable .stu-avatar { width: 24px; height: 24px; font-size: .62rem; }
 
         /* ── Insight cards ─────────────────────────────────────────────── */
         .insight-card {
@@ -164,6 +165,47 @@
             .replace(/'/g, '&#39;');
     }
 
+    // Avatar-initials chip shown next to the student's name (same
+    // palette/convention used across the other report pages).
+    const avatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+    const initialsOf = function (name) {
+        return (name || '').trim().split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+    };
+
+    // ── PII masking (Contact#) ───────────────────────────────────────────
+    // Display-only: masks the value on screen with a click-to-reveal eye
+    // icon (same .mask-cell/.mask-toggle component used on Student List /
+    // Student List — Session). NOT a substitute for server-side masking —
+    // the real value is still present in this page's AJAX response.
+    const maskMobile = function (raw) {
+        var v = String(raw || '');
+        if (v.length <= 4) { return v; }
+        return v.slice(0, 2) + 'x'.repeat(v.length - 4) + v.slice(-2);
+    };
+    const maskedCell = function (raw, maskFn) {
+        if (!raw) { return ''; }
+        var full = escHtml(raw);
+        var masked = escHtml(maskFn(raw));
+        return '<span class="mask-cell">' +
+            '<span class="mask-text" data-full="' + full + '" data-masked="' + masked + '">' + masked + '</span>' +
+            '<button type="button" class="mask-toggle" title="Show"><i class="bi bi-eye"></i></button>' +
+            '</span>';
+    };
+    // Mask/reveal toggle — event delegation since rows are rendered
+    // dynamically after each "Get List" click.
+    $(document).on('click', '.mask-toggle', function () {
+        var $btn = $(this);
+        var $text = $btn.siblings('.mask-text');
+        var revealed = $text.attr('data-revealed') === 'true';
+        if (revealed) {
+            $text.text($text.attr('data-masked')).attr('data-revealed', 'false');
+            $btn.attr('title', 'Show').find('i').attr('class', 'bi bi-eye');
+        } else {
+            $text.text($text.attr('data-full')).attr('data-revealed', 'true');
+            $btn.attr('title', 'Hide').find('i').attr('class', 'bi bi-eye-slash');
+        }
+    });
+
     const validateAndSubmit=()=>{
       let medium = $("#medium").val();
       let grade = $("#grade").val();
@@ -287,7 +329,16 @@
                   }
                   tblData += `<tr>
                             <td>${counter}</td>
-                            <td>${escHtml(academicStudent.student.studentName)}</td>
+                            <td>
+                                <div class="stu-cell">
+                                    <div class="stu-avatar" style="background:${avatarColors[counter % avatarColors.length]}22;color:${avatarColors[counter % avatarColors.length]}">${initialsOf(academicStudent.student.studentName)}</div>
+                                    <div class="stu-name-stack">
+                                        <span class="stu-name-text">${escHtml(academicStudent.student.studentName)}</span>
+                                        <span class="stu-sub-text">Grade: ${escHtml(grd)} &nbsp;|&nbsp; SR No.: ${escHtml(srno) || '\u2014'}</span>
+                                        <span class="stu-sub-text">PSRN#: ${escHtml(academicStudent.student.psrn) || '\u2014'}</span>
+                                    </div>
+                                </div>
+                            </td>
                             <td>${escHtml(srno)}</td>
                             <td>${escHtml(grd)}</td>
                             <td>${escHtml(academicStudent.student.fatherName)}</td>
@@ -298,7 +349,7 @@
                             <td>${escHtml(dob)}</td>
                             <td>${escHtml(academicStudent.student.gender)}</td>
                             <td>${escHtml(address)}</td>
-                            <td>${escHtml(academicStudent.student.mobile1)}</td>
+                            <td>${maskedCell(academicStudent.student.mobile1, maskMobile)}</td>
                         </tr>`;
                   counter++;
                 });
@@ -326,9 +377,31 @@
                     exportTitle: 'Total Students(Grade) Data export',
                     exportColumns: exportColumns,
                     printHeaderText: 'Total Students(Grade) Data',
+                    // Student Name packs an avatar badge + Grade/SR/PSRN
+                    // sub-lines for display (those 3 columns stay in the DOM,
+                    // just hidden on screen, so export still gets them as
+                    // real columns) — export should get just the plain name.
+                    // Contact# is masked on screen, so export must pull the
+                    // ORIGINAL value from the cell's data-full attribute
+                    // instead of the masked display text. Everything else
+                    // falls back to DataTables Buttons' own default stripping.
+                    exportBodyFormat: function (data, row, column, node) {
+                        var $name = $(node).find('.stu-name-text');
+                        if ($name.length) { return $name.text(); }
+                        var $maskText = $(node).find('.mask-text');
+                        if ($maskText.length) {
+                            var full = $maskText.attr('data-full') || '';
+                            if (/^[=+\-@\t\r]/.test(full)) { full = "'" + full; }
+                            return full;
+                        }
+                        return $.fn.dataTable.Buttons.stripData(data);
+                    },
                     dtOptions: {
                         scrollX: true,
-                        columnDefs: [{ orderable: false, targets: [0] }]
+                        columnDefs: [
+                            { orderable: false, targets: [0] },
+                            { visible: false, targets: [2, 3, 6] }
+                        ]
                     }
                 });
 

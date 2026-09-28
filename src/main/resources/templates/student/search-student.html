@@ -64,6 +64,7 @@
         }
         .stu-empty i { font-size: 26px; color: var(--text-muted); opacity: .55; }
         .stu-empty p { margin: 0; font-size: 13.5px; }
+        .stu-table .stu-avatar { width: 24px; height: 24px; font-size: .62rem; }
     </style>
 
     <div class="container-fluid px-3">
@@ -119,6 +120,54 @@
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;');
         }
+
+        // Avatar-initials chip shown next to the student's name (same
+        // palette/convention used across the other report pages).
+        const avatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+        const initialsOf = function (name) {
+            return (name || '').trim().split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+        };
+
+        // ── PII masking (Contact No, Contact No:2, Aadhaar No) ───────────
+        // Display-only: masks the value on screen with a click-to-reveal eye
+        // icon (same .mask-cell/.mask-toggle component used on Student List).
+        // This page has no DataTables/export machinery at all, so masking
+        // here is purely a display concern — there is no export path to
+        // route an original value through.
+        const maskMobile = function (raw) {
+            var v = String(raw || '');
+            if (v.length <= 4) { return v; }
+            return v.slice(0, 2) + 'x'.repeat(v.length - 4) + v.slice(-2);
+        };
+        const maskAadhaar = function (raw) {
+            var digits = String(raw || '').replace(/\D/g, '');
+            if (digits.length === 12) { return 'xxxx xxxx ' + digits.slice(-4); }
+            var v = String(raw || '');
+            return v.length <= 4 ? v : 'x'.repeat(v.length - 4) + v.slice(-4);
+        };
+        const maskedCell = function (raw, maskFn) {
+            if (!raw) { return ''; }
+            var full = escHtml(raw);
+            var masked = escHtml(maskFn(raw));
+            return '<span class="mask-cell">' +
+                '<span class="mask-text" data-full="' + full + '" data-masked="' + masked + '">' + masked + '</span>' +
+                '<button type="button" class="mask-toggle" title="Show"><i class="bi bi-eye"></i></button>' +
+                '</span>';
+        };
+        // Mask/reveal toggle — event delegation since rows are rendered
+        // dynamically after each search.
+        $(document).on('click', '.mask-toggle', function () {
+            var $btn = $(this);
+            var $text = $btn.siblings('.mask-text');
+            var revealed = $text.attr('data-revealed') === 'true';
+            if (revealed) {
+                $text.text($text.attr('data-masked')).attr('data-revealed', 'false');
+                $btn.attr('title', 'Show').find('i').attr('class', 'bi bi-eye');
+            } else {
+                $text.text($text.attr('data-full')).attr('data-revealed', 'true');
+                $btn.attr('title', 'Hide').find('i').attr('class', 'bi bi-eye-slash');
+            }
+        });
 
         function showWarningMsg(msgType, msg, headerValue){
             toastr.options = {
@@ -176,17 +225,31 @@
                     /*console.log("data: "+data);
                     console.log("length: "+data.length);*/
                     if(data.length>0){
+                        // Plain table, no DataTables/export on this page — so
+                        // (unlike the DataTable report pages) SR No and Grade
+                        // are folded into the Student Name cell as real sub-
+                        // text rather than kept as hidden-but-exported columns,
+                        // since there is no export to preserve them for.
                         let text = `<div class="table-responsive"><table class="table stu-table">
-                            <thead><tr><th>SNo</th><th>Student Name</th><th>SR No</th><th>Grade</th><th>Father Name</th><th>Mother Name</th><th>Aadhaar No</th><th>Religion</th><th>Caste</th><th>Contact No</th><th>Contact No:2</th><th>Address</th></tr></thead>
+                            <thead><tr><th>SNo</th><th>Student Name</th><th>Father Name</th><th>Mother Name</th><th>Aadhaar No</th><th>Religion</th><th>Caste</th><th>Contact No</th><th>Contact No:2</th><th>Address</th></tr></thead>
                             <tbody class="table-group-divider">`;
                         let counter = 1;
                         data.forEach((student) =>{
                             let stuStatusClass = (student.student.status||'').toUpperCase()==='ACTIVE'?'':'table-danger';
-                            //let classSRNoVal = student.classSrNo==null || student.classSrNo==''?'':student.classSrNo;
-                            //console.log("SR: "+classSRNoVal);
-                            text+=`<tr class="${stuStatusClass}"><td>${counter}</td><td>${escHtml(student.student.studentName)}</td><td>${student.classSrNo==null || student.classSrNo==''?'':escHtml(student.classSrNo)}</td><td>${escHtml(student.grade.gradeName)}-${escHtml(student.section.sectionName)}</td>
-                                   <td>${escHtml(student.student.fatherName)}</td><td>${escHtml(student.student.motherName)}</td><td>${escHtml(student.student.aadharNo)}</td><td>${escHtml(student.student.religion)}</td><td>${escHtml(student.student.cast.castName)}</td>
-                                      <td>${escHtml(student.student.mobile1)}</td><td>${escHtml(student.student.mobile2)}</td><td>${escHtml(student.student.address)}</td></tr>`;
+                            let srno = (student.classSrNo==null || student.classSrNo==='') ? '' : student.classSrNo;
+                            let grd = escHtml(student.grade.gradeName) + '-' + escHtml(student.section.sectionName);
+                            text+=`<tr class="${stuStatusClass}"><td>${counter}</td>
+                                   <td>
+                                       <div class="stu-cell">
+                                           <div class="stu-avatar" style="background:${avatarColors[counter % avatarColors.length]}22;color:${avatarColors[counter % avatarColors.length]}">${initialsOf(student.student.studentName)}</div>
+                                           <div class="stu-name-stack">
+                                               <span class="stu-name-text">${escHtml(student.student.studentName)}</span>
+                                               <span class="stu-sub-text">Grade: ${grd} &nbsp;|&nbsp; SR No.: ${escHtml(srno) || '\u2014'}</span>
+                                           </div>
+                                       </div>
+                                   </td>
+                                   <td>${escHtml(student.student.fatherName)}</td><td>${escHtml(student.student.motherName)}</td><td>${maskedCell(student.student.aadharNo, maskAadhaar)}</td><td>${escHtml(student.student.religion)}</td><td>${escHtml(student.student.cast.castName)}</td>
+                                      <td>${maskedCell(student.student.mobile1, maskMobile)}</td><td>${maskedCell(student.student.mobile2, maskMobile)}</td><td>${escHtml(student.student.address)}</td></tr>`;
                             counter++;
                         });
                         text+= `</tbody>

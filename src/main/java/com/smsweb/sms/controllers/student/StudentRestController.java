@@ -838,6 +838,7 @@ public class StudentRestController extends BaseController {
                     stuMap.put("mobile1",     as.getStudent().getMobile1());
                     stuMap.put("pic",         as.getStudent().getPic());
                     stuMap.put("classSrNo",   as.getClassSrNo());
+                    stuMap.put("psrn",        as.getStudent().getPsrn());
                     stuMap.put("gradeName",   as.getGrade()   != null ? as.getGrade().getGradeName()     : "");
                     stuMap.put("sectionName", as.getSection() != null ? as.getSection().getSectionName() : "");
                     return stuMap;

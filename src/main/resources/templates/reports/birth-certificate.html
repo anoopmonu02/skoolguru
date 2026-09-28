@@ -20,10 +20,19 @@
 
         <!-- ── Search box ── -->
         <div class="row justify-content-start mb-3">
-            <div class="col-md-6">
-                <input oninput="searchBcStudent()" type="text" class="form-control" id="bcSearchInput"
-                       placeholder="Search by student name, father's name, or SR No...">
-                <div class="search-result" id="bcSearchResult"></div>
+            <div class="col-md-7 col-lg-6">
+                <div class="bc-search-wrap">
+                    <i class="bi bi-search bc-search-icon"></i>
+                    <input oninput="searchBcStudent()" type="text" class="form-control bc-search-input" id="bcSearchInput"
+                           placeholder="Search by student name, father's name, or SR No…" autocomplete="off">
+                    <span class="bc-search-spinner" id="bcSearchSpinner" style="display:none;">
+                        <span class="spinner-border spinner-border-sm" role="status"></span>
+                    </span>
+                    <button type="button" class="bc-search-clear" id="bcSearchClear" title="Clear" style="display:none;">
+                        <i class="bi bi-x-circle-fill"></i>
+                    </button>
+                    <div class="search-result" id="bcSearchResult"></div>
+                </div>
             </div>
         </div>
 
@@ -51,8 +60,48 @@
          plain white letterhead, thin table rules, no colour accents.
     ═════════════════════════════════════════════════════ -->
     <style>
-        .search-result { max-height:320px; overflow-y:auto; border: 1px solid var(--border-color); border-radius:8px; display:none; }
-        .search-result .list-group-item { cursor:pointer; }
+        /* ── Search field — icon, inline clear/spinner, and a floating
+             result card (was plain flow content before, which pushed the
+             action bar/certificate preview down whenever it opened). ── */
+        .bc-search-wrap { position: relative; }
+        .bc-search-wrap .bc-search-icon {
+            position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+            color: var(--text-muted); font-size: 14px; pointer-events: none;
+        }
+        .bc-search-input {
+            padding-left: 38px; padding-right: 38px; border-radius: var(--radius-md);
+        }
+        .bc-search-clear, .bc-search-spinner {
+            position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .bc-search-clear {
+            border: 0; background: transparent; color: var(--text-muted); cursor: pointer;
+            font-size: 15px; padding: 2px; line-height: 1; transition: color var(--transition);
+        }
+        .bc-search-clear:hover { color: var(--accent); }
+        .bc-search-spinner { color: var(--accent); pointer-events: none; }
+
+        .search-result {
+            position: absolute; left: 0; right: 0; top: 100%; margin-top: 6px; z-index: 20;
+            max-height: 340px; overflow-y: auto; background: var(--card-bg);
+            border: 1px solid var(--border-color); border-radius: var(--radius-md);
+            box-shadow: var(--shadow-md); display: none;
+        }
+        .search-result .list-group-item {
+            cursor: pointer; border: none; border-bottom: 1px solid var(--border-color);
+            padding: 9px 14px; background: transparent; transition: background var(--transition);
+        }
+        .search-result .list-group-item:last-child { border-bottom: none; }
+        .search-result .list-group-item:hover, .search-result .list-group-item:focus {
+            background: var(--accent-light);
+        }
+        .bc-search-empty {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 26px 16px; color: var(--text-muted); gap: 8px;
+        }
+        .bc-search-empty i { font-size: 22px; opacity: .5; }
+        .bc-search-empty p { margin: 0; font-size: 13px; }
 
         .bc-certificate {
             max-width: 820px;
@@ -115,15 +164,35 @@
         let _bcSearchResults = [];
         let _bcSelected = null;
 
+        // Avatar-initials chip + stacked Father/Class/SR sub-line — same
+        // convention used across the report pages — instead of one flat
+        // "Name / Father / Class / SR" string.
+        const avatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+        const initialsOf = function (name) {
+            return (name || '').trim().split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+        };
         const renderBcStudentRow = (s, idx) => {
             const cls = (s.gradeName && s.sectionName) ? `${s.gradeName}-${s.sectionName}` : '-';
-            const sr = s.classSrNo ? ' / ' + s.classSrNo : ' / -';
-            return `<a data-idx="${idx}" onclick="selectBcStudent(${idx})" href="#" class="list-group-item list-group-item-action">${escHtml(s.studentName)} / ${escHtml(s.fatherName)} / ${escHtml(cls)}${sr}</a>`;
+            const sr = s.classSrNo || '-';
+            const color = avatarColors[idx % avatarColors.length];
+            // "return false" (not just onclick) — an unguarded href="#" was
+            // jumping the page to the top every time a result was picked.
+            return `<a data-idx="${idx}" onclick="selectBcStudent(${idx}); return false;" href="#" class="list-group-item list-group-item-action">
+                <div class="stu-cell">
+                    <div class="stu-avatar" style="background:${color}22;color:${color}">${initialsOf(s.studentName)}</div>
+                    <div class="stu-name-stack">
+                        <span class="stu-name-text">${escHtml(s.studentName)}</span>
+                        <span class="stu-sub-text">Father: ${escHtml(s.fatherName) || '\u2014'} &nbsp;|&nbsp; Class: ${escHtml(cls)} &nbsp;|&nbsp; SR No.: ${escHtml(sr)}</span>
+                    </div>
+                </div>
+            </a>`;
         };
 
         const fetchBcStudents = (query, page, append) => {
             if (_bcSearchLoading) return;
             _bcSearchLoading = true;
+            const spinnerEl = document.getElementById('bcSearchSpinner');
+            if (spinnerEl) spinnerEl.style.display = 'flex';
             const url = `${contextPath}student/birth-certificate/search-student/${encodeURIComponent(query)}?page=${page}`;
             fetch(url, { headers: { 'Accept': 'application/json' } })
                 .then(async r => {
@@ -134,6 +203,7 @@
                 })
                 .then(({ ok, status, data, raw }) => {
                     _bcSearchLoading = false;
+                    if (spinnerEl) spinnerEl.style.display = 'none';
                     if (!ok || data === null) {
                         console.error('Student search failed', status, raw);
                         showMsg('error', `Search request failed (HTTP ${status}). Check the browser console for details.`, 'Error');
@@ -146,7 +216,7 @@
                         _bcSearchResults = students;
                         let html;
                         if (students.length === 0) {
-                            html = `<div class="list-group-item text-muted small">No matching active students found.</div>`;
+                            html = `<div class="bc-search-empty"><i class="bi bi-search"></i><p>No matching active students found.</p></div>`;
                         } else {
                             html = `<div class="list-group" id="bc-student-list-group">`;
                             students.forEach((s, i) => { html += renderBcStudentRow(s, i); });
@@ -163,19 +233,32 @@
                 })
                 .catch(err => {
                     _bcSearchLoading = false;
+                    if (spinnerEl) spinnerEl.style.display = 'none';
                     console.error('Student search network error', err);
                     showMsg('error', 'Network error while searching — check the browser console.', 'Error');
                 });
         };
 
+        let _bcSearchDebounce;
+
+        function updateBcClearBtn() {
+            const clearBtn = document.getElementById('bcSearchClear');
+            const val = document.getElementById('bcSearchInput').value;
+            if (clearBtn) clearBtn.style.display = val ? 'flex' : 'none';
+        }
+
         function searchBcStudent() {
             const query = document.getElementById('bcSearchInput').value;
+            updateBcClearBtn();
+            clearTimeout(_bcSearchDebounce);
             if (query.trim().length > 2) {
-                if (query !== _bcSearchQuery) {
-                    _bcSearchQuery = query;
-                    _bcSearchPage = 0;
-                    fetchBcStudents(query, 0, false);
-                }
+                _bcSearchDebounce = setTimeout(function () {
+                    if (query !== _bcSearchQuery) {
+                        _bcSearchQuery = query;
+                        _bcSearchPage = 0;
+                        fetchBcStudents(query, 0, false);
+                    }
+                }, 300);
             } else {
                 _bcSearchQuery = '';
                 document.getElementById('bcSearchResult').style.display = 'none';
@@ -193,6 +276,28 @@
                     }
                 });
             }
+
+            const clearBtn = document.getElementById('bcSearchClear');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function () {
+                    const input = document.getElementById('bcSearchInput');
+                    input.value = '';
+                    _bcSearchQuery = '';
+                    clearTimeout(_bcSearchDebounce);
+                    updateBcClearBtn();
+                    document.getElementById('bcSearchResult').style.display = 'none';
+                    input.focus();
+                });
+            }
+
+            // Click outside the search box closes the results dropdown —
+            // it previously stayed open until the next keystroke or a pick.
+            document.addEventListener('click', function (e) {
+                const wrap = document.querySelector('.bc-search-wrap');
+                if (wrap && !wrap.contains(e.target)) {
+                    document.getElementById('bcSearchResult').style.display = 'none';
+                }
+            });
         });
 
         /* ── Build & show the certificate once a student is picked ── */
@@ -200,6 +305,7 @@
             _bcSelected = _bcSearchResults[idx];
             document.getElementById('bcSearchResult').style.display = 'none';
             document.getElementById('bcSearchInput').value = '';
+            updateBcClearBtn();
             renderCertificate(_bcSelected);
         }
 

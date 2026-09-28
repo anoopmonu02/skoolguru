@@ -12,12 +12,25 @@
         width: 230px;
         flex-shrink: 0;
         background: var(--card-bg);
-        border-right: 1px solid #dee2e6;
-        padding: 12px;
+        border-right: 1px solid var(--border-color);
+        padding: 14px 12px;
         overflow-y: auto;
         min-height: calc(100vh - 110px);
         max-height: calc(100vh - 110px);
+        box-shadow: var(--shadow-xs);
     }
+    #filter-sidebar .sidebar-title {
+        font-size: 13px;
+        font-weight: 800;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding-bottom: 10px;
+        margin-bottom: 14px;
+        border-bottom: 1px solid var(--border-color);
+    }
+    #filter-sidebar .sidebar-title i { color: var(--accent); }
     #filter-sidebar .sidebar-section-title {
         font-size: 11px;
         font-weight: 700;
@@ -33,10 +46,15 @@
         color: var(--text-primary);
         margin-bottom: 4px;
     }
+    #filter-sidebar .form-select-sm {
+        border-radius: var(--radius-sm);
+        border-color: var(--border-color);
+    }
+    #filter-sidebar hr { border-color: var(--border-color); opacity: 1; }
     /* Scrollable checkbox panels */
     .cb-panel {
         border: 1px solid var(--border-color);
-        border-radius: .25rem;
+        border-radius: var(--radius-sm);
         max-height: 145px;
         overflow-y: auto;
         background: var(--card-bg);
@@ -46,7 +64,7 @@
         margin: 0;
         font-size: 12px;
     }
-    .cb-panel .form-check:hover { background: var(--card-bg); }
+    .cb-panel .form-check:hover { background: var(--accent-light); }
     /* ── Custom checkboxes — bypass any theme override on form-check-input ── */
     .cb-item {
         display: flex;
@@ -55,14 +73,16 @@
         padding: 4px 10px;
         font-size: 12px;
         cursor: pointer;
+        border-radius: var(--radius-sm);
+        transition: background var(--transition);
     }
-    .cb-item:hover { background: #f0f4ff; }
+    .cb-item:hover { background: var(--accent-light); }
     .cb-item input[type="checkbox"] {
         width: 14px !important;
         height: 14px !important;
         min-width: 14px;
         cursor: pointer;
-        accent-color: #0d6efd;
+        accent-color: var(--accent);
         flex-shrink: 0;
         /* Force browser-native rendering — bypass theme */
         -webkit-appearance: checkbox !important;
@@ -71,7 +91,7 @@
         border: none !important;
         background: none !important;
     }
-    .cb-item label { cursor: pointer; margin: 0; user-select: none; }
+    .cb-item label { cursor: pointer; margin: 0; user-select: none; color: var(--text-primary); }
     /* Select-all row */
     .select-all-row {
         font-size: 12px;
@@ -82,14 +102,14 @@
         align-items: center;
         gap: 7px;
         cursor: pointer;
-        border-bottom: 1px dashed #e9ecef;
+        border-bottom: 1px dashed var(--border-color);
         margin-bottom: 3px;
     }
     .select-all-row input[type="checkbox"] {
         width: 14px !important;
         height: 14px !important;
         cursor: pointer;
-        accent-color: #0d6efd;
+        accent-color: var(--accent);
         flex-shrink: 0;
         -webkit-appearance: checkbox !important;
         -moz-appearance: checkbox !important;
@@ -97,31 +117,114 @@
         border: none !important;
         background: none !important;
     }
+    /* ── Action buttons ──────────────────────────────────────────── */
+    #generateBtn.btn-primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        font-weight: 700;
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
+        transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
+    }
+    #generateBtn.btn-primary:hover { background: var(--brand-600); border-color: var(--brand-600); box-shadow: var(--shadow-md); }
+    #generateBtn.btn-primary:active { transform: translateY(1px); }
+    #resetBtn.btn-outline-secondary {
+        border-color: var(--border-color);
+        color: var(--text-muted);
+        border-radius: var(--radius-md);
+        font-weight: 600;
+    }
+    #resetBtn.btn-outline-secondary:hover { background: var(--body-bg); color: var(--text-primary); }
+    /* ── Main content cards ──────────────────────────────────────── */
+    #results-area .card {
+        border-radius: var(--radius-lg) !important;
+        border: 1px solid var(--border-color) !important;
+        box-shadow: var(--shadow-xs) !important;
+    }
+    #results-area .card-header {
+        background: var(--card-bg) !important;
+        border-color: var(--border-color) !important;
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+    }
+    #results-area .card-header i.text-primary { color: var(--accent) !important; }
     /* ── Stat cards ──────────────────────────────────────────────── */
-    .stat-card { border-radius: .375rem; padding: 10px 14px; border: 1px solid transparent; }
+    .stat-card {
+        border-radius: var(--radius-lg);
+        padding: 12px 16px;
+        border: 1px solid transparent;
+        box-shadow: var(--shadow-xs);
+        transition: box-shadow var(--transition), transform var(--transition);
+    }
+    .stat-card:hover { box-shadow: var(--shadow-sm); transform: translateY(-1px); }
     .stat-card .sc-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; color: var(--text-muted); }
-    .stat-card .sc-value { font-size: 20px; font-weight: 800; line-height: 1.1; }
-    .stat-card .sc-sub   { font-size: 10px; color: #adb5bd; margin-top: 2px; }
-    .stat-danger  { background: var(--card-bg); border-color:#f8d7da; } .stat-danger  .sc-value { color:#dc3545; }
-    .stat-warning { background:#fff8f0; border-color:#ffe0b2; } .stat-warning .sc-value { color:#fd7e14; }
-    .stat-primary { background:#eff6ff; border-color:#cfe2ff; } .stat-primary .sc-value { color:#0d6efd; }
-    .stat-success { background:#f0fff4; border-color:#c3e6cb; } .stat-success .sc-value { color:#198754; }
+    .stat-card .sc-value { font-size: 21px; font-weight: 800; line-height: 1.1; }
+    .stat-card .sc-sub   { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+    .stat-danger  { background: var(--card-bg); border-color: rgba(220,53,69,.25); }  .stat-danger  .sc-value { color:#dc3545; }
+    .stat-warning { background: var(--card-bg); border-color: rgba(253,126,20,.25); } .stat-warning .sc-value { color:#fd7e14; }
+    .stat-primary { background: var(--card-bg); border-color: rgba(13,110,253,.25); } .stat-primary .sc-value { color:#0d6efd; }
+    .stat-success { background: var(--card-bg); border-color: rgba(25,135,84,.25); }  .stat-success .sc-value { color:#198754; }
+    /* ── Chart toggle buttons ────────────────────────────────────── */
+    .chart-toggle-btn.btn-primary { background: var(--accent); border-color: var(--accent); }
+    .chart-toggle-btn.btn-primary:hover { background: var(--brand-600); border-color: var(--brand-600); }
+    .chart-toggle-btn.btn-outline-secondary { color: var(--text-muted); border-color: var(--border-color); }
     /* ── Table tweaks ────────────────────────────────────────────── */
-    #pendingSummaryTable th { font-size: 12px; }
-    #pendingSummaryTable td { font-size: 12.5px; vertical-align: middle; }
+    /* Header/cell/hover styling now comes from the shared .list-table
+       class (list-table.css) — same look as every other list page —
+       instead of a page-local override. */
     .progress-cell { display:flex; align-items:center; gap:6px; }
-    .mini-bar { flex:1; height:7px; background:#e9ecef; border-radius:4px; max-width:70px; overflow:hidden; }
+    .mini-bar { flex:1; height:7px; background: var(--border-color); border-radius:4px; max-width:70px; overflow:hidden; }
     .mini-bar-inner { height:100%; border-radius:4px; }
+    /* ── Checkbox group: selected-count pill + checked-row highlight ── */
+    .cb-group-label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 4px;
+    }
+    .cb-count {
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--accent);
+        background: var(--accent-light);
+        padding: 1px 8px;
+        border-radius: 999px;
+        white-space: nowrap;
+    }
+    .cb-item:has(input:checked) { background: var(--accent-light); }
+    .cb-item:has(input:checked) label { color: var(--accent); font-weight: 600; }
+    /* ── Stat cards: icon + text layout ───────────────────────────── */
+    .stat-card { display: flex; align-items: flex-start; gap: 12px; }
+    .stat-card-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: var(--radius-md);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 17px;
+        flex-shrink: 0;
+    }
+    .stat-danger  .stat-card-icon { background: rgba(220,53,69,.12); color:#dc3545; }
+    .stat-warning .stat-card-icon { background: rgba(253,126,20,.12); color:#fd7e14; }
+    .stat-primary .stat-card-icon { background: rgba(13,110,253,.12); color:#0d6efd; }
+    .stat-success .stat-card-icon { background: rgba(25,135,84,.12); color:#198754; }
+    .stat-card-body { min-width: 0; }
+    /* ── Detailed Breakdown table: reuse the shared list-table search
+       + export toolbar chrome inside this page's own card, so it looks
+       and behaves like every other list page's table. ─────────────── */
+    #results-area .list-table-card {
+        border: none;
+        box-shadow: none;
+        border-radius: 0;
+    }
+    #results-area .list-page-toolbar { padding: 0 0 12px; }
 </style>
 
     <div class="container-fluid px-0">
 
         <!-- ── Page Header ──────────────────────────────────────────── -->
-        <div class="d-flex align-items-center px-3 py-2 border-bottom bg-white">
-            <div>
-                <h6 class="mb-0 fw-bold">Fees Pending Summary Report</h6>
-                <small class="text-muted">Fees &rsaquo; Reports &rsaquo; Pending Fee Report</small>
-            </div>
+        <div class="px-3 pt-2">
+            <div th:replace="~{components/ui :: page-header-sub('Fees Pending Summary Report','Fees › Reports › Pending Fee Report')}"></div>
         </div>
 
         <!-- ── Layout ────────────────────────────────────────────────── -->
@@ -130,8 +233,8 @@
             <!-- ════ SIDEBAR ════════════════════════════════════════════ -->
             <div id="filter-sidebar">
 
-                <div class="fw-bold mb-2 pb-1 border-bottom d-flex align-items-center gap-1" style="font-size:13px">
-                    <i class="bi bi-funnel-fill text-primary"></i> Report Filters
+                <div class="sidebar-title">
+                    <i class="bi bi-funnel-fill"></i> Report Filters
                 </div>
 
                 <!-- Medium -->
@@ -147,7 +250,10 @@
 
                 <!-- Grade -->
                 <div class="mb-3">
-                    <label class="form-label">Grade <span class="text-danger">*</span></label>
+                    <label class="cb-group-label">
+                        <span class="form-label mb-0">Grade <span class="text-danger">*</span></span>
+                        <span id="gradeCbCount" class="cb-count"></span>
+                    </label>
                     <label class="select-all-row">
                         <input type="checkbox" id="selectAllGrades" checked> Select All
                     </label>
@@ -162,7 +268,10 @@
 
                 <!-- Section -->
                 <div class="mb-3">
-                    <label class="form-label">Section <span class="text-danger">*</span></label>
+                    <label class="cb-group-label">
+                        <span class="form-label mb-0">Section <span class="text-danger">*</span></span>
+                        <span id="sectionCbCount" class="cb-count"></span>
+                    </label>
                     <label class="select-all-row">
                         <input type="checkbox" id="selectAllSections" checked> Select All
                     </label>
@@ -179,7 +288,10 @@
 
                 <!-- Months -->
                 <div class="mb-3">
-                    <label class="form-label">Months <span class="text-danger">*</span></label>
+                    <label class="cb-group-label">
+                        <span class="form-label mb-0">Months <span class="text-danger">*</span></span>
+                        <span id="monthCbCount" class="cb-count"></span>
+                    </label>
                     <label class="select-all-row">
                         <input type="checkbox" id="selectAllMonths" checked> Select All
                     </label>
@@ -210,11 +322,11 @@
             </div><!-- /sidebar -->
 
             <!-- ════ MAIN CONTENT ════════════════════════════════════════ -->
-            <div class="flex-grow-1 p-3" style="background:#f8f9fa; overflow:auto; min-height:calc(100vh - 110px)">
+            <div class="flex-grow-1 p-3" style="background:var(--body-bg); overflow:auto; min-height:calc(100vh - 110px)">
 
                 <!-- Initial hint -->
                 <div id="initial-hint" class="text-center py-5 text-muted">
-                    <i class="bi bi-bar-chart-line" style="font-size:3rem; color:#dee2e6"></i>
+                    <i class="bi bi-bar-chart-line" style="font-size:3rem; color:var(--border-color)"></i>
                     <p class="mt-2 mb-0">Select filters and click <strong>Generate Report</strong></p>
                 </div>
 
@@ -237,31 +349,43 @@
                     <!-- Summary cards -->
                     <div class="row g-3 mb-3">
                         <div class="col-md-3">
-                            <div class="stat-card stat-danger shadow-sm">
-                                <div class="sc-label">Total Pending Amount</div>
-                                <div id="card-pending-amt" class="sc-value">&#x20B9;0</div>
-                                <div class="sc-sub">Gross (fee class map)</div>
+                            <div class="stat-card stat-danger">
+                                <div class="stat-card-icon"><i class="bi bi-cash-stack"></i></div>
+                                <div class="stat-card-body">
+                                    <div class="sc-label">Total Pending Amount</div>
+                                    <div id="card-pending-amt" class="sc-value">&#x20B9;0</div>
+                                    <div class="sc-sub">Gross (fee class map)</div>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-3">
-                            <div class="stat-card stat-warning shadow-sm">
-                                <div class="sc-label">Defaulters</div>
-                                <div id="card-defaulters" class="sc-value">0</div>
-                                <div class="sc-sub">Students with unpaid months</div>
+                            <div class="stat-card stat-warning">
+                                <div class="stat-card-icon"><i class="bi bi-person-x-fill"></i></div>
+                                <div class="stat-card-body">
+                                    <div class="sc-label">Defaulters</div>
+                                    <div id="card-defaulters" class="sc-value">0</div>
+                                    <div class="sc-sub">Students with unpaid months</div>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-3">
-                            <div class="stat-card stat-primary shadow-sm">
-                                <div class="sc-label">Total Students</div>
-                                <div id="card-total-stu" class="sc-value">0</div>
-                                <div class="sc-sub">Active, selected classes</div>
+                            <div class="stat-card stat-primary">
+                                <div class="stat-card-icon"><i class="bi bi-people-fill"></i></div>
+                                <div class="stat-card-body">
+                                    <div class="sc-label">Total Students</div>
+                                    <div id="card-total-stu" class="sc-value">0</div>
+                                    <div class="sc-sub">Active, selected classes</div>
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-3">
-                            <div class="stat-card stat-success shadow-sm">
-                                <div class="sc-label">Avg Pending %</div>
-                                <div id="card-pending-pct" class="sc-value">0%</div>
-                                <div class="sc-sub">School-wide average</div>
+                            <div class="stat-card stat-success">
+                                <div class="stat-card-icon"><i class="bi bi-graph-up-arrow"></i></div>
+                                <div class="stat-card-body">
+                                    <div class="sc-label">Avg Pending %</div>
+                                    <div id="card-pending-pct" class="sc-value">0%</div>
+                                    <div class="sc-sub">School-wide average</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -293,24 +417,52 @@
                             </span>
                             <span id="report-subtitle" class="text-muted ms-2" style="font-size:11px"></span>
                         </div>
-                        <div class="card-body p-0">
-                            <div class="table-responsive">
-                                <table id="pendingSummaryTable" class="table table-hover table-bordered mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>#</th>
-                                            <th>Grade</th>
-                                            <th>Section</th>
-                                            <th>Pending Amount (&#x20B9;)</th>
-                                            <th>Defaulters</th>
-                                            <th>Total Students</th>
-                                            <th>Pending %</th>
-                                            <th>Detail</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="summary-tbody"></tbody>
-                                    <tfoot id="summary-tfoot"></tfoot>
-                                </table>
+                        <div class="card-body p-3 pt-2">
+                            <!-- Same search box / export toolbar chrome as every other
+                                 list page (list-table.css + list-table-init.js) instead
+                                 of DataTables' plain default search + grey buttons. -->
+                            <div class="list-table-card">
+                                <div class="config-list-toolbar list-page-toolbar">
+                                    <div class="config-search-wrap">
+                                        <i class="bi bi-search"></i>
+                                        <input type="text" class="form-control form-control-sm" id="pfsSearchInput"
+                                               placeholder="Search by grade, section…">
+                                    </div>
+                                    <div id="pfsExportSlot" class="list-export-slot"></div>
+                                </div>
+                                <div class="table-responsive">
+                                    <table id="pendingSummaryTable" class="table table-sm list-table mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Grade</th>
+                                                <th>Section</th>
+                                                <th>Pending Amount (&#x20B9;)</th>
+                                                <th>Defaulters</th>
+                                                <th>Total Students</th>
+                                                <th>Pending %</th>
+                                                <th>Detail</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="summary-tbody"></tbody>
+                                        <tfoot id="summary-tfoot"></tfoot>
+                                    </table>
+                                </div>
+                                <div class="list-table-footer">
+                                    <div class="list-footer-left">
+                                        <label class="list-length-label">Rows per page
+                                            <select id="pfsPageLength" class="list-length-select">
+                                                <option value="5">5</option>
+                                                <option value="10">10</option>
+                                                <option value="25" selected>25</option>
+                                                <option value="50">50</option>
+                                                <option value="100">100</option>
+                                            </select>
+                                        </label>
+                                        <span id="pfsPageInfo" class="list-page-info">Showing 0 of 0 rows</span>
+                                    </div>
+                                    <div class="list-pagination" id="pfsPagination"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -330,9 +482,16 @@
         
 
         // ── Select-All wiring (generic) ────────────────────────────────
-        function wireSelectAll(masterId, childClass) {
+        function updateCbCount(countId, childClass) {
+            if (!countId) return;
+            const total   = $(childClass).length;
+            const checked = $(childClass + ':checked').length;
+            $('#' + countId).text(checked + ' / ' + total + ' selected');
+        }
+        function wireSelectAll(masterId, childClass, countId) {
             $('#' + masterId).on('change', function () {
                 $(childClass).prop('checked', this.checked);
+                updateCbCount(countId, childClass);
             });
             $(document).on('change', childClass, function () {
                 const total   = $(childClass).length;
@@ -340,11 +499,13 @@
                 $('#' + masterId)
                     .prop('indeterminate', checked > 0 && checked < total)
                     .prop('checked', checked === total);
+                updateCbCount(countId, childClass);
             });
+            updateCbCount(countId, childClass);
         }
-        wireSelectAll('selectAllGrades',   '.grade-checkbox');
-        wireSelectAll('selectAllSections', '.section-checkbox');
-        wireSelectAll('selectAllMonths',   '.month-checkbox');
+        wireSelectAll('selectAllGrades',   '.grade-checkbox',   'gradeCbCount');
+        wireSelectAll('selectAllSections', '.section-checkbox', 'sectionCbCount');
+        wireSelectAll('selectAllMonths',   '.month-checkbox',   'monthCbCount');
 
         // ── Reset ──────────────────────────────────────────────────────
         $('#resetBtn').on('click', function () {
@@ -352,6 +513,9 @@
             $('#selectAllGrades, .grade-checkbox').prop('checked', true).prop('indeterminate', false);
             $('#selectAllSections, .section-checkbox').prop('checked', true).prop('indeterminate', false);
             $('#selectAllMonths, .month-checkbox').prop('checked', true).prop('indeterminate', false);
+            updateCbCount('gradeCbCount', '.grade-checkbox');
+            updateCbCount('sectionCbCount', '.section-checkbox');
+            updateCbCount('monthCbCount', '.month-checkbox');
             $('#results-area, #error-panel').hide();
             $('#initial-hint').show();
             destroyChart();
@@ -525,48 +689,51 @@
                 // Grand total footer
                 const gp = data.grandPendingPercent || 0;
                 $('#summary-tfoot').html(`
-                    <tr class="table-dark fw-bold">
+                    <tr class="fw-bold">
                         <td colspan="3" class="text-end py-2">GRAND TOTAL</td>
                         <td>${fmtCurrency(data.grandTotalPendingAmount)}</td>
                         <td class="text-center">${data.grandTotalPendingStudents}</td>
                         <td class="text-center">${data.grandTotalStudents}</td>
                         <td colspan="2">${gp}%</td>
                     </tr>`);
-                $('#pendingSummaryTable').DataTable({
-                    paging: false,
-                    info: false,
-                    searching: true,
-                    ordering: true,
-                    autoWidth: false,
-                    layout: {
-                        top1Start: {
-                            buttons: [
-                                { extend:'excelHtml5', text:'<i class="bi bi-file-excel-fill text-success"></i>',
-                                  titleAttr:'Export Excel', title:'Fees Pending Summary Report',
-                                  exportOptions:{ columns:[0,1,2,3,4,5,6] } },
-                                { extend:'csvHtml5', text:'<i class="bi bi-filetype-csv text-info"></i>',
-                                  titleAttr:'Export CSV', title:'Fees Pending Summary Report',
-                                  exportOptions:{ columns:[0,1,2,3,4,5,6] } },
-                                { extend:'pdfHtml5', text:'<i class="bi bi-file-pdf-fill text-danger"></i>',
-                                  titleAttr:'Export PDF', orientation:'landscape',
-                                  title:'Fees Pending Summary Report',
-                                  exportOptions:{ columns:[0,1,2,3,4,5,6] } }
-                            ]
-                        }
-                    },
-                    columnDefs: [
-                        { orderable: false, targets: [0, 6, 7] },
-                        { width: '40px',  targets: [0] },
-                        { width: '90px',  targets: [1] },
-                        { width: '80px',  targets: [2] },
-                        { width: '155px', targets: [3] },
-                        { width: '90px',  targets: [4] },
-                        { width: '100px', targets: [5] },
-                        { width: '130px', targets: [6] },
-                        { width: '60px',  targets: [7] }
-                    ]
+                // Reset the search box / export slot / page-length listeners
+                // before re-wiring — this handler can fire multiple times (once
+                // per "Generate Report" click), while the table node itself
+                // persists (only its tbody/tfoot are rebuilt above).
+                $('#pfsExportSlot').empty();
+                $('#pfsSearchInput').off('input');
+                $('#pfsPageLength').off('change');
+
+                initListDataTable({
+                    tableSelector: '#pendingSummaryTable',
+                    searchInputSelector: '#pfsSearchInput',
+                    exportSlotSelector: '#pfsExportSlot',
+                    lengthSelectSelector: '#pfsPageLength',
+                    pageInfoSelector: '#pfsPageInfo',
+                    paginationSelector: '#pfsPagination',
+                    itemLabel: 'rows',
+                    exportTitle: 'Fees Pending Summary Report',
+                    exportColumns: [0, 1, 2, 3, 4, 5, 6],
+                    printHeaderText: 'Fees Pending Summary Report',
+                    dtOptions: {
+                        paging: true,
+                        info: false,
+                        searching: true,
+                        ordering: true,
+                        autoWidth: false,
+                        columnDefs: [
+                            { orderable: false, targets: [0, 6, 7] },
+                            { width: '40px',  targets: [0] },
+                            { width: '90px',  targets: [1] },
+                            { width: '80px',  targets: [2] },
+                            { width: '155px', targets: [3] },
+                            { width: '90px',  targets: [4] },
+                            { width: '100px', targets: [5] },
+                            { width: '130px', targets: [6] },
+                            { width: '60px',  targets: [7] }
+                        ]
+                    }
                 });
-                $(".buttons-excel,.buttons-csv,.buttons-pdf").removeClass("btn-secondary");
 
                 $('#results-area').show();
 

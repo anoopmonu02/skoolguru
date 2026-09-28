@@ -109,11 +109,13 @@
 
         .powered-pill {
             display: inline-block;
-            background:var(--overlay-bg);
-            border: 1px solid rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.16);
+            border: 1px solid rgba(255, 255, 255, 0.28);
             color: #fff;
             font-size: 11px;
-            padding: 4px 14px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            padding: 5px 16px;
             border-radius: 20px;
         }
 
@@ -129,14 +131,14 @@
 
         /* Logo ring */
         .logo-ring {
-            width: 76px;
-            height: 76px;
-            border-radius: 50%;
-            overflow: hidden;
-            border: 3px solid #bae6fd;
-            box-shadow: 0 4px 16px rgba(2, 132, 199, 0.20);
-            margin: 0 auto 20px;
-            background: #f0f9ff;
+            width: 168px;
+            max-width: 60%;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 16px rgba(2, 132, 199, 0.14);
+            margin: 0 auto 16px;
+            padding: 10px 14px 8px;
+            background: #f8fafc;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -144,8 +146,9 @@
 
         .logo-ring img {
             width: 100%;
-            height: 100%;
-            object-fit: cover;
+            height: auto;
+            object-fit: contain;
+            display: block;
         }
 
         .welcome-heading {
@@ -366,7 +369,7 @@
 
             <!-- School logo -->
             <div class="logo-ring">
-                <img th:src="@{/images/logoimg.jpg}" alt="School Logo"/>
+                <img th:src="@{/images/logoimg.jpg}" alt="SkoolGuru"/>
             </div>
 
             <div class="welcome-heading">Welcome Back</div>

@@ -395,6 +395,21 @@
               itemLabel: 'employees',
               exportTitle: 'Employees Data export',
               exportColumns: [0, 1, 2, 3, 4, 5],
+              // Mobile is built as a .mask-cell widget above, BEFORE this
+              // call. Without this, DataTables' default export would fall
+              // back to whatever plain text is visible in that cell (the
+              // masked text) - export should show the REAL number instead:
+              // masking is a screen-glance protection, not an export
+              // permission; who can export this page is controlled
+              // separately, not by which value is shown here. Print is
+              // untouched - it clones the live table DOM as-is.
+              exportBodyFormat: function (data, row, column, node) {
+                  const $maskText = $(node).find('.mask-text').first();
+                  if ($maskText.length) {
+                      return $maskText.attr('data-full') || '';
+                  }
+                  return data;
+              },
               printHeaderText: 'Employees',
               dtOptions: {
                   columnDefs: [{ orderable: false, targets: [6] }]

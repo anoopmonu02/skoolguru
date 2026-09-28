@@ -27,11 +27,21 @@
  * @param {number[]} opts.exportColumns        column indices included in the Excel/PDF export (exportOptions.columns)
  * @param {string} [opts.printHeaderText]      heading text for the Print button's printThis() header (defaults to exportTitle)
  * @param {Object} [opts.dtOptions]            extra/override DataTable() options (columns, ajax, serverSide, columnDefs, scrollX, ...) — page-specific, shallow-merged over the shared defaults. Do not pass `buttons` here — the shared export/print buttons own that key.
+ * @param {Function} [opts.exportBodyFormat]   optional DataTables Buttons `exportOptions.format.body(data, row, column, node)` callback, applied to Excel/CSV/PDF only (never Print, which clones the live table DOM as-is). Use this when a column packs more into its display cell than the export should show — e.g. a "Student" cell with an avatar-initials badge plus a stacked sub-line — so the export gets just the plain field instead of the cell's full flattened text. Must return `data` unchanged for every column it does not specifically handle, or those cells export blank. Omit entirely for a page with no such column — default export behavior (whatever text is in each cell) is unchanged.
  * @returns {DataTable} the initialized DataTable instance
  */
 function initListDataTable(opts) {
     const pageSizes = [5, 10, 25, 50, 100];
     const pageLabels = [5, 10, 25, 50, 100];
+
+    // Shared by all three data-export buttons (not Print, which never goes
+    // through DataTables Buttons at all — see the printThis() call further
+    // down). `format.body` is only added when the page opts into it, so
+    // every existing page's export keeps behaving exactly as before.
+    const exportOptions = { columns: opts.exportColumns };
+    if (typeof opts.exportBodyFormat === 'function') {
+        exportOptions.format = { body: opts.exportBodyFormat };
+    }
 
     const baseOptions = {
         layout: {
@@ -48,7 +58,7 @@ function initListDataTable(opts) {
                 titleAttr: 'Excel',
                 title: opts.exportTitle,
                 className: 'list-export-btn',
-                exportOptions: { columns: opts.exportColumns }
+                exportOptions: exportOptions
             },
             {
                 extend: 'csvHtml5',
@@ -56,7 +66,7 @@ function initListDataTable(opts) {
                 titleAttr: 'CSV',
                 title: opts.exportTitle,
                 className: 'list-export-btn',
-                exportOptions: { columns: opts.exportColumns }
+                exportOptions: exportOptions
             },
             {
                 extend: 'pdfHtml5',
@@ -64,7 +74,7 @@ function initListDataTable(opts) {
                 titleAttr: 'PDF',
                 title: opts.exportTitle,
                 className: 'list-export-btn',
-                exportOptions: { columns: opts.exportColumns }
+                exportOptions: exportOptions
             }
         ],
         lengthMenu: [pageSizes, pageLabels],

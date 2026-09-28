@@ -183,6 +183,41 @@
             padding: 4px;
         }
 
+        /* Photo + QR stacked vertically, QR centered under the photo (per approved preview) */
+        .id-card .card-photo-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            flex-shrink: 0;
+        }
+
+        .id-card .card-qr {
+            width: 30px;
+            height: 30px;
+            border: 1px solid var(--border-color);
+            border-radius: 2px;
+            background: #fff;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .id-card .card-qr img {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .id-card .card-qr.card-qr-empty {
+            font-size: 5.5px;
+            color: var(--text-muted);
+            text-align: center;
+            line-height: 1.1;
+            padding: 1px;
+        }
+
         .id-card .card-signature {
             border-top: 1px solid #cbd5e1;
             text-align: right;
@@ -196,6 +231,8 @@
     <!-- ════════════════════════════════════════════════════
          Scripts
     ═════════════════════════════════════════════════════ -->
+    <script th:src="@{/js/qrcode.js}"></script>
+
     <script type="text/javascript" th:inline="javascript">
 
         const contextPath  = /*[[@{/}]]*/ '/';
@@ -268,6 +305,29 @@
             });
         }
 
+        // Build a small QR <img> tag (data-URI) encoding the student's PSRN — the
+        // DB-unique, school-scoped registration number (see Student.psrn / PsrnService).
+        // Rendered at 3x the eventual ~30px display box for a crisp downscale (same
+        // pattern as the receipt-neo.html header QR). Returns null when there is no
+        // PSRN yet (legacy/unbackfilled student) or generation fails for any reason —
+        // callers fall back to a small "No PSRN" placeholder instead of a broken image.
+        function buildQrImgTag(text) {
+            if (!text) return null;
+            try {
+                if (typeof qrcode !== 'function') return null;
+                var qr = qrcode(0, 'M');
+                qr.addData(String(text));
+                qr.make();
+                var qrTargetPx = 30, qrRenderScale = 3, qrMarginModules = 1;
+                var qrModuleCount = qr.getModuleCount();
+                var qrCellSize = Math.max(1, Math.floor((qrTargetPx * qrRenderScale) / (qrModuleCount + qrMarginModules * 2)));
+                return qr.createImgTag(qrCellSize, qrMarginModules * qrCellSize);
+            } catch (e) {
+                console.warn('QR generation failed for PSRN', text, e);
+                return null;
+            }
+        }
+
         // ── Build card HTML ───────────────────────────────────────────────────
         function renderCards(students) {
             let html = '';
@@ -298,6 +358,9 @@
                                  <div class="no-photo" style="display:none;">No Photo</div>`;
                 }
 
+                // QR (encodes psrn — DB-unique student key; see buildQrImgTag() above)
+                const qrImgTag = buildQrImgTag(as.psrn);
+
                 html += `
                 <div class="col-md-6 col-lg-4">
                   <div class="id-card">
@@ -315,7 +378,10 @@
                         <div class="card-field"><span class="field-label">Address</span><span class="field-value">: ${escHtml(address)}</span></div>
                         <div class="card-field"><span class="field-label">Phone</span><span class="field-value">: ${escHtml(phone)}</span></div>
                       </div>
-                      <div class="card-photo">${photoHtml}</div>
+                      <div class="card-photo-wrap">
+                        <div class="card-photo">${photoHtml}</div>
+                        <div class="card-qr${qrImgTag ? '' : ' card-qr-empty'}">${qrImgTag || 'No PSRN'}</div>
+                      </div>
                     </div>
                     <div class="card-signature">Authorised Signature</div>
                   </div>
@@ -417,6 +483,14 @@
                                            justify-content:center; background: var(--card-bg); }
                 .id-card .card-photo img{ width:100%; height:100%; object-fit:cover; }
                 .id-card .no-photo      { font-size:6pt; color:#999; text-align:center; }
+                .id-card .card-photo-wrap { display:flex; flex-direction:column;
+                                           align-items:center; gap:1.5px; flex-shrink:0; }
+                .id-card .card-qr       { width:22px; height:22px; border:1px solid #aaa;
+                                           border-radius:1px; background:#fff; overflow:hidden;
+                                           display:flex; align-items:center; justify-content:center; }
+                .id-card .card-qr img   { width:100%; height:100%; display:block; }
+                .id-card .card-qr.card-qr-empty { font-size:4.5pt; color:#999; text-align:center;
+                                           line-height:1.05; padding:1px; }
                 .id-card .card-signature{ border-top:1px solid #ccc; text-align:right;
                                            font-size:6.5pt; color: var(--text-muted); padding-top:2px; margin-top:3px; }
             </style>`);

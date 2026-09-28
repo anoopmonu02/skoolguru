@@ -160,7 +160,7 @@ public class FeeSubmissionController extends BaseController {
                     AcademicStudent student = (AcademicStudent)responseMap.get("student");
                     redirectAttributes.addFlashAttribute("success","Fees Submitted for: "+student.getStudent().getStudentName());
                     Long newFeeId = ((Number) responseMap.get("feeid")).longValue();
-                    return "redirect:/fees/receipt-print/"+receiptIdCodec.encode(newFeeId);
+                    return "redirect:/fees/receipt-print-neo/"+receiptIdCodec.encode(newFeeId);
                 }
             }
         }catch(Exception e){
@@ -214,6 +214,34 @@ public class FeeSubmissionController extends BaseController {
         model.addAllAttributes(receiptData);
 
         return "fees/receipt";
+    }
+
+    /**
+     * "Fee Receipt Neo" - a redesigned, more compact receipt layout for the exact same
+     * data as getFeeReceipt()/fees/receipt.html above: same encoded-id decoding, same
+     * getFeeReceiptData() call (no duplicated business/security logic - the cross-school
+     * IDOR check inside that method covers this route too), same "fees/receipt" model
+     * contract. Deliberately a separate method/view - the live /fees/receipt-print/{id}
+     * route and fees/receipt.html are untouched, per the user's explicit "don't remove
+     * the existing one" direction while this new layout is being tried out.
+     */
+    @CheckAccess(screen = "FEE_RECEIPT_PRINT", type = AccessType.VIEW)
+    @GetMapping("/receipt-print-neo/{encodedId}")
+    public String getFeeReceiptNeo(@PathVariable("encodedId") String encodedId, Model model){
+        log.info("Inside getFeeReceiptNeo");
+        School school = (School) model.getAttribute("school");
+        AcademicYear academicYear = (AcademicYear) model.getAttribute("academicYear");
+
+        Long id = receiptIdCodec.decode(encodedId);
+        if (id == null) {
+            model.addAttribute("studentError", "Academic Student not found!");
+            return "fees/receipt-neo";
+        }
+
+        Map<String, Object> receiptData = feeSubmissionService.getFeeReceiptData(id, school, academicYear);
+        model.addAllAttributes(receiptData);
+
+        return "fees/receipt-neo";
     }
 
     @CheckAccess(screen = "FEE_REMINDER", type = AccessType.VIEW)

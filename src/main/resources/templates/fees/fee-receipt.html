@@ -23,9 +23,16 @@
       pass — printThis.js for Print, html2canvas+jsPDF for a real PDF
       download — so this page no longer depends on any CDN either, and the
       two actions are icon-only buttons side by side instead of one
-      text+icon button. The actual receipt markup built by
-      createReceiptHTML()/createFeeMonthDetailHTML()/createFeeHeadDetailHTML()
-      is untouched - only the surrounding page chrome changed.
+      text+icon button.
+
+      Receipt markup: createReceiptHTML()/createFeeMonthDetailHTML()/
+      createFeeHeadDetailHTML() now build the "Neo" receipt layout (same
+      #contentToExport structure/CSS as fees/receipt-neo.html, incl. its
+      QR code, scoped under #contentToExport so it survives printThis's
+      clone-drops-ancestors behavior - see the CSS comment below) instead
+      of the old fees/receipt.html-style layout, from the exact same
+      /student-receipt-print/{id} JSON this page already fetched. The old
+      fees/receipt.html/receipt-print/{id} route is untouched.
   -->
   <style>
     /* ── Search box — same da- pattern used on Fee Submission Neo / Collect Balance ── */
@@ -110,6 +117,54 @@
     .fr-printcard .fr-actions{ margin-bottom:14px; }
     .fr-printcard-empty{ text-align:center; color:var(--text-muted); padding:32px 16px; font-size:.84rem; }
     .fr-printcard-empty i{ font-size:1.7rem; display:block; margin-bottom:8px; color:var(--border-color); }
+
+    /* ── Receipt content itself — ported as-is from fees/receipt-neo.html so the
+       preview/print/PDF here matches that page exactly. Scoped to #contentToExport,
+       not a wrapper class - deliberate, same reason as receipt-neo.html: printThis's
+       clone of #contentToExport into the print iframe drops its ANCESTORS, so a rule
+       rooted on some outer wrapper class would never match there even though it works
+       on-screen. Rooting every selector at #contentToExport keeps it working in all
+       three contexts this markup is used in: on-screen preview, Print (cloned iframe),
+       and Download PDF (html2canvas, reads the live on-screen DOM directly). Every
+       selector is prefixed .rn- so it can't collide with this page's own .fr- rules
+       above; this block only affects the dynamically-injected #disp-receipt content. */
+    #contentToExport{ font-family: Georgia, 'Times New Roman', serif; color:#000; }
+    #contentToExport .rn-header{ text-align:center; padding-bottom:6px; border-bottom:2px double #000; position:relative; }
+    #contentToExport .rn-qr{ position:absolute; top:0; right:0; width:52px; height:52px; }
+    #contentToExport .rn-qr img{ width:100%; height:100%; display:block; }
+    #contentToExport .rn-header h1{ margin:0; font-size:18px; letter-spacing:.6px; }
+    #contentToExport .rn-addr{ margin:3px 0 0; font-size:10px; color:#444; font-family:Arial,sans-serif; }
+    #contentToExport .rn-contact{ margin:2px 0 0; font-size:10px; color:#444; font-family:Arial,sans-serif; }
+    #contentToExport .rn-title-strip{ text-align:center; margin:8px 0 6px; font-family:Arial,sans-serif; font-size:10.5px; font-weight:bold; letter-spacing:1.6px; text-transform:uppercase; color:#444; }
+
+    #contentToExport .rn-info-block{ margin:8px 0 12px; }
+    #contentToExport .rn-info-line{ display:flex; gap:16px; margin-bottom:4px; font-family:Arial,sans-serif; font-size:10.5px; flex-wrap:wrap; }
+    #contentToExport .rn-field{ flex:1; display:flex; gap:5px; min-width:0; }
+    #contentToExport .rn-k{ color:#444; white-space:nowrap; }
+    #contentToExport .rn-v{ font-weight:bold; border-bottom:1px dotted #bbb; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    #contentToExport .rn-months-title{ font-family:Arial,sans-serif; font-size:9.5px; font-weight:bold; text-transform:uppercase; letter-spacing:.7px; color:#444; margin-bottom:4px; }
+    #contentToExport .rn-month-grid{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+    #contentToExport .rn-m3{ flex:0 0 calc(33.333% - 4px); box-sizing:border-box; border:1px solid #bbb; padding:3.5px 7px; font-family:Arial,sans-serif; font-size:9.5px; white-space:nowrap; }
+    #contentToExport .rn-m3 b{ font-weight:bold; }
+    #contentToExport .rn-m3.rn-empty{ color:#888; }
+
+    #contentToExport .rn-sec-title{ font-family:Arial,sans-serif; font-size:9.5px; font-weight:bold; text-transform:uppercase; letter-spacing:.7px; color:#444; margin:4px 0 5px; }
+    #contentToExport table.rn-fees{ width:100%; border-collapse:collapse; font-family:Arial,sans-serif; font-size:10.5px; margin-bottom:2px; }
+    #contentToExport table.rn-fees th{ background:#f0f0f0; border:1px solid #000; padding:4px 8px; text-align:left; font-size:9px; text-transform:uppercase; letter-spacing:.4px; }
+    #contentToExport table.rn-fees td{ border:1px solid #bbb; padding:4.5px 8px; }
+    #contentToExport table.rn-fees td.rn-amt, #contentToExport table.rn-fees th.rn-amt{ text-align:right; font-variant-numeric:tabular-nums; }
+
+    #contentToExport .rn-totals{ font-family:Arial,sans-serif; font-size:10.5px; margin-top:9px; width:100%; }
+    #contentToExport .rn-totals table{ width:100%; border-collapse:collapse; }
+    #contentToExport .rn-totals td{ padding:3px 0; }
+    #contentToExport .rn-totals td.rn-v{ text-align:right; font-variant-numeric:tabular-nums; }
+    #contentToExport .rn-totals tr.rn-remark td{ font-size:9.5px; color:#444; font-style:italic; }
+    #contentToExport .rn-totals tr.rn-final td{ border-top:1.2px solid #000; padding-top:6px; font-weight:bold; }
+
+    #contentToExport .rn-sign-row{ display:flex; justify-content:flex-end; margin-top:24px; font-family:Arial,sans-serif; font-size:10px; }
+    #contentToExport .rn-sign-box{ width:170px; text-align:center; padding-top:4px; color:#444; }
+    #contentToExport .rn-footnote{ text-align:center; margin-top:12px; font-family:Arial,sans-serif; font-size:9px; color:#666; }
   </style>
 
   <div class="container-fluid px-3">
@@ -202,6 +257,7 @@
     <script th:src="@{/js/html2canvas.min.js}"></script>
     <script th:src="@{/js/jspdf.umd.min.js}"></script>
     <script th:src="@{/js/print-utils.js}"></script>
+    <script th:src="@{/js/qrcode.js}"></script>
 
   <script type="text/javascript" th:inline="javascript">
       const contextPath = /*[[@{/}]]*/ '/';
@@ -395,6 +451,7 @@
                           const container = $('#disp-receipt');
                           container.empty();
                           container.append(createReceiptHTML(data));
+                          renderReceiptQr(id);
                           $('#dispReceiptPlaceholder').hide();
                       }
                   }
@@ -438,137 +495,104 @@
           }
       }
 
-      const createReceiptHTML = (data) =>{
+      // "Neo" receipt layout — same markup/CSS as fees/receipt-neo.html's
+      // #contentToExport (see the .rn- CSS block above), built here as a JS
+      // template from the exact same /student-receipt-print/{id} JSON this
+      // page already fetches, instead of that page's server-side Thymeleaf
+      // rendering. escapeHtml()/formatINR() usage mirrors what this function
+      // already did for the old layout - see the XSS-fix note further up.
+      const createReceiptHTML = (data) => {
+          const school = data.school;
+          const fs = data.feeSubmission;
+          const student = data.student;
+          const paymentSmall = fs.paymentDisplay && String(fs.paymentDisplay).indexOf('+') !== -1;
+          const showPrevBalance = fs.previousFeeBalanceRemark != null
+              && String(fs.previousFeeBalanceRemark).trim() !== ''
+              && String(fs.previousFeeBalanceRemark).trim() !== '0';
+          const showMigrationDiscount = fs.migrationDiscountAmount != null && Number(fs.migrationDiscountAmount) > 0;
+
           return `<div class="card-body" id="contentToExport">
-                  <input type="hidden" id="feeid" th:value="${data.feeSubmission.id}">
-                  <div class="text-center"><strong>${escapeHtml(data.school.schoolName.toUpperCase())}</strong></div>
-                  <div class="text-center"><strong>${escapeHtml(data.school.address.toUpperCase())}</strong></div>
-                  <div class="text-center"><strong>CONTACT NO: (+91) ${escapeHtml(data.school.mobile1)}<span th:if="${data.school.mobile2 != null}">, ${escapeHtml(data.school.mobile2)}</span></strong></div>
-                  <div class="text-center" th:if="${data.school.email != null}"><strong>Email: ${escapeHtml(data.school.email)}</strong></div>
-                  <hr/>
-                  <div class="text-center"><strong>(DUPLICATE COPY)</strong></div>
-                  <hr/>
-                  <div class="row">
-                      <div class="col-md-6">
-                          <label class="col-md-4 col-form-label"><strong>Academic Year: </strong></label>
-                          <label class="col-md-5 col-form-label">${escapeHtml(data.academicYear)}</label>
-                      </div>
-                      <div class="col-md-6">
-                          <label class="col-md-2"></label>
-                          <label class="col-md-4"><strong>Submission Date: </strong></label>
-                          <label class="col-md-5"><strong>${new Date(data.feeSubmission.feeSubmissionDate).toLocaleString()} </strong></label>
-                      </div>
-                      <div class="col-md-6">
-                          <label class="col-md-4 col-form-label"><strong>Receipt No: </strong></label>
-                          <label class="col-md-5 col-form-label">${escapeHtml(data.feeSubmission.receiptNo)}</label>
-                      </div>
-                      <div class="col-md-6">
-                            <label class="col-md-2"></label>
-                            <label class="col-md-4 col-form-label"><strong>Payment: </strong></label>
-                            <label class="col-md-5 col-form-label" ${data.feeSubmission.paymentDisplay && String(data.feeSubmission.paymentDisplay).indexOf('+') !== -1 ? 'style="font-size:0.78rem;"' : ''}>${data.feeSubmission.paymentDisplay!=null?escapeHtml(data.feeSubmission.paymentDisplay):"--"}</label>
-                        </div>
-                  </div>
-                  <hr/>
-                  <div class="row">
-                      <div class="col-md-6">
-                          <label class="col-md-4 col-form-label"><strong>Student Name: </strong></label>
-                          <label class="col-md-5 col-form-label">${escapeHtml(data.student.student.studentName)}</label>
-                      </div>
-                      <div class="col-md-6">
-                          <label class="col-md-3"></label>
-                          <label class="col-md-4 col-form-label"><strong>Class: </strong></label>
-                          <label class="col-md-4 col-form-label">${escapeHtml(data.student.grade.gradeName)} - ${escapeHtml(data.student.section.sectionName)}</label>
-                      </div>
-                      <div class="col-md-6">
-                          <label class="col-md-4 col-form-label"><strong>Father Name: </strong></label>
-                          <label class="col-md-5 col-form-label">${escapeHtml(data.student.student.fatherName)}</label>
-                      </div>
-                      <div class="col-md-6">
-                          <label class="col-md-3"></label>
-                          <label class="col-md-4 col-form-label"><strong>SR No: </strong></label>
-                          <label class="col-md-4 col-form-label">${data.student.classSrNo==null?"":escapeHtml(data.student.classSrNo)}</label>
-                      </div>
-                      <div class="col-md-6">
-                          <label class="col-md-4 col-form-label"><strong>Mother Name: </strong></label>
-                          <label class="col-md-5 col-form-label">${escapeHtml(data.student.student.motherName)}</label>
-                      </div>
-                      <div class="col-md-6">
-                          <label class="col-md-3"></label>
-                          <label class="col-md-4 col-form-label"><strong>Contact No: </strong></label>
-                          <label class="col-md-4 col-form-label">(+91) ${escapeHtml(data.student.student.mobile1)}</label>
-                      </div>
+                  <input type="hidden" id="feeid" value="${fs.id}">
 
+                  <div class="rn-header">
+                    <div class="rn-qr" id="rnQr" aria-hidden="true"></div>
+                    <h1>${escapeHtml((school.schoolName || '').toUpperCase())}</h1>
+                    <p class="rn-addr">${escapeHtml((school.address || '').toUpperCase())}</p>
+                    <p class="rn-contact">
+                      Contact No: (+91) ${escapeHtml(school.mobile1)}${school.mobile2 ? ', ' + escapeHtml(school.mobile2) : ''}
+                      ${school.email ? '&nbsp;|&nbsp; Email: ' + escapeHtml(school.email) : ''}
+                    </p>
                   </div>
-                  <hr/>
-                  <div class="row fee-month-detail">
-                      <div class="row fee-month-detail">
-                            ${createFeeMonthDetailHTML(data.feeSubmittedMonths)}
-                        </div>
-                  </div>
-                  <hr/>
-                  <div class="row feedetails">
-                        <div class="col-md-12">
-                            <table class="table table-bordered table-striped">
-                                <thead>
-                                <tr>
-                                    <th width="8%">SNo.</th>
-                                    <th>Head Name</th>
-                                    <th width="20%">Unit</th>
-                                    <th width="20%">Amount</th>
-                                </tr>
-                                </thead>
-                                <tbody class="table-group-divider">
-                                    ${createFeeHeadDetailHTML(data.feesublist)}
-                                </tbody>
-                            </table>
-                        </div>
-                   </div>
-                   <hr/>
-                   <div class="row amountdetails">
-                        <div class="col-md-4"></div>
-                        <div class="col-md-8"><strong>Fine Remark: </strong><span>${data.feeSubmission.fineRemark!=null?escapeHtml(data.feeSubmission.fineRemark):""}</span></div>
+                  <div class="rn-title-strip">Fee Payment Receipt</div>
 
-                        <div class="col-md-4"></div>
-                        <div class="col-md-4"><strong>Fine Amount: </strong></div>
-                        <div class="col-md-4 text-end">₹ ${formatINR(data.feeSubmission.fineAmount)}</div>
+                  <div class="rn-info-block">
+                    <div class="rn-info-line">
+                      <div class="rn-field"><span class="rn-k">Receipt No.</span><span class="rn-v">${escapeHtml(fs.receiptNo)}</span></div>
+                      <div class="rn-field"><span class="rn-k">Academic Year</span><span class="rn-v">${escapeHtml(data.academicYear)}</span></div>
+                      <div class="rn-field">
+                        <span class="rn-k">Payment Mode</span>
+                        <span class="rn-v"${paymentSmall ? ' style="font-size:8.5px;"' : ''}>${fs.paymentDisplay != null ? escapeHtml(fs.paymentDisplay) : ''}</span>
+                      </div>
                     </div>
-                    <hr/>
-                    ${data.feeSubmission.discounthead ? `
-                        <div class="row">
-                            <div class="col-md-4"></div>
-                            <div class="col-md-8"><strong>Discount Remark: </strong><span>${escapeHtml(data.feeSubmission.discounthead.discountName)}</span></div>
-
-                            <div class="col-md-4"></div>
-                            <div class="col-md-4"><strong>Discount Amount: </strong></div>
-                            <div class="col-md-4 text-end">₹ ${formatINR(data.feeSubmission.discountAmount)}</div>
-                        </div><hr/>` : ''}
-                    ${data.feeSubmission.previousFeeBalanceRemark ? `
-                         <div class="row">
-                            <div class="col-md-4"></div>
-                            <div class="col-md-4"><strong>Previous Balance: </strong></div>
-                            <div class="col-md-4 text-end">₹ ${formatINR(data.feeSubmission.previousFeeBalanceRemark)}</div>
-                        </div>
-                        <hr/>` : ''}
-                    ${data.feeSubmission.migrationDiscountAmount && Number(data.feeSubmission.migrationDiscountAmount) > 0 ? `
-                         <div class="row">
-                            <div class="col-md-4"></div>
-                            <div class="col-md-4"><strong>Special Discount (Admin): </strong></div>
-                            <div class="col-md-4 text-end">₹ ${formatINR(data.feeSubmission.migrationDiscountAmount)}</div>
-                        </div>
-                        <hr/>` : ''}
-                    <div class="row">
-                        <div class="col-md-4"></div>
-                        <div class="col-md-4"><strong>Total Amount: </strong></div>
-                        <div class="col-md-4 text-end" >₹ ${formatINR(data.feeSubmission.totalAmount)}</div>
-                        <div class="col-md-4"></div>
-                        <div class="col-md-4"><strong>Paid Amount: </strong></div>
-                        <div class="col-md-4 text-end">₹ ${formatINR(data.feeSubmission.paidAmount)}</div>
-                        <div class="col-md-4"></div>
-                        <div class="col-md-4"><strong>Balance Amount: </strong></div>
-                        <div class="col-md-4 text-end" >₹ ${formatINR(data.feeSubmission.balanceAmount)}</div>
+                    <div class="rn-info-line">
+                      <div class="rn-field"><span class="rn-k">Student Name</span><span class="rn-v">${escapeHtml(student.student.studentName)}</span></div>
+                      <div class="rn-field"><span class="rn-k">Submission Date</span><span class="rn-v">${escapeHtml(new Date(fs.feeSubmissionDate).toLocaleString())}</span></div>
                     </div>
-                    <br/><br/>
-                  <div class="row mb-3"><div class="col-md-12 text-end">(Authorized Signatory)</div></div>
+                    <div class="rn-info-line">
+                      <div class="rn-field"><span class="rn-k">Father's Name</span><span class="rn-v">${escapeHtml(student.student.fatherName)}</span></div>
+                      <div class="rn-field"><span class="rn-k">Mother's Name</span><span class="rn-v">${escapeHtml(student.student.motherName)}</span></div>
+                    </div>
+                    <div class="rn-info-line">
+                      <div class="rn-field"><span class="rn-k">Class</span><span class="rn-v">${escapeHtml(student.grade.gradeName)}-${escapeHtml(student.section.sectionName)}</span></div>
+                      <div class="rn-field"><span class="rn-k">SR No.</span><span class="rn-v">${student.classSrNo == null ? '' : escapeHtml(student.classSrNo)}</span></div>
+                      <div class="rn-field"><span class="rn-k">Contact No.</span><span class="rn-v">(+91) ${escapeHtml(student.student.mobile1)}</span></div>
+                    </div>
+                  </div>
+
+                  <div class="rn-month-block">
+                    <div class="rn-months-title">Month-wise Status</div>
+                    <div class="rn-month-grid">
+                      ${createFeeMonthDetailHTML(data.feeSubmittedMonths)}
+                    </div>
+                  </div>
+
+                  <div class="rn-sec-title">Fee Breakup</div>
+                  <table class="rn-fees">
+                    <thead><tr><th>S.No.</th><th>Head Name</th><th>Unit</th><th class="rn-amt">Amount</th></tr></thead>
+                    <tbody>
+                      ${createFeeHeadDetailHTML(data.feesublist)}
+                    </tbody>
+                  </table>
+
+                  <div class="rn-totals">
+                    <table>
+                      <tr class="rn-remark">
+                        <td>Fine Remark: <span>${fs.fineRemark != null ? escapeHtml(fs.fineRemark) : ''}</span></td>
+                        <td class="rn-v">Fine Amount: <span>₹ ${formatINR(fs.fineAmount)}</span></td>
+                      </tr>
+                      ${fs.discounthead ? `
+                      <tr class="rn-remark">
+                        <td>Discount Remark: <span>${escapeHtml(fs.discounthead.discountName)}</span></td>
+                        <td class="rn-v">Discount Amount: <span>₹ ${formatINR(fs.discountAmount)}</span></td>
+                      </tr>` : ''}
+                      ${showPrevBalance ? `
+                      <tr class="rn-remark">
+                        <td>Previous Balance:</td>
+                        <td class="rn-v">₹ ${escapeHtml(fs.previousFeeBalanceRemark)}</td>
+                      </tr>` : ''}
+                      ${showMigrationDiscount ? `
+                      <tr class="rn-remark">
+                        <td>Special Discount (Admin):</td>
+                        <td class="rn-v">₹ ${formatINR(fs.migrationDiscountAmount)}</td>
+                      </tr>` : ''}
+                      <tr class="rn-final"><td>Total Amount</td><td class="rn-v">₹ ${formatINR(fs.totalAmount)}</td></tr>
+                      <tr><td>Paid Amount</td><td class="rn-v">₹ ${formatINR(fs.paidAmount)}</td></tr>
+                      <tr class="rn-final"><td>Balance Amount</td><td class="rn-v">₹ ${formatINR(fs.balanceAmount)}</td></tr>
+                    </table>
+                  </div>
+
+                  <div class="rn-sign-row"><div class="rn-sign-box">Authorized Signatory</div></div>
+                  <div class="rn-footnote">Computer generated receipt &mdash; no signature required for validity.</div>
 
               </div>`
       }
@@ -577,15 +601,14 @@
           let feeMonthHTML = '';
           feeSubmittedMonths.forEach(feeList => {
               const parts = feeList.split('####');
-              const month = parts[0];
-              const amount = parts[1];
-              const status = parts[2];
+              const monthName = (parts[1] || '').replace(/[():]/g, '').trim();
+              const isPaid = feeList.indexOf('PAID') !== -1;
+              const statusText = isPaid ? (parts[2] || '').replace('PAID', 'Paid') : '';
 
               feeMonthHTML += `
-                <div class="col-md-6">
-                    <strong><label class="col-md-3">${escapeHtml(month)}</label></strong>
-                    <label class="col-md-3">${escapeHtml(amount)}</label>
-                    ${status.includes('PAID') ? `<span><i><u><label class="col-md-5">${escapeHtml(status)}</label></u></i></span>` : ''}
+                <div class="rn-m3${isPaid ? '' : ' rn-empty'}">
+                    <b>${escapeHtml(monthName)}</b>
+                    ${isPaid ? `&mdash; &#10003; <span>${escapeHtml(statusText)}</span>` : `&mdash; Not paid`}
                 </div>`;
           });
           return feeMonthHTML;
@@ -605,11 +628,43 @@
                     <td>${index}</td>
                     <td>${escapeHtml(headName)}</td>
                     <td>${escapeHtml(unit)}</td>
-                    <td class="text-end">₹ ${formatINR(amount)}</td>
+                    <td class="rn-amt">₹ ${formatINR(amount)}</td>
                 </tr>
                 `;
           });
           return feeMonthHTML;
+      };
+
+      // QR code — same rendering approach as fees/receipt-neo.html's own
+      // DOMContentLoaded handler (see /js/qrcode.js), just triggered here
+      // right after the markup above is injected instead of on page load.
+      // Encodes this specific receipt's permanent /fees/receipt-print-neo/{id}
+      // link (the same encodedId already used for the /student-receipt-print/{id}
+      // fetch that produced `data`) rather than this list page's own URL, so
+      // scanning it opens that one receipt directly - matching what scanning
+      // the QR on the standalone receipt-neo.html page itself would do.
+      const renderReceiptQr = (encodedId) => {
+          try {
+              const rnQr = document.getElementById('rnQr');
+              if (rnQr && typeof qrcode === 'function') {
+                  const qrUrl = window.location.origin + contextPath + 'fees/receipt-print-neo/' + encodeURIComponent(encodedId);
+                  const qr = qrcode(0, 'M');
+                  qr.addData(qrUrl);
+                  qr.make();
+                  const qrTargetPx = 52, qrRenderScale = 3, qrMarginModules = 2;
+                  const qrModuleCount = qr.getModuleCount();
+                  const qrCellSize = Math.max(1, Math.floor((qrTargetPx * qrRenderScale) / (qrModuleCount + qrMarginModules * 2)));
+                  rnQr.innerHTML = qr.createImgTag(qrCellSize, qrMarginModules * qrCellSize);
+                  const qrImg = rnQr.querySelector('img');
+                  if (qrImg) {
+                      qrImg.style.width = '100%';
+                      qrImg.style.height = '100%';
+                      qrImg.style.display = 'block';
+                  }
+              }
+          } catch (qrErr) {
+              console.error('QR code generation failed', qrErr);
+          }
       };
 
       // Print and PDF-export both go through SmsPrintUtils (see

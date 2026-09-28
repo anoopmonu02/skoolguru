@@ -1547,15 +1547,17 @@ public class FeeSubmissionService {
                 }
                 int monDiff = monDiffObj;
                 if(monDiff>0){
-                    // Future month (e.g. paying October in advance alongside overdue
-                    // July/August/September in the same submission) - this used to hard
-                    // RESET finalFineAmount to 0 here, wiping out fine already accumulated
-                    // from genuinely overdue months processed earlier in this same loop
-                    // (months are walked in calendar order, so a future month is always
-                    // processed last). A future month owes no fine of its own, but it must
-                    // not erase what's already due for the months before it - skip only
-                    // this month's contribution instead.
-                    continue;
+                    // Advance month selected (e.g. paying October in advance alongside
+                    // July/August/September in the same submission, with September as the
+                    // current month) - confirmed business rule (2026-09-25, matches WebSMS
+                    // App's fee submission flow): including ANY advance month in the
+                    // selection waives the fine for the WHOLE submission, not just this
+                    // month's own contribution - even fine already accumulated from
+                    // genuinely overdue months processed earlier in this same loop (months
+                    // are walked in calendar order, so an advance month is always processed
+                    // last). Rule 2 (max-fine cap, below) still applies on top of this -
+                    // though it's a no-op here since 0 never exceeds the cap.
+                    finalFineAmount = 0;
                 } else if(monDiff==0){
                     FeeDate feedate = feedateRepository.findByAcademicYear_IdAndSchool_IdAndMonthMaster_MonthName(academicYear.getId(), school.getId(), mnName).orElse(null);
                     if(feedate!=null){

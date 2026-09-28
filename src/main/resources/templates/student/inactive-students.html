@@ -163,6 +163,12 @@
             <thead>
             <tr>
               <th>Student</th>
+              <!-- Hidden in the UI (columnDefs visible:false below) — exist only so
+                   Excel/CSV/PDF export gets Class/Section and SR No. as their OWN
+                   columns instead of squashed into the "Student" cell's sub-line
+                   (same fix as Student Discount List). -->
+              <th>Class/Section</th>
+              <th>SR No.</th>
               <th>Regis. Date</th>
               <th>Mother Name</th>
               <th>Father Name</th>
@@ -188,6 +194,8 @@
                   </div>
                 </div>
               </td>
+              <td th:text="${academicStudent.grade.gradeName}+'-'+${academicStudent.section.sectionName}"></td>
+              <td th:text="${academicStudent.classSrNo} ?: '-'"></td>
               <td th:text="${#dates.format(academicStudent.student.registrationDate, 'dd/MMM/yyyy')}"></td>
               <td th:text="${academicStudent.student.motherName}"></td>
               <td th:text="${academicStudent.student.fatherName}"></td>
@@ -473,6 +481,30 @@
       // $(document).ready(...) handler - which is why the pagination text,
       // export buttons, AND (since its registration came after this point
       // too) the reveal-toggle handler could all break together.
+      // Excel/CSV/PDF export cleanup, shared by all three export buttons below
+      // (this page has no Print button, so nothing there to worry about):
+      //  - Student cell (col 0) packs an avatar-initials badge + name + a
+      //    "Grade-Section | SR: X" sub-line into one display cell. Class/Section
+      //    and SR No. already get their own hidden export columns (1 and 2),
+      //    so export shows ONLY the student's name here.
+      //  - Mobile/Email (built into .mask-cell spans just above, BEFORE
+      //    DataTables reads the DOM) always export the REAL value
+      //    (data-full), regardless of the on-screen masked/revealed state -
+      //    never the raw mask-toggle widget markup that's actually sitting
+      //    in that cell. Masking is a screen-glance protection, not an
+      //    export permission; export access is controlled separately (who
+      //    can even reach this page/button), not by which value is shown.
+      const studentsDeletedExportBody = function (data, row, column, node) {
+        const $maskText = $(node).find('.mask-text').first();
+        if ($maskText.length) {
+          return $maskText.attr('data-full') || '';
+        }
+        if (column === 0) {
+          return $(node).find('.stu-name-text').first().text().trim();
+        }
+        return data;
+      };
+
       const table = $('#students-deleted').DataTable({
         scrollX: true,
         autoWidth: false,
@@ -490,7 +522,10 @@
             titleAttr: 'Excel',
             title: 'Removed Students Data export',
             className: 'stu-export-btn',
-            exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7, 8] }
+            exportOptions: {
+              columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+              format: { body: studentsDeletedExportBody }
+            }
           },
           {
             extend: 'csvHtml5',
@@ -498,7 +533,10 @@
             titleAttr: 'CSV',
             title: 'Removed Students Data export',
             className: 'stu-export-btn',
-            exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7, 8] }
+            exportOptions: {
+              columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+              format: { body: studentsDeletedExportBody }
+            }
           },
           {
             extend: 'pdfHtml5',
@@ -506,7 +544,10 @@
             titleAttr: 'PDF',
             title: 'Removed Students Data export',
             className: 'stu-export-btn',
-            exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7, 8] }
+            exportOptions: {
+              columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+              format: { body: studentsDeletedExportBody }
+            }
           }
           // NOTE: no 'colvis' (column-visibility) button - that button type
           // needs its own extension file (dataTables.buttons.colVis.js /
@@ -528,7 +569,8 @@
         columnDefs: [
           // Student (composite name+subtext cell) and Action never sort by
           // raw text. Email IS orderable (unlike the pre-redesign page).
-          { orderable: false, targets: [0, 9] }
+          { orderable: false, targets: [0, 11] },
+          { visible: false, targets: [1, 2] }
         ]
       });
 

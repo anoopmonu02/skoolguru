@@ -45,6 +45,11 @@
               <tr>
                 <th>Discount Name</th>
                 <th>Student</th>
+                <!-- Hidden in the UI (columnDefs visible:false below) — exist only so
+                     Excel/CSV/PDF export gets Class/Section and SR No. as their OWN
+                     columns instead of squashed into the "Student" cell's sub-line. -->
+                <th>Class/Section</th>
+                <th>SR No.</th>
                 <th>Father Name</th>
                 <th>Mother Name</th>
                 <th>Contact#</th>
@@ -68,9 +73,11 @@
                     </div>
                   </div>
                 </td>
+                <td th:text="${student.academicStudent.grade.gradeName}+'-'+${student.academicStudent.section.sectionName}"></td>
+                <td th:text="${student.academicStudent.classSrNo}"></td>
                 <td th:text="${student.academicStudent.student.fatherName}"></td>
                 <td th:text="${student.academicStudent.student.motherName}"></td>
-                <td th:text="${student.academicStudent.student.mobile1}"></td>
+                <td class="mobile-cell" th:text="${student.academicStudent.student.mobile1}"></td>
                 <td th:text="${student.description}"></td>
                 <td th:text="${student.createdBy != null ? student.createdBy.displayName : ''}"></td>
                 <td class="text-nowrap text-center">
@@ -206,6 +213,50 @@
         }
       });
 
+      // Contact# masking (display-only, click-to-reveal) - same technique as
+      // Deleted Student List / Employee List / Absent Today. Must run BEFORE
+      // initListDataTable() below - DataTables indexes the existing DOM rows
+      // once at construction for this non-ajax table, and only reads/reorders
+      // those same nodes afterwards, so content injected beforehand survives
+      // sort/search/paging. Only .text()/.attr() are used (never .html()
+      // with an interpolated value), so this is safe regardless of what
+      // characters a mobile value contains.
+      try {
+        const sdMaskMobile = function (raw) {
+          const v = String(raw || '');
+          if (v.length <= 4) { return v; }
+          return v.slice(0, 2) + 'x'.repeat(v.length - 4) + v.slice(-2);
+        };
+        $('#student-discount-list .mobile-cell').each(function () {
+          const $td = $(this);
+          const full = $td.text().trim();
+          if (!full) { return; }
+          const masked = sdMaskMobile(full);
+          const $text = $('<span class="mask-text"></span>')
+            .text(masked)
+            .attr({ 'data-full': full, 'data-masked': masked, 'data-revealed': 'false' });
+          const $btn = $('<button type="button" class="mask-toggle" title="Show"></button>')
+            .append('<i class="bi bi-eye"></i>');
+          $td.empty().append($('<span class="mask-cell"></span>').append($text).append($btn));
+        });
+      } catch (e) {
+        console.error('Contact# masking failed to initialize', e);
+      }
+
+      // Mask/reveal toggle for the Contact# cell - independent of DataTables.
+      $(document).on('click', '.mask-toggle', function () {
+        const $btn = $(this);
+        const $text = $btn.siblings('.mask-text');
+        const revealed = $text.attr('data-revealed') === 'true';
+        if (revealed) {
+          $text.text($text.attr('data-masked')).attr('data-revealed', 'false');
+          $btn.attr('title', 'Show').find('i').attr('class', 'bi bi-eye');
+        } else {
+          $text.text($text.attr('data-full')).attr('data-revealed', 'true');
+          $btn.attr('title', 'Hide').find('i').attr('class', 'bi bi-eye-slash');
+        }
+      });
+
       if ($('#student-discount-list').length) {
         try {
           initListDataTable({
@@ -217,11 +268,34 @@
             paginationSelector: '#discountPagination',
             itemLabel: 'discounts',
             exportTitle: 'Student Discount Data export',
-            exportColumns: [0, 1, 2, 3, 4, 5, 6],
+            exportColumns: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+            // Student cell (col 1) packs an avatar-initials badge + name + a
+            // "Grade-Section | SR: X" sub-line into one display cell. Class/Section
+            // and SR No. already get their own hidden export columns (2 and 3
+            // above), so Excel/CSV/PDF should show ONLY the student's name here,
+            // not the avatar initials or a second copy of the sub-line text.
+            // Contact# (built into a .mask-cell span just above, BEFORE
+            // DataTables reads the DOM) always exports the REAL value
+            // (data-full), regardless of the on-screen masked/revealed state -
+            // masking is a screen-glance protection, not an export permission.
+            // Print is untouched — it clones the live table DOM as-is.
+            exportBodyFormat: function (data, row, column, node) {
+                const $maskText = $(node).find('.mask-text').first();
+                if ($maskText.length) {
+                    return $maskText.attr('data-full') || '';
+                }
+                if (column === 1) {
+                    return $(node).find('.sd-name').first().text().trim();
+                }
+                return data;
+            },
             printHeaderText: 'Student Discounts',
             dtOptions: {
               pageLength: 10,
-              columnDefs: [{ orderable: false, targets: [7] }]
+              columnDefs: [
+                { orderable: false, targets: [9] },
+                { visible: false, targets: [2, 3] }
+              ]
             }
           });
         } catch (e) {

@@ -585,6 +585,24 @@ button.logout-btn.dropdown-item { width: 100%; }
     font-weight: 700;
     flex-shrink: 0;
 }
+
+/* Name + Grade/SR sub-line stack — for report tables where Grade/SR are
+   folded into the Student Name cell instead of their own visible columns
+   (the columns themselves stay in the DataTable, just hidden via
+   columnDefs visible:false, so Excel/CSV/PDF export still gets them as
+   real columns). Pairs with .stu-cell/.stu-avatar above. */
+.stu-name-stack {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.35;
+}
+.stu-sub-text {
+    font-size: .74em;
+    color: var(--text-muted);
+    font-weight: 400;
+    white-space: nowrap;
+}
 /* Masked PII cell (mobile/Aadhaar) with a click-to-reveal eye toggle. This is
    a display-only mask - see the code comment in student.html for why it is
    NOT a substitute for server-side masking. */

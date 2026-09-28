@@ -36,6 +36,7 @@
         .aa-btn-primary:disabled { opacity: .65; cursor: default; }
 
         #studentTable, #studentTable th, #studentTable td { font-size: .8rem; }
+        #studentTable .stu-avatar { width: 24px; height: 24px; font-size: .62rem; }
     </style>
 
     <div class="container-fluid px-3">
@@ -169,6 +170,13 @@
                 .replace(/'/g, '&#39;');
         }
 
+        // Avatar-initials chip shown next to the student's name (same
+        // palette/convention as Student List's .stu-avatar).
+        const avatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+        const initialsOf = function (name) {
+            return (name || '').trim().split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+        };
+
         $('#getfee').click(async function() {
             $("#student-collection-data").empty();
             $("#printable-div").hide();
@@ -263,7 +271,15 @@
                                         <td>${counter}</td>
                                         <td>${escHtml(grd)}</td>
                                         <td>${escHtml(srno)}</td>
-                                        <td>${escHtml(studentData.academicStudent.student.studentName)}</td>
+                                        <td>
+                                            <div class="stu-cell">
+                                                <div class="stu-avatar" style="background:${avatarColors[counter % avatarColors.length]}22;color:${avatarColors[counter % avatarColors.length]}">${initialsOf(studentData.academicStudent.student.studentName)}</div>
+                                                <div class="stu-name-stack">
+                                                    <span class="stu-name-text">${escHtml(studentData.academicStudent.student.studentName)}</span>
+                                                    <span class="stu-sub-text">Grade: ${escHtml(grd)} &nbsp;|&nbsp; SR No.: ${escHtml(srno) || '\u2014'}</span>
+                                                </div>
+                                            </div>
+                                        </td>
                                         <td>${escHtml(studentData.academicStudent.student.fatherName)}</td>
                                         <td>₹ ${formatINR(studentData.amount)}</td>
                                         <td>${escHtml(studentData.monthsList)}</td>
@@ -300,9 +316,17 @@
                             exportTitle: 'Total Students Pending Fees Data export',
                             exportColumns: [0,1,2,3,4,5,6,7],
                             printHeaderText: 'Total Students Pending Fees Data',
+                            // Student Name cell packs an avatar-initials badge + stacked
+                            // Grade/SR sub-line for display; export should get just the
+                            // plain student name (Grade/SR already export as their own
+                            // hidden-on-screen columns).
+                            exportBodyFormat: function (data, row, column, node) {
+                                var $name = $(node).find('.stu-name-text');
+                                return $name.length ? $name.text() : data;
+                            },
                             dtOptions: {
                                 scrollX: true,
-                                columnDefs: [{ orderable: false, targets: [0] }]
+                                columnDefs: [{ orderable: false, targets: [0] }, { visible: false, targets: [1, 2] }]
                             }
                         });
 

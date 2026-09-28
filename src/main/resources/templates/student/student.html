@@ -443,6 +443,11 @@
         {
           data: 'aadharNo',
           render: function (data, type) {
+            // display: masked widget with click-to-reveal. Everything else
+            // (export, sort, filter, type) gets the real value - masking is
+            // a screen-glance protection, not an export permission; who can
+            // export this page is controlled separately, not by which value
+            // is shown here.
             return type === 'display' ? maskedCell(data, maskAadhaar) : (data || '');
           }
         },
@@ -451,6 +456,7 @@
         {
           data: 'mobile1',
           render: function (data, type) {
+            // Same policy as Aadhaar above.
             return type === 'display' ? maskedCell(data, maskMobile) : (data || '');
           }
         },
@@ -506,6 +512,29 @@
       // the approved mockup pixel-for-pixel instead of DataTables' stock
       // Bootstrap look. The underlying data engine — server-side ajax,
       // sorting, searching, paging — is completely unchanged.
+      // This table is serverSide:true, so the browser only ever holds the
+      // CURRENTLY DISPLAYED PAGE's rows - Buttons' export can only see
+      // what's already loaded, meaning by default Export only exports the
+      // current page instead of every row matching the current search.
+      // This wrapper temporarily switches to page.len(-1) (DataTables' own
+      // "give me everything" signal, sent to the server as length=-1 -
+      // StudentService.getStudentsPage now treats that as "return every
+      // matching row"), waits for that fetch to finish, invokes the
+      // button's own normal export action against the now-fully-loaded
+      // table, then restores the page length/page the user was actually
+      // on. Shared by all three buttons (Excel/CSV/PDF) below.
+      const exportAllRowsAction = function (buttonExtend) {
+        return function (e, dt, button, config) {
+          const originalLen = dt.page.len();
+          const originalPage = dt.page();
+          dt.one('draw', function () {
+            $.fn.dataTable.ext.buttons[buttonExtend].action.call(this, e, dt, button, config);
+            dt.page.len(originalLen).page(originalPage).draw(false);
+          });
+          dt.page.len(-1).draw(false);
+        };
+      };
+
       const table = $('#student-list').DataTable({
         serverSide: true,
         processing: true,
@@ -532,6 +561,18 @@
         // fully under my control regardless of whichever default Bootstrap/
         // DataTables classes (btn, btn-secondary, buttons-html5, ...) the
         // Buttons extension also attaches.
+        // exportOptions.orthogonal: 'export' on every button below - the
+        // vendored dataTables.buttons.js in this app defaults export to
+        // orthogonal 'display' (newer DataTables Buttons versions default to
+        // 'export' instead, which is what the Mobile/Aadhaar render()
+        // functions below were originally written expecting). Left at the
+        // default, Buttons asks each column to render(..., 'display', ...)
+        // for export too - the exact same call used on-screen - so the
+        // Mobile/Aadhaar columns' `type === 'display'` branch fires during
+        // export as well, and the masked widget (or its flattened text)
+        // ends up in the file instead of the real value. Setting this
+        // explicitly makes render() receive type 'export', matching what
+        // the column-level render functions already check for.
         buttons: [
           {
             extend: 'excelHtml5',
@@ -539,14 +580,17 @@
             titleAttr: 'Excel',
             title: 'Students Data export',
             className: 'stu-export-btn',
-            exportOptions: { columns: exportCols }
+            exportOptions: { columns: exportCols, orthogonal: 'export' },
+            action: exportAllRowsAction('excelHtml5')
           },
           {
             extend: 'csvHtml5',
             text: '<i class="bi bi-filetype-csv"></i>',
             titleAttr: 'CSV',
             title: 'Students Data export',
-            className: 'stu-export-btn'
+            className: 'stu-export-btn',
+            exportOptions: { orthogonal: 'export' },
+            action: exportAllRowsAction('csvHtml5')
           },
           {
             extend: 'pdfHtml5',
@@ -554,7 +598,8 @@
             titleAttr: 'PDF',
             title: 'Students Data export',
             className: 'stu-export-btn',
-            exportOptions: { columns: exportCols }
+            exportOptions: { columns: exportCols, orthogonal: 'export' },
+            action: exportAllRowsAction('pdfHtml5')
           }
           // NOTE: no 'print' entry here — DataTables' built-in print button
           // needs a dedicated buttons.print.js that this app doesn't load

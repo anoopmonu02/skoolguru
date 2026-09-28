@@ -356,6 +356,13 @@
       }
 
       printWindow.document.write('<html><head><title>Student Health Report</title>');
+      // Bootstrap Icons CDN so the Health/Eye issue glyphs (bi-heart-pulse-fill,
+      // bi-eye-fill, bi-check-circle-fill) actually render in the popup - the
+      // page's own local /css/bootstrap-icons.css link can't be reused as-is
+      // here (it is context-path relative, and this popup is a bare document
+      // with no <base> href), same reasoning as the CDN bootstrap link used
+      // by the other printDiv()-style popups in this app.
+      printWindow.document.write('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">');
       printWindow.document.write(`<style>
         @page { size: A4 landscape; margin: 8mm; }
         * { box-sizing: border-box; }
@@ -366,6 +373,31 @@
         img { width: 30px; height: 30px; object-fit: cover; border-radius: 50%; vertical-align: middle; margin-right: 6px; }
         h4 { margin: 0 0 4px 0; }
         p.meta { margin: 0 0 10px 0; color: #555; font-size: 12px; }
+        /* Browsers strip background colors from print/PDF output by default
+           (to save ink) unless told otherwise - without this, the avatar
+           initials chip below renders as plain unstyled text bleeding
+           straight into the student name (e.g. "NGNITya Gupta") instead of
+           a colored circle badge. Same fix already applied to the other
+           printed reports in this app (fee collection popups, etc.). */
+        * { -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact; }
+        /* Everything below duplicates the on-screen rules for the classes
+           actually used inside the cloned #hr-table markup (.aa-name-block,
+           .stu-cell, .stu-avatar, .stu-name-text, .aa-sr-sub, .hr-photo,
+           .hr-issue-yes/.hr-issue-no) - the popup has no access to the
+           page's own linked stylesheets, so none of these are defined
+           unless duplicated here. */
+        .aa-name-block { display: flex; flex-direction: column; line-height: 1.3; }
+        .stu-cell { display: flex; align-items: center; gap: 8px; }
+        .stu-avatar {
+          width: 26px; height: 26px; border-radius: 50%; display: inline-flex;
+          align-items: center; justify-content: center; font-size: 10px;
+          font-weight: 700; flex-shrink: 0;
+        }
+        .stu-name-text { font-weight: 600; }
+        .aa-sr-sub { font-size: 10px; color: #64748b; font-weight: 500; margin-left: 34px; }
+        .hr-photo { width: 26px; height: 26px; object-fit: cover; border-radius: 50%; margin-right: 0; }
+        .hr-issue-yes { color: #dc2626; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+        .hr-issue-no { color: #16a34a; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
       </style>`);
       printWindow.document.write('</head><body>');
       printWindow.document.write('<h4>Student Health Report (Grade-wise)</h4>');

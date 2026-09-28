@@ -35,6 +35,14 @@
         .aa-btn-primary:disabled { opacity: .65; cursor: default; }
 
         #studentTable, #studentTable th, #studentTable td { font-size: .8rem; }
+        #studentTable .stu-avatar { width: 22px; height: 22px; font-size: .6rem; }
+        /* Fixed columns get a readable minimum width; month columns (4th
+           onward — count varies per academic year) too - without this, cell
+           text just wraps into a tall narrow stack instead of the table
+           growing past the viewport, so DataTables' scrollX never actually
+           kicks in a horizontal scrollbar. */
+        #studentTable td:nth-child(2), #studentTable th:nth-child(2) { min-width: 170px; }
+        #studentTable td:nth-child(n+4), #studentTable th:nth-child(n+4) { min-width: 150px; }
     </style>
 
     <div class="container-fluid px-3">
@@ -167,6 +175,42 @@
                 .replace(/'/g, '&#39;');
         }
 
+        // Avatar-initials chip shown next to the student's name (same
+        // palette/convention as Student List's .stu-avatar).
+        const avatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+        const initialsOf = function (name) {
+            return (name || '').trim().split(/\s+/).filter(Boolean).map(function (w) { return w[0]; }).slice(0, 2).join('').toUpperCase();
+        };
+
+        // Turn an HTML cell's <br>-separated fields into a real multi-line
+        // plain-text string - one line per field, matching how it reads on
+        // screen - instead of DataTables Buttons' default stripData(), which
+        // just deletes tags with no separator at all (Receipt No/Date/
+        // Amount/Late Fee/Balance Amount would otherwise all run together on
+        // one line in Excel/CSV/PDF). Also carries stripData()'s leading
+        // "=/+/-/@" guard against Excel treating a cell as a formula.
+        const htmlCellToLines = function (html) {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = String(html).replace(/<br\s*\/?>/gi, '\n');
+            let text = (tmp.textContent || tmp.innerText || '').trim();
+            if (/^[=+\-@\t\r]/.test(text)) { text = "'" + text; }
+            return text;
+        };
+
+        // Student Details cell packs an avatar-initials badge + stacked
+        // name/SR-No/father/mother lines for display, but Father Name,
+        // Mother Name and SR No each export as their own real, hidden-on-
+        // screen column now (see the table header/row markup and
+        // columnDefs below), so this column's export is just the plain
+        // student name - not the badge initials, and not father/mother
+        // duplicated here too.
+        const studentDetailsExportFormat = function (data, row, column, node) {
+            const $cell = $(node);
+            const $name = $cell.find('.stu-name-text');
+            if ($name.length) { return $name.text(); }
+            return htmlCellToLines(data);
+        };
+
         $('#getfee').click(async function() {
             $("#student-collection-data").empty();
             $("#printable-div").hide();
@@ -246,7 +290,9 @@
                             <tr>
                                 <th>SNo</th>
                                 <th>Student Details</th>
-                                <th>SR No</th>`;
+                                <th>SR No</th>
+                                <th>Father Name</th>
+                                <th>Mother Name</th>`;
                         for(let l=0;l<monthslist.length;l++){
                             tblData+=`<th>${escHtml(monthslist[l].toUpperCase())}</th>`;
                         }
@@ -262,14 +308,25 @@
                                 let grd = studentData[0].academicStudent.grade.gradeName + ' - ' + studentData[0].academicStudent.section.sectionName;
                                 //let stuDetail = studentData[0].academicStudent.student.studentName + '</br>' + studentData[0].academicStudent.student.fatherName + '</br>' + studentData[0].academicStudent.student.motherName + '</br';
                                 let s = studentData[0].academicStudent.student;
-                                let stuDetail = `${escHtml(s.studentName)}<br>${escHtml(s.fatherName)}<br>${escHtml(s.motherName)}<br>`;
                                 let isActiveStudent = (studentData[0].academicStudent.status || '').toUpperCase() === 'ACTIVE';
                                 let stuId = studentData[0].academicStudent.id;
                                 console.log(" studentData[0].:"+studentData[0]);
                                 tblData += `<tr class="${isActiveStudent?'':'table-danger'}">
                                     <td><small>${counter}</small></td>
-                                    <td><small>${stuDetail}</small></td>
-                                    <td><small>${escHtml(srno)}</small></td>`;
+                                    <td>
+                                        <div class="stu-cell">
+                                            <div class="stu-avatar" style="background:${avatarColors[counter % avatarColors.length]}22;color:${avatarColors[counter % avatarColors.length]}">${initialsOf(s.studentName)}</div>
+                                            <div class="stu-name-stack">
+                                                <span class="stu-name-text">${escHtml(s.studentName)}</span>
+                                                <span class="stu-sub-text stu-sr-text">SR No.: ${escHtml(srno) || '\u2014'}</span>
+                                                <span class="stu-sub-text">${escHtml(s.fatherName)}</span>
+                                                <span class="stu-sub-text">${escHtml(s.motherName)}</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td><small>${escHtml(srno)}</small></td>
+                                    <td><small>${escHtml(s.fatherName)}</small></td>
+                                    <td><small>${escHtml(s.motherName)}</small></td>`;
                                 let myMap = new Map();
                                 //for(let monName in monthslist){
                                 console.log("stu length: "+studentData.length);
@@ -331,13 +388,14 @@
                         //console.log("table last-"+tblData)
                         $("#student-collection-data").html(tblData);
 
-                        // Column count is dynamic — 3 fixed columns (SNo, Student
-                        // Details, SR No) plus one per academic-year month — so the
-                        // export column list is computed from the actual header
-                        // count instead of a hardcoded index range (a hardcoded
-                        // [0..14] silently mismatched whenever an academic year
-                        // did not have exactly 12 months mapped).
-                        const exportColumns = Array.from({length: 3 + monthslist.length}, (_, i) => i);
+                        // Column count is dynamic — 5 fixed columns (SNo, Student
+                        // Details, SR No, Father Name, Mother Name) plus one per
+                        // academic-year month — so the export column list is
+                        // computed from the actual header count instead of a
+                        // hardcoded index range (a hardcoded [0..14] silently
+                        // mismatched whenever an academic year did not have
+                        // exactly 12 months mapped).
+                        const exportColumns = Array.from({length: 5 + monthslist.length}, (_, i) => i);
 
                         // Reset the search box / export slot / paging-length listeners
                         // before re-wiring — this handler can fire multiple times (once
@@ -365,7 +423,7 @@
                                 paging: true,
                                 sort: false,
                                 fixedColumns: false,
-                                columnDefs: [{ orderable: false, targets: [0] }],
+                                columnDefs: [{ orderable: false, targets: [0] }, { visible: false, targets: [2, 3, 4] }],
                                 // This report can have many month columns, so the PDF
                                 // export needs landscape/A3/scaled-down text to stay
                                 // readable — kept as a page-specific override of the
@@ -379,7 +437,7 @@
                                         titleAttr: 'Excel',
                                         title: 'Total Students Deposited Fees Data export',
                                         className: 'list-export-btn',
-                                        exportOptions: { columns: exportColumns }
+                                        exportOptions: { columns: exportColumns, format: { body: studentDetailsExportFormat } }
                                     },
                                     {
                                         extend: 'csvHtml5',
@@ -387,7 +445,7 @@
                                         titleAttr: 'CSV',
                                         title: 'Total Students Deposited Fees Data export',
                                         className: 'list-export-btn',
-                                        exportOptions: { columns: exportColumns }
+                                        exportOptions: { columns: exportColumns, format: { body: studentDetailsExportFormat } }
                                     },
                                     {
                                         extend: 'pdfHtml5',
@@ -401,7 +459,7 @@
                                         customize: function (doc) {
                                             doc.defaultStyle.fontSize = 8; // smaller font helps fit more columns
                                         },
-                                        exportOptions: { columns: exportColumns }
+                                        exportOptions: { columns: exportColumns, format: { body: studentDetailsExportFormat } }
                                     }
                                 ]
                             }

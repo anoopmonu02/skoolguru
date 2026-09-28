@@ -174,7 +174,13 @@
         return div.innerHTML;
     };
 
-
+    // Avatar-initials badge — same convention used on the other student list
+    // pages (Student List, Session/Grade detail reports, etc.).
+    const avatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+    function initialsOf(name) {
+        if (!name) return '';
+        return String(name).trim().split(/\s+/).slice(0, 2).map(function (p) { return p.charAt(0).toUpperCase(); }).join('');
+    }
 
     document.getElementById("getReport").onclick = function(){
       let mediumId = $('#medium').val();
@@ -240,7 +246,16 @@
       tbl += `<th>Total</th></tr></thead><tbody class="table-group-divider">`;
 
       students.forEach((s, idx) => {
-        tbl += `<tr><td>${idx + 1}</td><td>${escapeHtml(s.studentName)}</td><td>${escapeHtml(s.srNo)}</td><td>${escapeHtml(s.psrn)}</td>`;
+        const avColor = avatarColors[idx % avatarColors.length];
+        const subParts = [s.srNo ? ('SR: ' + s.srNo) : '', s.psrn ? ('PSRN: ' + s.psrn) : ''].filter(Boolean);
+        const nameCell = '<div class="stu-cell">' +
+          `<span class="stu-avatar" style="background:${avColor}22;color:${avColor}">${escapeHtml(initialsOf(s.studentName))}</span>` +
+          '<div class="stu-name-stack">' +
+            `<span class="stu-name-text">${escapeHtml(s.studentName)}</span>` +
+            (subParts.length ? `<span class="stu-sub-text">${escapeHtml(subParts.join(' | '))}</span>` : '') +
+          '</div>' +
+        '</div>';
+        tbl += `<tr><td>${idx + 1}</td><td>${nameCell}</td><td>${escapeHtml(s.srNo)}</td><td>${escapeHtml(s.psrn)}</td>`;
         (s.months || []).forEach(mc => {
           tbl += `<td class="text-center">${mc.present}/${mc.totalDays}</td>`;
         });
@@ -299,9 +314,17 @@
           itemLabel: 'students',
           exportTitle: 'Annual Attendance Report',
           exportColumns: Array.from({length: 4 + months.length + 1}, (_, i) => i),
+          exportBodyFormat: function (data, row, column, node) {
+            if (column === 1) {
+              const $name = $(node).find('.stu-name-text');
+              if ($name.length) { return $name.text(); }
+            }
+            return $.fn.dataTable.Buttons.stripData(data);
+          },
           dtOptions: {
             scrollX: true,
-            autoWidth: false
+            autoWidth: false,
+            columnDefs: [{ visible: false, targets: [2, 3] }]
           }
         });
       } else {

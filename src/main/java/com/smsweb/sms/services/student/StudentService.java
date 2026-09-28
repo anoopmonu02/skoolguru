@@ -2329,19 +2329,37 @@ public class StudentService {
         }
 
         Sort.Direction direction = "desc".equalsIgnoreCase(sortDir) ? Sort.Direction.DESC : Sort.Direction.ASC;
-        int pageSize = (length > 0) ? length : 25;
-        int pageNum  = start / pageSize;
-        Pageable pageable = PageRequest.of(pageNum, pageSize, Sort.by(direction, sortField));
+        Sort sort = Sort.by(direction, sortField);
         String q = (search == null) ? "" : search.trim();
 
-        Page<Student> page;
-        long totalRecords;
+        // length < 0 is DataTables' own "give me everything" signal - the
+        // Excel/CSV/PDF export buttons on student.html temporarily set
+        // page.len(-1) (which sends length=-1) before exporting, specifically
+        // because this table is serverSide:true and the browser otherwise
+        // only ever holds the CURRENTLY DISPLAYED PAGE's rows - without this,
+        // export could only ever include one page at a time. length == 0
+        // keeps the previous safe default of 25.
+        boolean exportAll = length < 0;
 
+        long totalRecords;
         if (superAdmin) {
             totalRecords = repository.countAllActive();
-            page = repository.searchAll(q, pageable);
         } else {
             totalRecords = repository.countActiveBySchool(schoolId, academicYearId);
+        }
+
+        // totalRecords (unfiltered active-student count) is always >= the
+        // actual filtered/search-matching count, so using it as the page
+        // size when exportAll is a safe upper bound that's guaranteed to
+        // capture every matching row in this one page, regardless of q.
+        int pageSize = exportAll ? (int) Math.max(1, totalRecords) : (length > 0 ? length : 25);
+        int pageNum  = exportAll ? 0 : start / pageSize;
+        Pageable pageable = PageRequest.of(pageNum, pageSize, sort);
+
+        Page<Student> page;
+        if (superAdmin) {
+            page = repository.searchAll(q, pageable);
+        } else {
             page = repository.searchBySchool(schoolId, academicYearId, q, pageable);
         }
 
