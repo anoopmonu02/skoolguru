@@ -172,6 +172,11 @@ public class RoleInitializer {
                     "STUDENT_HEALTH_REPORT",
                     "View/print the student health report for a medium/grade/section");
 
+            // Search Alumni - read-only record sheet of former (inactive) students
+            seed(screenRepo, "Student", "Search Alumni",
+                    "STUDENT_SEARCH_ALUMNI",
+                    "Search former (inactive) students and view/download their alumni record sheet");
+
             // Grade-wise bulk photo download (images + matching Excel sheet, zipped)
             seed(screenRepo, "Student", "Grade-wise Images Download",
                     "STUDENT_GRADEWISE_IMAGE_DOWNLOAD",
@@ -219,6 +224,11 @@ public class RoleInitializer {
             seed(screenRepo, "Student", "Attendance Report (Annual)",
                     "STUDENT_REPORT_ATTENDANCE_ANNUAL",
                     "View annual attendance report for a class");
+
+            // Monthly absent-days report (Reports > Student Report)
+            seed(screenRepo, "Student", "Absent Report (Monthly)",
+                    "STUDENT_REPORT_ABSENT_MONTHLY",
+                    "View month-wise absent days of a class, with months above a limit highlighted");
 
             // Correct a single day's attendance for one student, with a mandatory
             // reason — hard-locked to Admin/Superadmin at the controller level too
@@ -277,6 +287,10 @@ public class RoleInitializer {
             seed(screenRepo, "Student", "Discount List Report (Session)",
                     "STUDENT_DISCOUNT_REPORT",
                     "View session-wise student discount report");
+
+            seed(screenRepo, "Student", "Sibling Report (Session)",
+                    "SIBLING_DISCOUNT_REPORT",
+                    "View session-wise sibling groups and sibling discount report");
 
             // ════════════════════════════════════════════════════════════════
             // MODULE: FEES
@@ -472,6 +486,10 @@ public class RoleInitializer {
             seed(screenRepo, "Admin", "Mobile Users",
                     "ADMIN_MOBILE_USERS",
                     "View mobile app family accounts; reset a family's password or force-logout their sessions");
+
+            seed(screenRepo, "Admin", "Family Mapping",
+                    "ADMIN_FAMILY_MAPPING",
+                    "Link Active students to their parent-app family account (View: open the list; Edit: Map / Re-map / Map all)");
 
             // ════════════════════════════════════════════════════════════════
             // MODULE: MESSAGE / COMMUNICATION

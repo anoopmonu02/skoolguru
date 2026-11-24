@@ -55,6 +55,9 @@ public interface AcademicStudentRepository extends JpaRepository<AcademicStudent
     // used to deactivate/reactivate a student belonging to a different school.
     List<AcademicStudent> findAllByStudent_IdAndStatusAndSchool_Id(Long student, String status, Long school);
 
+    /** Search Alumni: a student's full enrolment history (every status) within one school. */
+    List<AcademicStudent> findAllByStudent_IdAndSchool_Id(Long student, Long school);
+
     /**
      * Batch variant of findAllByStudent_IdAndStatus (feature: Mobile Users admin
      * screen perf fix) — one query for every student id instead of one query per
@@ -422,4 +425,24 @@ public interface AcademicStudentRepository extends JpaRepository<AcademicStudent
            "AND a.isMigrated = false")
     List<AcademicStudent> findSiblingsByMobile(@Param("mobile") String mobile);
 
+
+    // ── Multi-class notification: Active student counts per class (read-only) ──
+    // Same "who is a recipient" rule as SmsMessageRepository.insertClassRecipients:
+    // this school, academic_students.status = 'Active'. Medium is an extra filter only.
+    @Query("SELECT a.grade.id, a.section.id, COUNT(a) FROM AcademicStudent a " +
+            "WHERE a.school.id = :schoolId AND a.status = 'Active' " +
+            "AND a.grade.id IN :gradeIds AND a.section.id IN :sectionIds " +
+            "GROUP BY a.grade.id, a.section.id")
+    List<Object[]> countActiveByClasses(@Param("schoolId") Long schoolId,
+                                        @Param("gradeIds") java.util.Collection<Long> gradeIds,
+                                        @Param("sectionIds") java.util.Collection<Long> sectionIds);
+
+    @Query("SELECT a.grade.id, a.section.id, COUNT(a) FROM AcademicStudent a " +
+            "WHERE a.school.id = :schoolId AND a.status = 'Active' AND a.medium.id = :mediumId " +
+            "AND a.grade.id IN :gradeIds AND a.section.id IN :sectionIds " +
+            "GROUP BY a.grade.id, a.section.id")
+    List<Object[]> countActiveByClassesAndMedium(@Param("schoolId") Long schoolId,
+                                                 @Param("mediumId") Long mediumId,
+                                                 @Param("gradeIds") java.util.Collection<Long> gradeIds,
+                                                 @Param("sectionIds") java.util.Collection<Long> sectionIds);
 }

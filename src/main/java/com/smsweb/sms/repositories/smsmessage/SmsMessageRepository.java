@@ -80,6 +80,18 @@ public interface SmsMessageRepository extends JpaRepository<SmsMessage, Long> {
     int insertClassRecipients(@Param("messageId") Long messageId, @Param("schoolId") Long schoolId,
                               @Param("gradeId") Long gradeId, @Param("sectionId") Long sectionId);
 
+    /** Same as insertClassRecipients, limited to one medium (multi-class notification with a Medium filter). */
+    @Modifying
+    @Transactional
+    @Query(value = "INSERT INTO sms_message_recipients (sms_message_id, academic_student_id) " +
+            "SELECT :messageId, a.id FROM academic_students a " +
+            "WHERE a.school_id = :schoolId AND a.grade_id = :gradeId AND a.section_id = :sectionId " +
+            "AND a.medium_id = :mediumId AND a.status = 'Active'",
+            nativeQuery = true)
+    int insertClassRecipientsByMedium(@Param("messageId") Long messageId, @Param("schoolId") Long schoolId,
+                                      @Param("gradeId") Long gradeId, @Param("sectionId") Long sectionId,
+                                      @Param("mediumId") Long mediumId);
+
     /**
      * Same idea as insertClassRecipients, but for the "All" recipient type — one row
      * per currently-Active student in the sending school only (this is what makes

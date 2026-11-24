@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="~{base::Layout(~{::section})}">
+<head>
+  <meta charset="UTF-8">
+  <title>UAIC - Absent Report (Monthly)</title>
+</head>
+<body>
+<section>
+
+  <style>
+    /* Stat tiles + filter card: same look as Attendance Report (Annual). */
+    .stat-tile { position: relative; overflow: hidden; background: var(--card-bg); border: 1px solid var(--border-color);
+      border-radius: 16px; padding: 20px 20px 16px; box-shadow: 0 1px 4px rgba(0,0,0,.05); height: 100%; }
+    .stat-tile-ghost { position: absolute; right: -12px; top: -12px; font-size: 88px; opacity: .065; pointer-events: none; user-select: none; line-height: 1; }
+    .stat-badge { width: 40px; height: 40px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 14px; flex-shrink: 0; }
+    .stat-label { font-size: 11.5px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .04em; }
+    .stat-value { font-size: 32px; font-weight: 700; line-height: 1; letter-spacing: -1px; margin-bottom: 4px; }
+    .stat-sub { font-size: 11.5px; color: var(--text-muted); }
+
+    .aa-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-xs); padding: 20px 22px; margin-bottom: 18px; }
+    .aa-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+    .aa-card-head h2 { font-size: 14.5px; font-weight: 800; margin: 0; color: var(--text-primary); }
+    .aa-icon { width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+    .aa-icon-accent { background: var(--accent-light); color: var(--accent); }
+    .aa-sub { font-size: 12px; color: var(--text-muted); margin: 2px 0 16px; }
+    .aa-btn-primary { background: var(--accent); border: 1px solid var(--accent); color: #fff; padding: 8px 18px; border-radius: var(--radius-md);
+      font-size: 13.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; box-shadow: var(--shadow-sm);
+      transition: background var(--transition), box-shadow var(--transition), transform var(--transition); }
+    .aa-btn-primary:hover { background: var(--brand-600); border-color: var(--brand-600); color: #fff; box-shadow: var(--shadow-md); }
+    .aa-btn-primary:active { transform: translateY(1px); }
+    .aa-btn-primary:disabled { opacity: .65; cursor: default; }
+
+    /* Month cells */
+    #absent-table td.ab-red { background: #fee2e2 !important; color: #b91c1c; font-weight: 700; }
+    [data-bs-theme="dark"] #absent-table td.ab-red { background: rgba(239,68,68,.22) !important; color: #fca5a5; }
+    #absent-table td.ab-zero { color: var(--text-muted); }
+    #absent-table td.ab-na { color: var(--border-color); }
+    #absent-table td.ab-total { font-weight: 700; }
+    .ab-legend { font-size: .8rem; color: var(--text-muted); margin: 0 0 12px; }
+    .ab-legend-sw { display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: #fee2e2; border: 1px solid #fca5a5; vertical-align: -2px; margin-right: 6px; }
+    #abMonthMenu { min-width: 230px; max-height: 340px; overflow-y: auto; }
+  </style>
+
+  <div class="container-fluid px-3" th:data-url="@{/student/absent-report-monthly/data}" id="abRoot">
+    <div class="row mt-2">
+      <div class="col-md-12">
+        <div th:replace="~{components/ui :: page-header-sub('Absent Report (Monthly)', 'Days each student was absent, month by month. Sundays and holidays are not counted.')}"></div>
+
+        <div class="aa-card">
+          <div class="aa-card-head"><span class="aa-icon aa-icon-accent"><i class="bi bi-funnel-fill"></i></span><h2>Filter</h2></div>
+          <div class="aa-sub">Pick a class and the months you need. Months above the limit are shown in red.</div>
+          <div class="row g-3">
+            <div class="col-md-2">
+              <label for="abMedium" class="form-label">Medium</label>
+              <select id="abMedium" class="form-select">
+                <option value="">Select Medium</option>
+                <option th:each="med : ${mediums}" th:value="${med.id}" th:text="${med.mediumName}">Medium</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label for="abGrade" class="form-label">Grade</label>
+              <select id="abGrade" class="form-select">
+                <option value="">Select Grade</option>
+                <option th:each="grade : ${grades}" th:value="${grade.id}" th:text="${grade.gradeName}">Grade</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label for="abSection" class="form-label">Section</label>
+              <select id="abSection" class="form-select">
+                <option value="">Select Section</option>
+                <option th:each="section : ${sections}" th:value="${section.id}" th:text="${section.sectionName}">Section</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Months</label>
+              <div class="dropdown">
+                <button type="button" class="form-select text-start" id="abMonthBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">All months</button>
+                <div class="dropdown-menu p-2" id="abMonthMenu">
+                  <div class="form-check mb-1">
+                    <input class="form-check-input" type="checkbox" id="abMonthAll" checked>
+                    <label class="form-check-label fw-semibold" for="abMonthAll">All months</label>
+                  </div>
+                  <hr class="my-1">
+                  <div class="form-check" th:each="m, st : ${reportMonths}">
+                    <input class="form-check-input ab-month" type="checkbox" th:id="${'abM' + st.index}" th:value="${m.key}" th:attr="data-label=${m.label}">
+                    <label class="form-check-label" th:for="${'abM' + st.index}" th:text="${m.label}">Apr 2026</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-2">
+              <label for="abLimit" class="form-label">Highlight above (days)</label>
+              <input type="number" class="form-control" id="abLimit" min="1" max="31" th:value="${defaultLimit}">
+            </div>
+            <div class="col-md-2 d-flex flex-column align-items-start">
+              <label class="form-label invisible">Action</label>
+              <button type="button" id="abGet" class="aa-btn-primary w-100 justify-content-center"><i class="bi bi-search"></i> Get Report</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4" id="abStats" style="display:none;">
+          <div class="col-xl-3 col-md-6">
+            <div class="stat-tile">
+              <i class="bi bi-people-fill stat-tile-ghost" style="color:#6366f1;" aria-hidden="true"></i>
+              <div class="stat-badge" style="background:#ede9fe; color:#6366f1;"><i class="bi bi-people-fill" aria-hidden="true"></i></div>
+              <div class="stat-label">Students</div>
+              <div class="stat-value" id="abStStudents" style="color:#4f46e5;">0</div>
+              <div class="stat-sub" id="abStStudentsSub">&nbsp;</div>
+            </div>
+          </div>
+          <div class="col-xl-3 col-md-6">
+            <div class="stat-tile">
+              <i class="bi bi-calendar-x-fill stat-tile-ghost" style="color:#f59e0b;" aria-hidden="true"></i>
+              <div class="stat-badge" style="background:#fef3c7; color:#d97706;"><i class="bi bi-calendar-x-fill" aria-hidden="true"></i></div>
+              <div class="stat-label">Total absent days</div>
+              <div class="stat-value" id="abStTotal" style="color:#d97706;">0</div>
+              <div class="stat-sub" id="abStTotalSub">&nbsp;</div>
+            </div>
+          </div>
+          <div class="col-xl-3 col-md-6">
+            <div class="stat-tile">
+              <i class="bi bi-exclamation-triangle-fill stat-tile-ghost" id="abStRedGhost" style="color:#ef4444;" aria-hidden="true"></i>
+              <div class="stat-badge" id="abStRedBadge" style="background:#fee2e2; color:#dc2626;"><i class="bi bi-exclamation-triangle-fill" id="abStRedIcon" aria-hidden="true"></i></div>
+              <div class="stat-label" id="abStRedLabel">Above limit</div>
+              <div class="stat-value" id="abStWith" style="color:#dc2626;">0</div>
+              <div class="stat-sub" id="abStRedSub">&nbsp;</div>
+            </div>
+          </div>
+          <div class="col-xl-3 col-md-6">
+            <div class="stat-tile">
+              <i class="bi bi-graph-up-arrow stat-tile-ghost" style="color:#0ea5e9;" aria-hidden="true"></i>
+              <div class="stat-badge" style="background:#e0f2fe; color:#0284c7;"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i></div>
+              <div class="stat-label">Worst month</div>
+              <div class="stat-value" id="abStWorst" style="color:#0284c7;">-</div>
+              <div class="stat-sub" id="abStWorstSub">&nbsp;</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="abLegend" class="ab-legend" style="display:none;">
+          <span class="me-3"><i class="ab-legend-sw"></i><span id="abLegendText">More than 7 days absent in a month</span></span>
+          <span class="me-3">9(A) = 9 days absent</span><span>- = month not started</span>
+        </div>
+
+        <div id="abData" class="mb-5"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="text/javascript" th:inline="none">
+  document.addEventListener('DOMContentLoaded', function () {
+    var url = document.getElementById('abRoot').dataset.url;
+    function el(id) { return document.getElementById(id); }
+    function esc(v) {
+      return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    var avatarColors = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+    function initialsOf(name) {
+      if (!name) { return ''; }
+      return String(name).trim().split(/\s+/).slice(0, 2).map(function (p) { return p.charAt(0).toUpperCase(); }).join('');
+    }
+
+    // ── Months dropdown ──
+    var all = el('abMonthAll');
+    var boxes = Array.prototype.slice.call(document.querySelectorAll('.ab-month'));
+    function selectedKeys() { return boxes.filter(function (b) { return b.checked; }).map(function (b) { return b.value; }); }
+    function refreshMonthLabel() {
+      var chosen = boxes.filter(function (b) { return b.checked; });
+      el('abMonthBtn').textContent = (all.checked || chosen.length === 0) ? 'All months'
+        : (chosen.length <= 2 ? chosen.map(function (b) { return b.dataset.label; }).join(', ') : chosen.length + ' months');
+    }
+    all.addEventListener('change', function () {
+      if (all.checked) { boxes.forEach(function (b) { b.checked = false; }); }
+      else if (selectedKeys().length === 0) { all.checked = true; }
+      refreshMonthLabel();
+    });
+    boxes.forEach(function (b) {
+      b.addEventListener('change', function () { all.checked = selectedKeys().length === 0; refreshMonthLabel(); });
+    });
+
+    // ── Report ──
+    el('abGet').addEventListener('click', function () {
+      var medium = el('abMedium').value, grade = el('abGrade').value, section = el('abSection').value;
+      if (!medium || !grade || !section) { showMsg('error', 'Medium, Grade and Section are required.', 'Warning'); return; }
+      var limit = parseInt(el('abLimit').value, 10);
+      if (isNaN(limit) || limit < 1 || limit > 31) { showMsg('error', 'Highlight limit must be between 1 and 31.', 'Warning'); return; }
+      var btn = this; btn.disabled = true;
+      $.ajax({
+        type: 'POST', url: url, contentType: 'application/json', dataType: 'json',
+        data: JSON.stringify({
+          mediumId: parseInt(medium, 10), gradeId: parseInt(grade, 10), sectionId: parseInt(section, 10),
+          months: all.checked ? [] : selectedKeys(), limit: limit
+        }),
+        success: render,
+        error: function (xhr) {
+          showMsg('error', (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : 'Could not load the report.', 'Error');
+        },
+        complete: function () { btn.disabled = false; }
+      });
+    });
+
+    function render(d) {
+      var s = d.summary || {}, months = d.months || [], students = d.students || [], limit = d.limit;
+      var nStu = s.students || 0, nWith = s.studentsWithRed || 0, nRed = s.redCells || 0, tot = s.totalAbsentDays || 0;
+      el('abStStudents').textContent = nStu;
+      el('abStStudentsSub').textContent = months.length + (months.length === 1 ? ' month shown' : ' months shown');
+      el('abStTotal').textContent = tot;
+      el('abStTotalSub').textContent = nStu ? ('Average ' + (tot / nStu).toFixed(1) + ' per student') : '-';
+      el('abStRedLabel').textContent = 'Above ' + limit + ' days';
+      el('abStWith').textContent = nWith;
+      var ok = nWith === 0;
+      el('abStWith').style.color = ok ? '#059669' : '#dc2626';
+      el('abStRedBadge').style.background = ok ? '#d1fae5' : '#fee2e2';
+      el('abStRedBadge').style.color = ok ? '#059669' : '#dc2626';
+      el('abStRedGhost').style.color = ok ? '#10b981' : '#ef4444';
+      el('abStRedGhost').className = 'bi stat-tile-ghost ' + (ok ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill');
+      el('abStRedIcon').className = 'bi ' + (ok ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill');
+      el('abStRedSub').textContent = ok ? 'No student above the limit'
+        : (nWith === 1 ? 'student, ' : 'students, ') + nRed + (nRed === 1 ? ' red cell' : ' red cells');
+      el('abStWorst').textContent = s.worstMonth || '-';
+      el('abStWorstSub').textContent = (s.worstMonthDays || 0) > 0 ? (s.worstMonthDays + ' absent days in total') : 'No absences';
+      el('abLegendText').textContent = 'More than ' + limit + ' days absent in a month';
+      el('abStats').style.display = ''; el('abLegend').style.display = '';
+
+      var h = '<table class="table table-sm list-table" id="absent-table"><thead><tr><th>#</th><th>Student</th><th>SR</th><th>PSRN</th>';
+      months.forEach(function (m) { h += '<th class="text-center">' + esc(m.label) + '</th>'; });
+      h += '<th class="text-center">Total</th></tr></thead><tbody>';
+      students.forEach(function (st, i) {
+        var avColor = avatarColors[i % avatarColors.length];
+        var sub = [st.sr ? ('SR: ' + st.sr) : '', st.psrn ? ('PSRN: ' + st.psrn) : ''].filter(Boolean).join(' | ');
+        var nameCell = '<div class="stu-cell"><span class="stu-avatar" style="background:' + avColor + '22;color:' + avColor + '">' + esc(initialsOf(st.name)) + '</span>' +
+          '<div class="stu-name-stack"><span class="stu-name-text">' + esc(st.name) + '</span>' +
+          (sub ? '<span class="stu-sub-text">' + esc(sub) + '</span>' : '') + '</div></div>';
+        h += '<tr><td>' + (i + 1) + '</td><td>' + nameCell + '</td><td>' + esc(st.sr) + '</td><td>' + esc(st.psrn) + '</td>';
+        (st.cells || []).forEach(function (c) {
+          if (c === null) { h += '<td class="text-center ab-na">-</td>'; }
+          else if (c > limit) { h += '<td class="text-center ab-red">' + c + '(A)</td>'; }
+          else if (c === 0) { h += '<td class="text-center ab-zero">0</td>'; }
+          else { h += '<td class="text-center">' + c + '(A)</td>'; }
+        });
+        h += '<td class="text-center ab-total">' + st.total + '(A)</td></tr>';
+      });
+      h += '</tbody></table>';
+
+      if ($.fn.DataTable.isDataTable('#absent-table')) { $('#absent-table').DataTable().destroy(); }
+      el('abData').innerHTML =
+        '<div class="list-table-card">' +
+          '<div class="config-list-toolbar list-page-toolbar">' +
+            '<div class="config-search-wrap"><i class="bi bi-search"></i>' +
+              '<input type="text" class="form-control form-control-sm" id="absSearchInput" placeholder="Search by name, SR, PSRN…"></div>' +
+            '<div id="absExportSlot" class="list-export-slot"></div>' +
+          '</div>' +
+          '<div class="table-responsive">' + h + '</div>' +
+          '<div class="list-table-footer">' +
+            '<div class="list-footer-left">' +
+              '<label class="list-length-label">Rows per page' +
+                '<select id="absPageLength" class="list-length-select">' +
+                  '<option value="5">5</option><option value="10">10</option><option value="25" selected>25</option>' +
+                  '<option value="50">50</option><option value="100">100</option></select></label>' +
+              '<span id="absPageInfo" class="list-page-info">Showing 0 of 0 students</span>' +
+            '</div>' +
+            '<div class="list-pagination" id="absPagination"></div>' +
+          '</div>' +
+        '</div>';
+
+      initListDataTable({
+        tableSelector: '#absent-table',
+        searchInputSelector: '#absSearchInput',
+        exportSlotSelector: '#absExportSlot',
+        lengthSelectSelector: '#absPageLength',
+        pageInfoSelector: '#absPageInfo',
+        paginationSelector: '#absPagination',
+        itemLabel: 'students',
+        exportTitle: 'Absent Report (Monthly)',
+        exportColumns: Array.from({ length: 4 + months.length + 1 }, function (_, i) { return i; }),
+        exportBodyFormat: function (data, row, column, node) {
+          if (column === 1) {
+            var $name = $(node).find('.stu-name-text');
+            if ($name.length) { return $name.text(); }
+          }
+          return $.fn.dataTable.Buttons.stripData(data);
+        },
+        dtOptions: {
+          scrollX: true, autoWidth: false,
+          columnDefs: [{ visible: false, targets: [2, 3] }]
+        }
+      });
+      if (!students.length) { showMsg('info', 'No active students found for this class.', 'Info'); }
+    }
+  });
+  </script>
+</section>
+</body>
+</html>

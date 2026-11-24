@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sms="http://www.smsweb.com/thymeleaf"
+      th:replace="~{base::Layout(~{::section})}">
+<head>
+    <meta charset="UTF-8">
+    <title>UAIC - Family Mapping</title>
+</head>
+<body>
+<section>
+
+    <style>
+        .aa-card {
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xs); padding: 20px 22px; margin-bottom: 18px;
+        }
+        .aa-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+        .aa-card-head h2 { font-size: 14.5px; font-weight: 800; margin: 0; color: var(--text-primary); }
+        .aa-icon { width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+        .aa-icon-accent { background: var(--accent-light); color: var(--accent); }
+        .aa-sub { font-size: 12px; color: var(--text-muted); margin: 2px 0 16px; }
+        .aa-btn-primary {
+            background: var(--accent); border: 1px solid var(--accent); color: #fff; padding: 8px 18px;
+            border-radius: var(--radius-md); font-size: 13.5px; font-weight: 700; display: inline-flex;
+            align-items: center; gap: 7px; cursor: pointer; box-shadow: var(--shadow-sm);
+            transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
+        }
+        .aa-btn-primary:hover { background: var(--brand-600); border-color: var(--brand-600); color: #fff; box-shadow: var(--shadow-md); }
+        .aa-btn-primary:active { transform: translateY(1px); }
+        .aa-btn-primary:disabled { opacity: .65; cursor: default; }
+        .aa-btn-ghost {
+            background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-primary);
+            padding: 5px 12px; border-radius: var(--radius-md); font-size: 12.5px; font-weight: 700;
+            display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+        }
+        .aa-btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+        .aa-btn-ghost:disabled { opacity: .6; cursor: default; }
+
+        /* Summary cards */
+        .fm-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 18px; }
+        @media (max-width: 992px) { .fm-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 520px) { .fm-cards { grid-template-columns: 1fr; } }
+        .fm-card {
+            background: var(--card-bg); border: 1px solid var(--border-color); border-left: 4px solid var(--fm-c, var(--accent));
+            border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); padding: 14px 16px;
+        }
+        .fm-card-label { font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; }
+        .fm-card-value { font-size: 26px; font-weight: 800; color: var(--text-primary); line-height: 1.15; margin-top: 2px; }
+        .fm-card-note { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; min-height: 16px; }
+        .fm-total { --fm-c: var(--accent); }
+        .fm-mapped { --fm-c: #16a34a; }
+        .fm-pending { --fm-c: #d97706; }
+        .fm-missing { --fm-c: #dc2626; }
+        .fm-progress { height: 6px; border-radius: 999px; background: var(--border-color); overflow: hidden; margin-top: 8px; }
+        .fm-progress > span { display: block; height: 100%; background: #16a34a; width: 0; transition: width .4s ease; }
+
+        /* State badges */
+        .fm-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+        .fm-badge-mapped  { background: #dcfce7; color: #166534; }
+        .fm-badge-map     { background: #e2e8f0; color: #334155; }
+        .fm-badge-mismatch{ background: #fef3c7; color: #92400e; }
+        .fm-badge-missing { background: #fee2e2; color: #991b1b; }
+        [data-bs-theme="dark"] .fm-badge-mapped  { background: rgba(22,163,74,.2);  color: #86efac; }
+        [data-bs-theme="dark"] .fm-badge-map     { background: rgba(148,163,184,.2); color: #cbd5e1; }
+        [data-bs-theme="dark"] .fm-badge-mismatch{ background: rgba(217,119,6,.22); color: #fcd34d; }
+        [data-bs-theme="dark"] .fm-badge-missing { background: rgba(220,38,38,.22); color: #fca5a5; }
+        .fm-hint { font-size: 12px; color: var(--text-muted); }
+
+        #fmTable, #fmTable th, #fmTable td { font-size: .8rem; }
+        #fmTable th, #fmTable td { white-space: nowrap; }
+        .fm-toolbar-extra { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+    </style>
+
+    <!-- Present only when the logged-in user may use Map / Re-map / Map all. -->
+    <span id="fmCanEdit" sms:access="ADMIN_FAMILY_MAPPING:EDIT" hidden></span>
+
+    <div class="container-fluid px-3">
+        <div class="row mt-2">
+            <div class="col-md-12">
+                <div th:replace="~{components/ui :: page-header-sub('Family Mapping', 'Link every Active student of this session to the parent app family account of Mobile 1.')}"></div>
+
+                <div class="aa-card">
+                    <div class="aa-card-head"><span class="aa-icon aa-icon-accent"><i class="bi bi-people-fill"></i></span><h2>Select Medium</h2></div>
+                    <div class="aa-sub">Pick a medium and press Get. Only Active students of the current session and branch are shown.</div>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label for="fmMedium" class="form-label">Medium</label>
+                            <select id="fmMedium" class="form-select">
+                                <option value="">Select Medium</option>
+                                <option th:each="m : ${mediums}" th:value="${m.id}" th:text="${m.mediumName}">Medium</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex flex-column align-items-start">
+                            <label class="form-label invisible">Action</label>
+                            <button type="button" id="fmGet" class="aa-btn-primary flex-fill"><i class="bi bi-search"></i> Get</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="fmCards" class="fm-cards" style="display:none">
+                    <div class="fm-card fm-total"><div class="fm-card-label">Total students</div><div class="fm-card-value" id="fmTotal">0</div><div class="fm-card-note">Active, this session</div></div>
+                    <div class="fm-card fm-mapped"><div class="fm-card-label">Mapped</div><div class="fm-card-value" id="fmMapped">0</div>
+                        <div class="fm-progress"><span id="fmBar"></span></div><div class="fm-card-note" id="fmMappedNote"></div></div>
+                    <div class="fm-card fm-pending"><div class="fm-card-label">Pending</div><div class="fm-card-value" id="fmPending">0</div><div class="fm-card-note">Not mapped or mismatch</div></div>
+                    <div class="fm-card fm-missing"><div class="fm-card-label">No Mobile 1</div><div class="fm-card-value" id="fmMissing">0</div><div class="fm-card-note">Cannot be mapped yet</div></div>
+                </div>
+
+                <div id="fmData" class="mb-5"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/javascript" th:inline="javascript">
+        const fmContext = /*[[@{/}]]*/ '/';
+        const fmCanEdit = document.getElementById('fmCanEdit') !== null;
+        let fmRows = [];
+        let fmMedium = '';
+
+        function esc(value) {
+            return $('<div>').text(value == null ? '' : String(value)).html();
+        }
+
+        function fmClear() {
+            if ($.fn.DataTable.isDataTable('#fmTable')) {
+                $('#fmTable').DataTable().destroy();
+            }
+            $('#fmData').empty();
+        }
+
+        function fmRenderCards(s) {
+            const total = s.total || 0, mapped = s.mapped || 0, pending = s.pending || 0, missing = s.missing || 0;
+            $('#fmTotal').text(total);
+            $('#fmMapped').text(mapped);
+            $('#fmPending').text(pending);
+            $('#fmMissing').text(missing);
+            const pct = total ? Math.round((mapped / total) * 1000) / 10 : 0;
+            $('#fmBar').css('width', pct + '%');
+            const need = pending + missing;
+            $('#fmMappedNote').text(total === 0 ? '' :
+                (need === 0 ? 'All students are mapped' : pct + '% mapped · ' + need + ' student' + (need === 1 ? '' : 's') + ' need attention'));
+            $('#fmCards').show();
+        }
+
+        function fmBadge(state) {
+            switch (state) {
+                case 'MAPPED':   return '<span class="fm-badge fm-badge-mapped"><i class="bi bi-check-circle-fill"></i>Mapped</span>';
+                case 'MAP':      return '<span class="fm-badge fm-badge-map"><i class="bi bi-dash-circle"></i>Not mapped</span>';
+                case 'MISMATCH': return '<span class="fm-badge fm-badge-mismatch"><i class="bi bi-exclamation-triangle-fill"></i>Mismatch</span>';
+                default:         return '<span class="fm-badge fm-badge-missing"><i class="bi bi-x-circle-fill"></i>No Mobile 1</span>';
+            }
+        }
+
+        function fmAction(r) {
+            if (r.state === 'MAPPED') return '<span class="fm-hint">—</span>';
+            if (r.state === 'MISSING') return '<span class="fm-hint">Add Mobile 1</span>';
+            if (!fmCanEdit) return '<span class="fm-hint">View only</span>';
+            const label = r.state === 'MISMATCH' ? 'Re-map' : 'Map';
+            return '<button type="button" class="aa-btn-ghost fm-map-btn" data-id="' + esc(r.academicStudentId) + '">' +
+                   '<i class="bi bi-link-45deg"></i>' + label + '</button>';
+        }
+
+        function fmBuild(keepSearch) {
+            fmClear();
+            if (!fmRows.length) {
+                $('#fmData').html('<div class="aa-card text-center text-muted">No Active students found for this medium in the current session.</div>');
+                return;
+            }
+            const pendingCount = fmRows.filter(r => r.state === 'MAP' || r.state === 'MISMATCH').length;
+            let tbl = '<table class="table table-sm list-table w-100" id="fmTable"><thead><tr>' +
+                '<th>SNo</th><th>Student</th><th>Grade-Sec</th><th>Father</th><th>SR No</th><th>PSRN</th>' +
+                '<th>Mobile 1</th><th>Mobile 2</th><th>Status</th><th>Action</th></tr></thead><tbody>';
+            fmRows.forEach(function (r, i) {
+                tbl += '<tr><td>' + (i + 1) + '</td><td>' + esc(r.studentName) + '</td><td>' + esc(r.gradeSection) + '</td>' +
+                    '<td>' + (esc(r.fatherName) || '-') + '</td><td>' + (esc(r.srNo) || '-') + '</td><td>' + (esc(r.psrn) || '-') + '</td>' +
+                    '<td>' + (esc(r.mobile1) || '-') + '</td><td>' + (esc(r.mobile2) || '-') + '</td>' +
+                    '<td>' + fmBadge(r.state) + '</td><td>' + fmAction(r) + '</td></tr>';
+            });
+            tbl += '</tbody></table>';
+
+            const mapAllBtn = (fmCanEdit && pendingCount > 0)
+                ? '<button type="button" id="fmMapAll" class="aa-btn-primary"><i class="bi bi-diagram-3-fill"></i> Map all pending (' + pendingCount + ')</button>' : '';
+
+            $('#fmData').html(
+                '<div class="list-table-card">' +
+                  '<div class="config-list-toolbar list-page-toolbar">' +
+                    '<div class="config-search-wrap"><i class="bi bi-search"></i>' +
+                      '<input type="text" class="form-control form-control-sm" id="fmSearchInput" placeholder="Search name, father, SR no, mobile…"></div>' +
+                    '<div class="fm-toolbar-extra">' + mapAllBtn + '</div>' +
+                    '<div id="fmExportSlot" class="list-export-slot"></div>' +
+                  '</div>' +
+                  '<div class="table-responsive">' + tbl + '</div>' +
+                  '<div class="list-table-footer">' +
+                    '<div class="list-footer-left">' +
+                      '<label class="list-length-label">Rows per page' +
+                        '<select id="fmPageLength" class="list-length-select">' +
+                          '<option value="10">10</option><option value="25">25</option><option value="50" selected>50</option>' +
+                          '<option value="100">100</option><option value="500">500</option></select></label>' +
+                      '<span id="fmPageInfo" class="list-page-info">Showing 0 of 0 students</span>' +
+                    '</div>' +
+                    '<div class="list-pagination" id="fmPagination"></div>' +
+                  '</div>' +
+                '</div>');
+
+            initListDataTable({
+                tableSelector: '#fmTable',
+                searchInputSelector: '#fmSearchInput',
+                exportSlotSelector: '#fmExportSlot',
+                lengthSelectSelector: '#fmPageLength',
+                pageInfoSelector: '#fmPageInfo',
+                paginationSelector: '#fmPagination',
+                itemLabel: 'students',
+                exportTitle: 'Family Mapping',
+                exportColumns: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+                dtOptions: { scrollX: true, autoWidth: false, scrollCollapse: true, sort: false,
+                             columnDefs: [{ orderable: false, targets: [0, 9] }] }
+            });
+            if (keepSearch) {
+                $('#fmSearchInput').val(keepSearch).trigger('input');
+            }
+        }
+
+        async function fmLoad(keepSearch) {
+            const res = await fetch(fmContext + 'admin/family-mapping/rows?mediumId=' + encodeURIComponent(fmMedium));
+            if (!res.ok) throw new Error(res.statusText);
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            fmRows = data.rows || [];
+            fmRenderCards(data.summary || {});
+            fmBuild(keepSearch);
+        }
+
+        $('#fmGet').on('click', async function () {
+            const medium = $('#fmMedium').val();
+            if (!medium) { showMsg('error', 'Please select a medium', 'Warning'); return; }
+            const $btn = $(this).prop('disabled', true);
+            fmMedium = medium;
+            try {
+                await fmLoad();
+            } catch (e) {
+                fmClear(); $('#fmCards').hide();
+                showMsg('error', 'Unable to load students. ' + (e && e.message ? e.message : e), 'Error');
+            } finally {
+                $btn.prop('disabled', false);
+            }
+        });
+
+        $(document).on('click', '.fm-map-btn', async function () {
+            const $btn = $(this);
+            const id = $btn.data('id');
+            const row = fmRows.find(r => String(r.academicStudentId) === String(id));
+            if (!row) return;
+            const remap = row.state === 'MISMATCH';
+            const ok = await SG.confirm({
+                title: remap ? 'Re-map this student?' : 'Map this student?',
+                tone: remap ? 'warning' : 'info',
+                icon: 'bi-link-45deg',
+                message: remap
+                    ? 'The student will be linked to the family account of Mobile 1. Any other students on the same number are linked too. The old account is not changed.'
+                    : 'The student will be linked to the family account of Mobile 1 (created if it does not exist). Other students on the same number are linked too.',
+                items: [
+                    {label: 'Student', value: row.studentName},
+                    {label: 'Grade-Sec', value: row.gradeSection},
+                    {label: 'Mobile 1', value: row.mobile1}
+                ],
+                confirmText: remap ? 'Re-map' : 'Map',
+                cancelText: 'Cancel'
+            });
+            if (!ok) return;
+            $btn.prop('disabled', true);
+            const keep = $('#fmSearchInput').val();
+            try {
+                const res = await fetch(fmContext + 'admin/family-mapping/map', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({academicStudentId: id})
+                });
+                const data = await res.json();
+                if (data.error) {
+                    SG.alert({title: 'Could not map', tone: 'warning', message: data.error});
+                } else {
+                    showMsg('success', data.message || 'Mapped', 'Family Mapping');
+                }
+                await fmLoad(keep);
+            } catch (e) {
+                showMsg('error', 'Request failed. ' + (e && e.message ? e.message : e), 'Error');
+                $btn.prop('disabled', false);
+            }
+        });
+
+        $(document).on('click', '#fmMapAll', async function () {
+            const $btn = $(this);
+            const pending = fmRows.filter(r => r.state === 'MAP' || r.state === 'MISMATCH');
+            const families = new Set(pending.map(r => r.mobile1)).size;
+            const ok = await SG.confirm({
+                title: 'Map all pending students?',
+                tone: 'warning',
+                icon: 'bi-diagram-3-fill',
+                message: 'Every pending student of this medium is linked to the family account of their Mobile 1. Accounts that are INACTIVE are skipped, never activated.',
+                items: [
+                    {label: 'Students pending', value: String(pending.length)},
+                    {label: 'Family numbers', value: String(families)}
+                ],
+                confirmText: 'Map all',
+                cancelText: 'Cancel'
+            });
+            if (!ok) return;
+            $btn.prop('disabled', true);
+            const keep = $('#fmSearchInput').val();
+            try {
+                const res = await fetch(fmContext + 'admin/family-mapping/map-all', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({mediumId: fmMedium})
+                });
+                const data = await res.json();
+                if (data.error) {
+                    SG.alert({title: 'Could not map', tone: 'danger', message: data.error});
+                } else {
+                    const items = [{label: 'Students mapped', value: String(data.mappedNow || 0)}];
+                    if (data.skippedInactiveFamilies) items.push({label: 'Skipped (INACTIVE account)', value: String(data.skippedInactiveFamilies)});
+                    if (data.failedFamilies) items.push({label: 'Failed numbers', value: String(data.failedFamilies)});
+                    const bad = (data.skippedInactiveFamilies || 0) + (data.failedFamilies || 0) > 0;
+                    SG.alert({
+                        title: bad ? 'Mapping finished with exceptions' : 'Mapping complete',
+                        tone: bad ? 'warning' : 'success',
+                        message: bad ? 'Some students could not be mapped. They stay in the list as Mismatch / Not mapped.' : 'All pending students were mapped.',
+                        items: items
+                    });
+                }
+                await fmLoad(keep);
+            } catch (e) {
+                showMsg('error', 'Request failed. ' + (e && e.message ? e.message : e), 'Error');
+                $btn.prop('disabled', false);
+            }
+        });
+    </script>
+</section>
+</body>
+</html>

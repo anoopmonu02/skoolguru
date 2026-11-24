@@ -7,6 +7,17 @@
 </head>
 <body>
 <section>
+    <style>
+        .contact-confirm { margin-top: 12px; padding: 10px 12px; border-radius: 10px; font-size: 13px; border: 1px solid transparent; }
+        .contact-confirm-head { font-weight: 800; margin-bottom: 3px; }
+        .contact-confirm-info { background: #e0f2fe; border-color: #bae6fd; color: #075985; }
+        .contact-confirm-warn { background: #fef3c7; border-color: #fde68a; color: #92400e; }
+        .contact-confirm-list { margin: 6px 0 0 18px; padding: 0; }
+        .contact-confirm-note { margin-top: 4px; font-size: 12px; opacity: .85; }
+        [data-bs-theme="dark"] .contact-confirm-info { background: rgba(14,165,233,.15); border-color: rgba(14,165,233,.35); color: #7dd3fc; }
+        [data-bs-theme="dark"] .contact-confirm-warn { background: rgba(217,119,6,.18); border-color: rgba(217,119,6,.4); color: #fcd34d; }
+    </style>
+
     <!--
         Fee Submission (New) — redesigned front-end for the exact same fee
         submission flow as fees/feesubmitform.html. Every id/class/name below
@@ -293,6 +304,7 @@
                         <span class="input-group-text"><i class="bi bi-telephone-fill"></i></span>
                         <input type="text" inputmode="numeric" maxlength="10" class="form-control" id="updatedContactNumber" placeholder="Enter mobile no." required>
                     </div>
+                    <div id="contactConfirmBox" class="contact-confirm" style="display:none"></div>
                 </div>
                 <div class="modal-footer" style="border-top:1px solid #f1f5f9;">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><i class="bi bi-x-square"></i> Close</button>
@@ -897,61 +909,102 @@
             });
         }
 
+        /* ── Update Contact: two calls. 1) check only (nothing changes), 2) confirm=true applies. ── */
+        let contactPendingConfirm = false;
+
+        function contactResetConfirm(){
+            contactPendingConfirm = false;
+            $('#contactConfirmBox').hide().empty();
+            $('#updateContactBtn').html('<i class="bi bi-pencil-square"></i> Update').prop('disabled', false);
+        }
+
+        function contactShowConfirm(data){
+            const box = document.getElementById('contactConfirmBox');
+            box.innerHTML = '';
+            box.className = 'contact-confirm ' + (data.scenario === 'EXISTING_FAMILY' ? 'contact-confirm-warn' : 'contact-confirm-info');
+            const head = document.createElement('div');
+            head.className = 'contact-confirm-head';
+            head.textContent = data.scenario === 'EXISTING_FAMILY' ? 'This number already has a family' : 'New family';
+            box.appendChild(head);
+            const msg = document.createElement('div');
+            msg.textContent = data.message || '';
+            box.appendChild(msg);
+            const kids = data.children || [];
+            if (kids.length) {
+                const ul = document.createElement('ul');
+                ul.className = 'contact-confirm-list';
+                kids.forEach(function(k){
+                    const li = document.createElement('li');
+                    li.textContent = (k.name || '') + (k.classSection ? ' (' + k.classSection + ')' : '');
+                    ul.appendChild(li);
+                });
+                box.appendChild(ul);
+            }
+            if (data.otherBranchCount > 0) {
+                const o = document.createElement('div');
+                o.className = 'contact-confirm-note';
+                o.textContent = '+ ' + data.otherBranchCount + (data.otherBranchCount === 1 ? ' child' : ' children') + ' in other branches';
+                box.appendChild(o);
+            }
+            box.style.display = 'block';
+            $('#updateContactBtn').html('<i class="bi bi-check2-circle"></i> Yes, update');
+        }
+
+        $('#updatedContactNumber').on('input', function(){ if (contactPendingConfirm) contactResetConfirm(); });
+        $('#myModal').on('hidden.bs.modal', function(){ contactResetConfirm(); });
+
         $('#updateContactBtn').click(function() {
-            const contactNumber = $('#updatedContactNumber').val();
+            const $btn = $(this);
+            const contactNumber = String($('#updatedContactNumber').val() || '').trim();
             const studentId = $('#StudentId').val();
 
             if (contactNumber === '') {
-                //toastr["error"]("Contact number cannot be empty","Missing");
                 showWarningMsg("error","Contact number cannot be empty","Missing");
                 return;
             }
-
-            // Validate contact number
-            const isNumeric = /^\d{10}$/.test(contactNumber);
-            if (!isNumeric) {
-                //toastr["error"]("Contact number must be exactly 10 digits and contain only numbers.","Message");
+            if (!/^\d{10}$/.test(contactNumber)) {
                 showWarningMsg("error","Contact number must be exactly 10 digits and contain only numbers.","Message");
                 return;
             }
 
-            // Example API URL and data
-            //const apiUrl = 'https://example.com/api/updateContact';
-            const apiUrl = `${contextPath}updateContact`;
-            const requestData = {
-                contactNumber: contactNumber,
-                stuId: studentId
-            };
-
-            // Make the API call
-            fetch(apiUrl, {
+            const confirming = contactPendingConfirm;
+            $btn.prop('disabled', true);
+            fetch(`${contextPath}updateContact`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestData)
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contactNumber: contactNumber, stuId: studentId, confirm: confirming })
             })
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    //toastr["success"](data.success,"Success");
-                    showWarningMsg("success",data.success,"Success");
+                if (data.needsConfirmation) {
+                    contactPendingConfirm = true;
+                    contactShowConfirm(data);
+                } else if (data.success) {
+                    showWarningMsg("success", data.success, "Success");
+                    // keep the on-screen contact number in step with the saved one
+                    try {
+                        const $c = $('.contactno').first();
+                        const tn = $c.contents().filter(function(){ return this.nodeType === 3; }).last();
+                        if (tn.length) { tn[0].nodeValue = ' ' + contactNumber; } else { $c.text(contactNumber); }
+                        $('#appStatusBox').hide();
+                    } catch (e) { /* display only */ }
                     $('#myModal').modal('hide');
-                } else if(data.error){
-                    //toastr["error"](data.error,"Error");
-                    showWarningMsg("error",data.error,"Error");
-                } else if(data.empty_response){
-
+                } else if (data.noChange) {
+                    showWarningMsg("info", data.message || "No change made.", "No change");
+                } else if (data.error) {
+                    showWarningMsg("error", data.error, "Error");
+                    if (confirming) contactResetConfirm();
+                } else if (data.empty_response) {
+                    // nothing to do
                 } else {
-                    //toastr["error"]("Failed to update contact number","Error");
                     showWarningMsg("error","Failed to update contact number","Error");
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                //toastr["error"]("An error occurred while updating the contact number","Error");
                 showWarningMsg("error","An error occurred while updating the contact number","Error");
-            });
+            })
+            .finally(() => { $btn.prop('disabled', false); });
         });
 
         function checkMonths(){

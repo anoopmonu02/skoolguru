@@ -23,6 +23,7 @@ import com.smsweb.sms.services.admin.AcademicyearService;
 import com.smsweb.sms.services.admin.SchoolService;
 import com.smsweb.sms.services.globalaccess.DropdownService;
 import com.smsweb.sms.services.student.AcademicStudentService;
+import com.smsweb.sms.services.student.StudentRemovalService;
 import com.smsweb.sms.services.student.StudentService;
 import com.smsweb.sms.services.users.UserService;
 import jakarta.servlet.http.HttpSession;
@@ -72,6 +73,7 @@ public class StudentController extends BaseController {
     private final ExaminationRepository examinationRepository;
     private final ExamDetailsRepository examDetailsRepository;
     private final SystemConfigRepository systemConfigRepository;
+    private final StudentRemovalService studentRemovalService;
 
     // system_config key for the student registration photo size cap (KB).
     // Configurable at runtime (no restart needed) via the system_config
@@ -81,7 +83,7 @@ public class StudentController extends BaseController {
     private static final int DEFAULT_STUDENT_PHOTO_MAX_SIZE_KB = 500;
 
     @Autowired
-    public StudentController(StudentService studentService, AcademicStudentService academicStudentService, DropdownService dropdownService, AcademicyearService academicyearService, SchoolService schoolService, UserService userService, UserService userService1, AttendanceRepository attendanceRepository, ExaminationRepository examinationRepository, ExamDetailsRepository examDetailsRepository, SystemConfigRepository systemConfigRepository){
+    public StudentController(StudentService studentService, AcademicStudentService academicStudentService, DropdownService dropdownService, AcademicyearService academicyearService, SchoolService schoolService, UserService userService, UserService userService1, AttendanceRepository attendanceRepository, ExaminationRepository examinationRepository, ExamDetailsRepository examDetailsRepository, SystemConfigRepository systemConfigRepository, StudentRemovalService studentRemovalService){
         this.studentService = studentService;
         this.academicStudentService = academicStudentService;
         this.dropdownService = dropdownService;
@@ -92,6 +94,7 @@ public class StudentController extends BaseController {
         this.examinationRepository = examinationRepository;
         this.examDetailsRepository = examDetailsRepository;
         this.systemConfigRepository = systemConfigRepository;
+        this.studentRemovalService = studentRemovalService;
     }
 
     /** Reads the configurable student-photo size cap (KB) from system_config, defaulting to 500KB if unset. */
@@ -464,6 +467,18 @@ public class StudentController extends BaseController {
             student.setAcademicYear(academicYear);
             student.setSchool(school);
 
+            // Mobile 1 drives the parent-app family account, so Edit Student requires it
+            // (exactly 10 digits). Checked here, not on the Student model, because the model is
+            // shared with import / bulk update / migration where a blank is still allowed.
+            String mobile1Value = student.getMobile1() == null ? "" : student.getMobile1().trim();
+            if (!mobile1Value.matches("\\d{10}")) {
+                model = getAllGlobalModels(model);
+                reapplyHealthInfoOnError(model, haveHealthIssues, haveEyeIssue, healthIssueDescription);
+                model.addAttribute("error", "Mobile 1 is required and must be exactly 10 digits.");
+                return "student/edit-student";
+            }
+            student.setMobile1(mobile1Value);
+
             // Same Normal->force-off / Disability->require-one rule as the bulk-update
             // page's HEALTH_EYE_ISSUE group: this page already carries bodyType and the
             // health/eye fields together, so it gets the same enforcement.
@@ -585,6 +600,12 @@ public class StudentController extends BaseController {
         log.info("Inside deleteStudent");
         log.info("Inside deleteStudent");
         School school = (School)model.getAttribute("school");
+        // A student in a sibling group must go through the Remove Student popup (POST /student/delete-student/confirm),
+        // where the group action is confirmed. This direct route would otherwise remove the student and leave the group behind.
+        if (studentRemovalService.belongsToActiveSiblingGroup(Long.valueOf(id))) {
+            redirectAttributes.addFlashAttribute("error", "This student belongs to a sibling group. Please use the Remove option on the Student List so the group can be handled.");
+            return "redirect:/student/student";
+        }
         String msg = studentService.deleteStudent(Long.valueOf(id), school.getId());
         if(msg.contains("success")){
             redirectAttributes.addFlashAttribute("success",msg.split("#####")[1]);

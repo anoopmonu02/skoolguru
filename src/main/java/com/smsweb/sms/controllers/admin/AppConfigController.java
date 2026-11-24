@@ -1,6 +1,9 @@
 package com.smsweb.sms.controllers.admin;
 
+import com.smsweb.sms.models.admin.School;
 import com.smsweb.sms.services.admin.MaintenanceModeService;
+import com.smsweb.sms.services.admin.SiblingDiscountConfigService;
+import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -37,18 +40,69 @@ public class AppConfigController {
     private static final Logger log = LoggerFactory.getLogger(AppConfigController.class);
 
     private final MaintenanceModeService maintenanceModeService;
+    private final SiblingDiscountConfigService siblingDiscountConfigService;
 
-    public AppConfigController(MaintenanceModeService maintenanceModeService) {
+    public AppConfigController(MaintenanceModeService maintenanceModeService,
+                               SiblingDiscountConfigService siblingDiscountConfigService) {
         this.maintenanceModeService = maintenanceModeService;
+        this.siblingDiscountConfigService = siblingDiscountConfigService;
     }
 
     @GetMapping
-    public String view(Model model) {
-        log.info("Inside app config (maintenance mode) settings page");
+    public String view(Model model, HttpSession session) {
+        log.info("Inside app config settings page");
         model.addAttribute("maintenanceEnabled", maintenanceModeService.isEnabled());
         model.addAttribute("maintenanceMessage", maintenanceModeService.getMessage());
         model.addAttribute("lastUpdated", maintenanceModeService.getLastUpdated());
+
+        // Discount tab - per-school setting. School comes from the session only (never from the request).
+        // A login with no school (e.g. a super admin not tied to one) sees a notice instead of the form.
+        School school = (School) session.getAttribute("school");
+        model.addAttribute("discountSchoolAvailable", school != null);
+        model.addAttribute("discountSchoolName", school != null ? school.getSchoolName() : "");
+        model.addAttribute("siblingDiscountAllowed",
+                school != null ? siblingDiscountConfigService.getAllowedPerGroup(school.getId())
+                               : SiblingDiscountConfigService.DEFAULT_ALLOWED);
+        model.addAttribute("siblingDiscountMin", SiblingDiscountConfigService.MIN_ALLOWED);
+        model.addAttribute("siblingDiscountMax", SiblingDiscountConfigService.MAX_ALLOWED);
         return "admin/appConfig";
+    }
+
+    @PostMapping("/discount/sibling-allowed")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> setSiblingDiscountAllowed(@RequestParam("value") String value, HttpSession session) {
+        log.info("Inside set sibling discount allowed per group");
+        Map<String, Object> result = new LinkedHashMap<>();
+        // School is taken from the logged-in session only, so one school's admin can never write another school's setting.
+        School school = (School) session.getAttribute("school");
+        if (school == null) {
+            result.put("error", "No school is linked to your login, so this setting can't be saved.");
+            return ResponseEntity.badRequest().body(result);
+        }
+        int parsed;
+        try {
+            parsed = Integer.parseInt(value == null ? "" : value.trim());
+        } catch (NumberFormatException e) {
+            result.put("error", "Please enter a whole number.");
+            return ResponseEntity.badRequest().body(result);
+        }
+        if (parsed < SiblingDiscountConfigService.MIN_ALLOWED || parsed > SiblingDiscountConfigService.MAX_ALLOWED) {
+            result.put("error", "Value must be between " + SiblingDiscountConfigService.MIN_ALLOWED
+                    + " and " + SiblingDiscountConfigService.MAX_ALLOWED + ".");
+            return ResponseEntity.badRequest().body(result);
+        }
+        try {
+            siblingDiscountConfigService.setAllowedPerGroup(school.getId(), parsed);
+            result.put("success", true);
+            result.put("value", parsed);
+            result.put("message", "Saved. Up to " + parsed + (parsed == 1 ? " student" : " students")
+                    + " per sibling group can get the sibling discount.");
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Failed to update sibling discount allowed-per-group", e);
+            result.put("error", "Could not save — please try again.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(result);
+        }
     }
 
     @PostMapping("/toggle")

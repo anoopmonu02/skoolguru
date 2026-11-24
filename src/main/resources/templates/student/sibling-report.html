@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="~{base::Layout(~{::section})}">
+<head>
+    <meta charset="UTF-8">
+    <title>UAIC - Sibling Report</title>
+</head>
+<body>
+<section>
+
+    <!-- Page-specific styling only. Filter card + shared "list page" datatable chrome
+         (list-table.css + list-table-init.js) are the same as the other session reports. -->
+    <style>
+        .aa-card {
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xs); padding: 20px 22px; margin-bottom: 18px;
+        }
+        .aa-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+        .aa-card-head h2 { font-size: 14.5px; font-weight: 800; margin: 0; color: var(--text-primary); }
+        .aa-icon {
+            width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center;
+            justify-content: center; font-size: 14px; flex-shrink: 0;
+        }
+        .aa-icon-accent { background: var(--accent-light); color: var(--accent); }
+        .aa-sub { font-size: 12px; color: var(--text-muted); margin: 2px 0 16px; }
+        .aa-btn-primary {
+            background: var(--accent); border: 1px solid var(--accent); color: #fff; padding: 8px 18px;
+            border-radius: var(--radius-md); font-size: 13.5px; font-weight: 700; display: inline-flex;
+            align-items: center; gap: 7px; cursor: pointer; box-shadow: var(--shadow-sm);
+            transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
+        }
+        .aa-btn-primary:hover { background: var(--brand-600); border-color: var(--brand-600); color: #fff; box-shadow: var(--shadow-md); }
+        .aa-btn-primary:active { transform: translateY(1px); }
+        .aa-btn-primary:disabled { opacity: .65; cursor: default; }
+
+        #siblingTable, #siblingTable th, #siblingTable td { font-size: .8rem; }
+        #siblingTable th, #siblingTable td { white-space: nowrap; }
+        #siblingTable td:nth-child(3) { white-space: normal; min-width: 320px; }
+        .sib-holder { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: #16a34a; }
+    </style>
+
+    <div class="container-fluid px-3">
+        <div class="row mt-2">
+            <div class="col-md-12">
+                <div th:replace="~{components/ui :: page-header-sub('Sibling Report', 'Sibling groups of a session and who holds the sibling discount.')}"></div>
+
+                <div class="aa-card">
+                    <div class="aa-card-head"><span class="aa-icon aa-icon-accent"><i class="bi bi-funnel-fill"></i></span><h2>Filter</h2></div>
+                    <div class="aa-sub">Pick an academic year, then click Get List.</div>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label for="academic_year" class="form-label">Academic Year</label>
+                            <select name="academic_year" id="academic_year" class="form-select">
+                                <option th:each="med : ${academicYears}" th:value="${med.id}" th:text="${med.sessionFormat}">Academic Year</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex flex-column align-items-start">
+                            <label class="form-label invisible">Action</label>
+                            <button type="button" id="getList" class="aa-btn-primary flex-fill"><i class="bi bi-search"></i> Get List</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="sibling-report-data" class="mb-5"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/javascript" th:inline="javascript">
+        const contextPath = /*[[@{/}]]*/ '/';
+
+        function esc(value) {
+            return $('<div>').text(value == null ? '' : String(value)).html();
+        }
+
+        function clearReport() {
+            if ($.fn.DataTable.isDataTable('#siblingTable')) {
+                $('#siblingTable').DataTable().destroy();
+            }
+            $('#sibling-report-data').empty();
+        }
+
+        $('#getList').click(async function () {
+            const $btn = $(this);
+            clearReport();
+            const academicYearVal = $('#academic_year').val();
+            if (!academicYearVal) {
+                showMsg('error', 'Academic Year is mandatory', 'Warning');
+                return;
+            }
+            $btn.prop('disabled', true);
+            try {
+                const response = await fetch(`${contextPath}student/sibling-report/data`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({academicYearId: academicYearVal})
+                });
+                if (!response.ok) {
+                    throw new Error(response.statusText);
+                }
+                const data = await response.json();
+                if (data.error) {
+                    showMsg('error', data.error, 'Error');
+                    return;
+                }
+                const rows = data.rows || [];
+                if (rows.length === 0) {
+                    showMsg('info', 'No sibling groups found for the selected session', 'No Data');
+                    return;
+                }
+                let tbl = `<table class="table table-sm list-table w-100" id="siblingTable">
+                    <thead><tr>
+                        <th>SNo</th><th>Group Name</th><th>Group Students (SR No)</th><th>Father Name</th><th>No. of Students</th>
+                        <th>SR No</th><th>Sibling Discount Student</th><th>Assigned By</th>
+                    </tr></thead><tbody>`;
+                rows.forEach(function (r, i) {
+                    const holder = r.discountStudent
+                        ? '<span class="sib-holder"><i class="bi bi-check-circle-fill"></i>' + esc(r.discountStudent) + '</span>' : '-';
+                    tbl += `<tr><td>${i + 1}</td><td>${esc(r.groupName)}</td><td>${esc(r.groupStudents)}</td>
+                        <td>${esc(r.fatherName) || '-'}</td><td>${esc(r.studentCount)}</td><td>${esc(r.srNo) || '-'}</td>
+                        <td>${holder}</td><td>${esc(r.assignedBy) || '-'}</td></tr>`;
+                });
+                tbl += `</tbody></table>`;
+
+                $('#sibling-report-data').html(
+                    '<div class="list-table-card">' +
+                      '<div class="config-list-toolbar list-page-toolbar">' +
+                        '<div class="config-search-wrap"><i class="bi bi-search"></i>' +
+                          '<input type="text" class="form-control form-control-sm" id="sibSearchInput" placeholder="Search groups, students, father…"></div>' +
+                        '<div id="sibExportSlot" class="list-export-slot"></div>' +
+                      '</div>' +
+                      '<div class="table-responsive">' + tbl + '</div>' +
+                      '<div class="list-table-footer">' +
+                        '<div class="list-footer-left">' +
+                          '<label class="list-length-label">Rows per page' +
+                            '<select id="sibPageLength" class="list-length-select">' +
+                              '<option value="5">5</option><option value="10">10</option><option value="25" selected>25</option>' +
+                              '<option value="50">50</option><option value="100">100</option></select></label>' +
+                          '<span id="sibPageInfo" class="list-page-info">Showing 0 of 0 groups</span>' +
+                        '</div>' +
+                        '<div class="list-pagination" id="sibPagination"></div>' +
+                      '</div>' +
+                    '</div>');
+
+                initListDataTable({
+                    tableSelector: '#siblingTable',
+                    searchInputSelector: '#sibSearchInput',
+                    exportSlotSelector: '#sibExportSlot',
+                    lengthSelectSelector: '#sibPageLength',
+                    pageInfoSelector: '#sibPageInfo',
+                    paginationSelector: '#sibPagination',
+                    itemLabel: 'groups',
+                    exportTitle: 'Sibling Report',
+                    exportColumns: [0, 1, 2, 3, 4, 5, 6, 7],
+                    dtOptions: {
+                        scrollX: true,
+                        autoWidth: false,
+                        scrollCollapse: true,
+                        sort: false,
+                        columnDefs: [{ orderable: false, targets: [0] }]
+                    }
+                });
+            } catch (error) {
+                clearReport();
+                showMsg('error', 'Unable to load the report. ' + error, 'Error');
+            } finally {
+                $btn.prop('disabled', false);
+            }
+        });
+    </script>
+</section>
+</body>
+</html>

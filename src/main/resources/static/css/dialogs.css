@@ -1,0 +1,91 @@
+/* ============================================================================
+   dialogs.css — shared confirm / message dialogs and toast polish.
+
+   Pair with static/js/sg-dialogs.js (SG.confirm / SG.alert / SG.toast).
+   Uses only tokens.css variables, so it follows the dark theme automatically.
+   Purely additive: nothing here targets an existing page-specific class, and
+   the toast rules only refine the look of toastr (shape, shadow, spacing);
+   toastr's own colours and icons are kept.
+   ============================================================================ */
+
+/* ── Confirm / message dialog ─────────────────────────────────────────────── */
+.sg-dialog .modal-content {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  box-shadow: 0 18px 48px rgba(15, 23, 42, .28);
+  overflow: hidden;
+}
+.sg-dialog-body { padding: 26px 26px 8px; text-align: center; }
+.sg-dialog-icon {
+  width: 56px; height: 56px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 26px; margin-bottom: 14px;
+  background: var(--sg-tone-bg, var(--accent-light));
+  color: var(--sg-tone, var(--accent));
+}
+.sg-dialog-title { font-size: 1.1rem; font-weight: 800; margin: 0 0 6px; color: var(--text-primary); }
+.sg-dialog-message { font-size: .9rem; color: var(--text-muted); margin: 0; line-height: 1.5; white-space: pre-line; }
+
+.sg-dialog-list {
+  list-style: none; margin: 14px 0 0; padding: 0; text-align: left;
+  border: 1px solid var(--border-color); border-radius: var(--radius-md);
+  background: var(--body-bg); max-height: 190px; overflow-y: auto;
+}
+.sg-dialog-list li {
+  padding: 8px 12px; font-size: .84rem; color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; gap: 12px;
+}
+.sg-dialog-list li:last-child { border-bottom: none; }
+.sg-dialog-list li span:last-child { color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+
+.sg-dialog-note {
+  margin-top: 14px; padding: 10px 12px; text-align: left; font-size: .82rem;
+  border-radius: var(--radius-md); border: 1px solid var(--sg-tone-bg, var(--accent-light));
+  background: var(--sg-tone-bg, var(--accent-light)); color: var(--text-primary);
+}
+.sg-dialog-ack { display: flex; align-items: flex-start; gap: 8px; margin-top: 14px; text-align: left; font-size: .84rem; color: var(--text-primary); }
+.sg-dialog-ack input { margin-top: 3px; flex-shrink: 0; }
+
+.sg-dialog-footer {
+  display: flex; justify-content: center; gap: 10px; padding: 18px 26px 24px; border: 0;
+}
+.sg-dialog-footer .btn { min-width: 110px; font-weight: 700; border-radius: var(--radius-md); }
+.sg-btn-ghost { background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-primary); }
+.sg-btn-ghost:hover { background: var(--body-bg); border-color: var(--text-muted); color: var(--text-primary); }
+.sg-btn-tone { background: var(--sg-tone, var(--accent)); border: 1px solid var(--sg-tone, var(--accent)); color: #fff; }
+.sg-btn-tone:hover, .sg-btn-tone:focus { filter: brightness(.92); color: #fff; }
+.sg-btn-tone:disabled { opacity: .5; cursor: not-allowed; }
+
+.sg-tone-info    { --sg-tone: #0284c7; --sg-tone-bg: #e0f2fe; }
+.sg-tone-success { --sg-tone: #16a34a; --sg-tone-bg: #dcfce7; }
+.sg-tone-warning { --sg-tone: #d97706; --sg-tone-bg: #fef3c7; }
+.sg-tone-danger  { --sg-tone: #dc2626; --sg-tone-bg: #fee2e2; }
+[data-bs-theme="dark"] .sg-tone-info    { --sg-tone-bg: rgba(14,165,233,.18); }
+[data-bs-theme="dark"] .sg-tone-success { --sg-tone-bg: rgba(34,197,94,.18); }
+[data-bs-theme="dark"] .sg-tone-warning { --sg-tone-bg: rgba(245,158,11,.18); }
+[data-bs-theme="dark"] .sg-tone-danger  { --sg-tone-bg: rgba(239,68,68,.18); }
+
+/* ── Toast polish (toastr keeps its own colours and icons) ───────────────── */
+#toast-container > div {
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, .22);
+  opacity: 1;
+  padding: 14px 16px 14px 50px;
+  background-position: 15px center;
+  background-size: 22px;
+  width: 340px;
+  max-width: calc(100vw - 24px);
+}
+#toast-container > div:hover { box-shadow: 0 12px 32px rgba(15, 23, 42, .3); opacity: 1; }
+#toast-container .toast-title { font-weight: 800; font-size: .88rem; margin-bottom: 2px; }
+#toast-container .toast-message { font-size: .85rem; line-height: 1.4; word-wrap: break-word; }
+#toast-container .toast-close-button { opacity: .7; font-size: 18px; }
+#toast-container .toast-progress { opacity: .35; }
+@media (prefers-reduced-motion: reduce) {
+  .sg-dialog.modal.fade .modal-dialog { transition: none; }
+}
+
+/* Always above any Bootstrap modal that is already open (e.g. the notification form). */
+.sg-dialog { z-index: 1080; }

@@ -43,6 +43,27 @@ public class MobileUserRowDto {
         private String classInfo; // e.g. "1-A, Sikhsha Sansthan", "Inactive", or "" if unknown
     }
 
+    // Server-side search text only (never sent to the browser): for each child, the original
+    // "Name (Grade-Sec, School)" text plus the father's name as its own entry, so searching a
+    // father's name works without a word like "father" matching every row.
+    @JsonIgnore
+    private List<String> searchLines = new ArrayList<>();
+
+    // Same children as structured cards for the colour-tag layout (name / father / class / school).
+    private List<StudentCard> studentCards = new ArrayList<>();
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class StudentCard {
+        private String name;
+        private String father;       // "" when not recorded
+        private String classSection; // e.g. "1-A", "" if unknown
+        private String school;       // "" if unknown
+        private boolean inactive;
+    }
+
     // Session info, from MobileRefreshTokenService.SessionSummary
     private boolean everLoggedIn;
     private boolean hasValidSession;

@@ -18,9 +18,11 @@ import com.smsweb.sms.services.admin.FineService;
 import com.smsweb.sms.services.admin.MonthmappingService;
 import com.smsweb.sms.services.fees.FeeSubmissionService;
 import com.smsweb.sms.services.reports.FeeReceiptService;
+import com.smsweb.sms.services.mobile.FamilyAppStatusService;
 import com.smsweb.sms.services.student.AcademicStudentService;
 import com.smsweb.sms.services.student.SiblingGroupService;
 import com.smsweb.sms.services.student.StudentDiscountService;
+import com.smsweb.sms.services.student.StudentContactChangeService;
 import com.smsweb.sms.services.student.StudentService;
 import com.smsweb.sms.services.users.UserService;
 
@@ -63,6 +65,8 @@ public class FeeSubmissionRestController extends BaseController {
     private final SiblingGroupService siblingGroupService;
     private final UserService userService;
     private final ReceiptIdCodec receiptIdCodec;
+    private final FamilyAppStatusService familyAppStatusService;
+    private final StudentContactChangeService studentContactChangeService;
 
     @Autowired
     private TemplateEngine templateEngine;
@@ -71,7 +75,9 @@ public class FeeSubmissionRestController extends BaseController {
     public FeeSubmissionRestController(StudentService studentService, AcademicyearService academicyearService, AcademicStudentService academicStudentService,
                                        FeeSubmissionService feeSubmissionService, FeedateService feedateService, StudentDiscountService studentDiscountService,
                                        FineService fineService, MonthmappingService monthmappingService, FeeReceiptService receiptService,
-                                       MonthmappingService mmService, SiblingGroupService siblingGroupService, UserService userService, ReceiptIdCodec receiptIdCodec) {
+                                       MonthmappingService mmService, SiblingGroupService siblingGroupService, UserService userService, ReceiptIdCodec receiptIdCodec,
+                                       FamilyAppStatusService familyAppStatusService,
+                                       StudentContactChangeService studentContactChangeService) {
         this.studentService = studentService;
         this.academicyearService = academicyearService;
         this.academicStudentService = academicStudentService;
@@ -85,6 +91,8 @@ public class FeeSubmissionRestController extends BaseController {
         this.siblingGroupService = siblingGroupService;
         this.userService = userService;
         this.receiptIdCodec = receiptIdCodec;
+        this.familyAppStatusService = familyAppStatusService;
+        this.studentContactChangeService = studentContactChangeService;
     }
 
     @CheckAccess(screen = "FEE_SUBMIT", type = AccessType.VIEW)
@@ -357,6 +365,14 @@ public class FeeSubmissionRestController extends BaseController {
                     result.put("countStu",        countStu);
                     result.put("previousBalance", previousBalance);
 
+                    // Parent mobile-app hint (NO_ACCOUNT / NO_LOGIN / USING). Own try/catch: a failure
+                    // here only drops the hint, never the fee screen. No password, hash or token is sent.
+                    try {
+                        result.put("appStatus", familyAppStatusService.statusForStudent(student.getId()));
+                    } catch (Exception ex) {
+                        log.warn("appStatus lookup failed for student {}", student.getId(), ex);
+                    }
+
                     // Discount currently assigned to this student (e.g. Sibling Discount),
                     // same lookup/scoping already used by getStudentDetailForDiscount() above -
                     // no new query pattern, just reusing studentDiscountService here too.
@@ -505,27 +521,46 @@ public class FeeSubmissionRestController extends BaseController {
         return ResponseEntity.ok(result);
     }
 
+    /**
+     * Update Contact (Mobile 1) in two calls. Without confirm=true it only checks and describes the
+     * effect (nothing is changed); with confirm=true it re-checks everything and applies in one
+     * transaction. School and session come from the login, never from the request.
+     */
     @CheckAccess(screen = "FEE_SUBMIT", type = AccessType.EDIT)
     @PostMapping("/updateContact")
-    public ResponseEntity<?> updateContact(@RequestBody Map<String, String> requestBody){
+    public ResponseEntity<?> updateContact(@RequestBody Map<String, Object> requestBody, Model model){
         log.info("Inside updateContact");
-        Map result = new HashMap<>();
+        Map<String, Object> result = new HashMap<>();
         try{
-            if(requestBody!=null){
-                String contactNo = requestBody.get("contactNumber");
-                Long stuId = Long.parseLong(requestBody.get("stuId"));
-                Long returnId = studentService.updateContact(contactNo, stuId);
-                if(returnId>0){
-                    result.put("success","Contact number: "+ contactNo +" updated successfully.");
-                }
-            } else{
+            if(requestBody==null){
                 result.put("empty_response", "Request params are empty");
+                return ResponseEntity.ok(result);
             }
+            School school = (School) model.getAttribute("school");
+            AcademicYear academicYear = (AcademicYear) model.getAttribute("academicYear");
+            if (school == null || academicYear == null) {
+                result.put("error", "Unable to resolve the current school and session.");
+                return ResponseEntity.ok(result);
+            }
+            String contactNo = requestBody.get("contactNumber") == null ? "" : String.valueOf(requestBody.get("contactNumber"));
+            Long stuId;
+            try {
+                stuId = Long.parseLong(String.valueOf(requestBody.get("stuId")).trim());
+            } catch (NumberFormatException nfe) {
+                result.put("error", "Student not found in the current school and session.");
+                return ResponseEntity.ok(result);
+            }
+            boolean confirm = "true".equalsIgnoreCase(String.valueOf(requestBody.get("confirm")));
+            com.smsweb.sms.dto.ContactChangeResult r = confirm
+                    ? studentContactChangeService.apply(stuId, contactNo, school.getId(), academicYear.getId())
+                    : studentContactChangeService.check(stuId, contactNo, school.getId(), academicYear.getId());
+            return ResponseEntity.ok(r.toMap());
         }catch(Exception e){
-            e.printStackTrace();
-            result.put("error", "Error: "+e.getLocalizedMessage());
+            // details only in the log; the screen gets a generic message
+            log.error("updateContact failed", e);
+            result.put("error", "Could not update the contact number right now. Nothing was changed.");
+            return ResponseEntity.ok(result);
         }
-        return ResponseEntity.ok(result);
     }
 
 
