@@ -338,6 +338,8 @@ public class FamilyAccountService {
 
             List<String> studentLines = new ArrayList<>();
             List<MobileUserRowDto.StudentLink> studentLinks = new ArrayList<>();
+            List<String> searchLines = new ArrayList<>();
+            List<MobileUserRowDto.StudentCard> studentCards = new ArrayList<>();
             List<Long> academicStudentIds = new ArrayList<>();
             for (Student s : account.getStudents()) {
                 List<AcademicStudent> asList = academicByStudentId.getOrDefault(s.getId(), Collections.emptyList());
@@ -349,17 +351,27 @@ public class FamilyAccountService {
                     String classPart = grade.isEmpty() ? "" : (section.isEmpty() ? grade : grade + "-" + section);
                     String classInfo = classPart.isEmpty() ? "" : (classPart + (school.isEmpty() ? "" : ", " + school));
                     String label = s.getStudentName() + (classInfo.isEmpty() ? "" : " (" + classInfo + ")");
-                    studentLines.add(label);
+                    studentLines.add(withFather(label, s));
                     studentLinks.add(new MobileUserRowDto.StudentLink(s.getStudentName(), classInfo));
                     academicStudentIds.add(as.getId());
+                    searchLines.add(label);
+                    addFatherSearch(searchLines, s);
+                    studentCards.add(new MobileUserRowDto.StudentCard(
+                            s.getStudentName(), fatherOf(s), classPart, school, false));
                 } else {
-                    studentLines.add(s.getStudentName() + " (inactive)");
+                    studentLines.add(withFather(s.getStudentName() + " (inactive)", s));
                     studentLinks.add(new MobileUserRowDto.StudentLink(s.getStudentName(), "Inactive"));
+                    searchLines.add(s.getStudentName() + " (inactive)");
+                    addFatherSearch(searchLines, s);
+                    studentCards.add(new MobileUserRowDto.StudentCard(
+                            s.getStudentName(), fatherOf(s), "", "", true));
                 }
             }
             dto.setStudents(studentLines);
             dto.setStudentLinks(studentLinks);
             dto.setAcademicStudentIds(academicStudentIds);
+            dto.setSearchLines(searchLines);
+            dto.setStudentCards(studentCards);
 
             List<MobileRefreshToken> tokens = new ArrayList<>();
             for (Long asId : academicStudentIds) {
@@ -377,6 +389,27 @@ public class FamilyAccountService {
         return result;
     }
 
+    private static String fatherOf(Student s) {
+        String f = s.getFatherName();
+        return f == null ? "" : f.trim();
+    }
+
+    /** "NAME (1-A, School)" -> "NAME - Father: FATHER (1-A, School)"; unchanged if no father is recorded. */
+    private static String withFather(String label, Student s) {
+        String father = fatherOf(s);
+        if (father.isEmpty()) return label;
+        String name = s.getStudentName() == null ? "" : s.getStudentName();
+        if (!name.isEmpty() && label.startsWith(name)) {
+            return name + " - Father: " + father + label.substring(name.length());
+        }
+        return label + " - Father: " + father;
+    }
+
+    private static void addFatherSearch(List<String> searchLines, Student s) {
+        String father = fatherOf(s);
+        if (!father.isEmpty()) searchLines.add(father);
+    }
+
     /** Pure in-memory filter over an already-built row list — no DB access.
      *  Matches on mobile number or any linked student's display line. */
     public List<MobileUserRowDto> filterMobileUserRows(List<MobileUserRowDto> allRows, String search) {
@@ -387,6 +420,11 @@ public class FamilyAccountService {
         } else {
             filtered = allRows.stream().filter(row -> {
                 if (row.getMobile() != null && row.getMobile().toLowerCase().contains(q)) return true;
+                // searchLines = original "Name (Grade-Sec, School)" text + father's name as its own
+                // entry, so every search that worked before still works and father names are added.
+                for (String line : row.getSearchLines()) {
+                    if (line != null && line.toLowerCase().contains(q)) return true;
+                }
                 for (String line : row.getStudents()) {
                     if (line.toLowerCase().contains(q)) return true;
                 }

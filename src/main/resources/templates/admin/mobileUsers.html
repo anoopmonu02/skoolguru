@@ -10,7 +10,17 @@
      stat tiles (.stat-tile-row/.stat-tile/...) and table/footer chrome
      (.list-table-card/.list-table/.list-table-footer/...) all come from the
      shared components.css / list-table.css already loaded by base.html. */
-  .students-col { max-width: 320px; }
+  .students-col { max-width: 380px; }
+  .mu-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+  .mu-tag { display: inline-block; font-size: .68rem; font-weight: 700; padding: 1px 7px; border-radius: 4px; line-height: 1.5; }
+  .mu-tag-father { background: #fef3c7; color: #92400e; }
+  .mu-tag-class  { background: #dbeafe; color: #1e40af; }
+  .mu-tag-school { background: #dcfce7; color: #166534; }
+  .mu-tag-off    { background: #e2e8f0; color: #475569; }
+  [data-bs-theme="dark"] .mu-tag-father { background: rgba(217,119,6,.22); color: #fcd34d; }
+  [data-bs-theme="dark"] .mu-tag-class  { background: rgba(59,130,246,.22); color: #93c5fd; }
+  [data-bs-theme="dark"] .mu-tag-school { background: rgba(22,163,74,.22); color: #86efac; }
+  [data-bs-theme="dark"] .mu-tag-off    { background: rgba(148,163,184,.22); color: #cbd5e1; }
   .mu-student-block + .mu-student-block {
     margin-top: 10px;
     padding-top: 10px;
@@ -245,12 +255,30 @@
       return avatarColors[hash % avatarColors.length];
     }
 
+    function studentCardsHtml(cards) {
+      return cards.map(function (c) {
+        var name = c.name || '';
+        var color = colorForName(name);
+        var tags = '';
+        if (c.father) tags += '<span class="mu-tag mu-tag-father">Father: ' + escHtml(c.father) + '</span>';
+        if (c.classSection) tags += '<span class="mu-tag mu-tag-class">' + escHtml(c.classSection) + '</span>';
+        if (c.school) tags += '<span class="mu-tag mu-tag-school">' + escHtml(c.school) + '</span>';
+        if (c.inactive) tags += '<span class="mu-tag mu-tag-off">inactive</span>';
+        return '<div class="stu-cell mu-student-block">' +
+          '<div class="stu-avatar" style="background:' + color + '22;color:' + color + '">' + escHtml(initialsOf(name)) + '</div>' +
+          '<div><div class="stu-name-text">' + escHtml(name) + '</div>' +
+          (tags ? '<div class="mu-tags">' + tags + '</div>' : '') + '</div>' +
+          '</div>';
+      }).join('');
+    }
+
     function studentsCellHtml(row) {
       // studentLinks (structured name + classInfo) is what the backend now
       // sends; the fallback to the old plain-text `students` lines only
       // matters if this JS is ever served against a stale/cached response
       // shape - it skips the avatar chip rather than trying to regex-parse
       // "Name (details)" back apart on the client.
+      if (row.studentCards && row.studentCards.length) return studentCardsHtml(row.studentCards);
       var links = (row.studentLinks && row.studentLinks.length)
         ? row.studentLinks
         : (row.students || []).map(function (s) { return { name: s, classInfo: '' }; });
@@ -526,7 +554,14 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-      loadMobileUsers('');
+      // Optional deep link, e.g. from Fee Submission: /admin/mobile-users?search=<mobile>.
+      // Digits only, max 10, so nothing else can be injected into the search box.
+      var initial = '';
+      try {
+        initial = (new URLSearchParams(window.location.search).get('search') || '').replace(/\D/g, '').slice(0, 10);
+      } catch (e) { initial = ''; }
+      if (initial) { document.getElementById('searchInput').value = initial; }
+      loadMobileUsers(initial);
     });
   </script>
   <!-- jQuery / Bootstrap / toastr / select2 / jQuery-UI tags removed: base.html

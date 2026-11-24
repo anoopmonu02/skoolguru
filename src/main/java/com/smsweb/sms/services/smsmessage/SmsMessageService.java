@@ -161,6 +161,13 @@ public class SmsMessageService {
         return smsMessageRepository.insertClassRecipients(messageId, schoolId, gradeId, sectionId);
     }
 
+    /** Same as materializeClassRecipients, limited to one medium. */
+    public int materializeClassRecipientsByMedium(Long messageId, Long schoolId, Long gradeId, Long sectionId, Long mediumId) {
+        log.info("Inside materializeClassRecipientsByMedium — messageId={}, schoolId={}, gradeId={}, sectionId={}, mediumId={}",
+                messageId, schoolId, gradeId, sectionId, mediumId);
+        return smsMessageRepository.insertClassRecipientsByMedium(messageId, schoolId, gradeId, sectionId, mediumId);
+    }
+
     /**
      * Same as materializeClassRecipients, but for an ALL-recipient ("whole school")
      * notification — one row per currently-Active student in the given school.

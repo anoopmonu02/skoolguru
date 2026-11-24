@@ -376,8 +376,9 @@
                 </div>
                 <div class="col-md-9"></div>
                 <div class="col-md-3">
-                  <label for="mobile1" class="form-label">Mobile 1</label>
-                  <input type="text" id="mobile1" class="form-control intfields" th:field="*{mobile1}">
+                  <label for="mobile1" class="form-label">Mobile 1 <span class="text-danger">*</span></label>
+                  <input type="text" id="mobile1" class="form-control intfields" th:field="*{mobile1}" required
+                         inputmode="numeric" maxlength="10" pattern="[0-9]{10}" title="Enter exactly 10 digits">
                   <p class="text-danger" th:if="${#fields.hasErrors('mobile1')}" th:errors="*{mobile1}">City Error</p>
                 </div>
                 <div class="col-md-3"></div>

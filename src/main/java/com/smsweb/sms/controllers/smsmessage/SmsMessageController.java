@@ -16,7 +16,9 @@ import com.smsweb.sms.models.universal.Grade;
 import com.smsweb.sms.models.universal.Section;
 import com.smsweb.sms.services.Employee.EmployeeService;
 import com.smsweb.sms.services.globalaccess.DropdownService;
-//import com.smsweb.sms.services.smsmessage.SmsMessageService;
+//import com.smsweb.sms.services.smsmessage.ClassNotificationService;
+import com.smsweb.sms.services.smsmessage.ClassNotificationService;
+import com.smsweb.sms.services.smsmessage.SmsMessageService;
 import com.smsweb.sms.services.smsmessage.SmsMessageService;
 import com.smsweb.sms.services.student.AcademicStudentService;
 import com.smsweb.sms.services.student.StudentService;
@@ -63,6 +65,10 @@ public class SmsMessageController extends BaseController {
     private final SectionService sectionService;
     private final EmployeeService employeeService;
     private final FileHandleHelper fileHandleHelper;
+
+    // Multi-class notification (Class recipient type with several grades/sections and a Medium filter).
+    @Autowired
+    private ClassNotificationService classNotificationService;
 
     //, SmsMessageService messageService
     public SmsMessageController(DropdownService dropdownService, SmsMessageService smsMessageService, UserService userService, AcademicStudentService academicStudentService, StudentService studentService, GradeService gradeService, SectionService sectionService, EmployeeService employeeService, FileHandleHelper fileHandleHelper) {
@@ -465,6 +471,9 @@ public class SmsMessageController extends BaseController {
             @RequestParam(required = false) Long classId,
             @RequestParam(required = false) Long sectionId,
             @RequestParam(required = false) Long studentId,
+            @RequestParam(required = false) Long mediumId,
+            @RequestParam(required = false) List<Long> gradeIds,
+            @RequestParam(required = false) List<Long> sectionIds,
             @RequestParam(value = "files", required = false) List<MultipartFile> files
     ) {
         log.info("Inside sendNewNotificationWithAttachments — recipientType={}, fileCount={}",
@@ -490,6 +499,33 @@ public class SmsMessageController extends BaseController {
             String loggedInUsername = loggedInUser.getUsername();
             School school = employeeService.getLoggedInEmployeeSchool(loggedInUsername)
                     .orElseThrow(() -> new RuntimeException("School not found for Logged In user: " + loggedInUsername));
+
+            // Several classes at once (new): CLASS + gradeIds present -> one message per selected
+            // grade x section class. Anything else falls through to the unchanged single-class code below.
+            if ("CLASS".equalsIgnoreCase(recipientType) && gradeIds != null && !gradeIds.isEmpty()) {
+                try {
+                    Map<String, Object> res = classNotificationService.send(
+                            school, loggedInUser, heading, message, mediumId, gradeIds, sectionIds, validFiles);
+                    int sent = ((Number) res.get("sentClasses")).intValue();
+                    @SuppressWarnings("unchecked")
+                    List<String> failedClasses = (List<String>) res.get("failedClasses");
+                    if (sent == 0) {
+                        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                                "error", "The notification could not be sent to any class. Nothing was sent."));
+                    }
+                    Map<String, Object> ok = new LinkedHashMap<>();
+                    ok.put("message", failedClasses.isEmpty()
+                            ? "Notification sent successfully."
+                            : "Notification sent to some classes only.");
+                    ok.put("sentClasses", sent);
+                    ok.put("sentStudents", res.get("sentStudents"));
+                    ok.put("failedClasses", failedClasses);
+                    ok.put("attachmentCount", res.get("attachmentCount"));
+                    return ResponseEntity.ok(ok);
+                } catch (ClassNotificationService.InvalidSelectionException ise) {
+                    return ResponseEntity.badRequest().body(Map.of("error", ise.getMessage()));
+                }
+            }
 
             SmsMessage smsMessage = new SmsMessage();
             smsMessage.setSmsHeading(heading);
@@ -584,6 +620,67 @@ public class SmsMessageController extends BaseController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Error while sending Notification: " + ex.getMessage()));
         }
+    }
+
+    /**
+     * Read-only preview for the confirm popup: which of the selected classes have Active students,
+     * and how many. Uses the same counting code as the send. Changes nothing.
+     */
+    @CheckAccess(screen = "MESSAGE_SEND", type = AccessType.CREATE)
+    @PostMapping("/previewClassRecipients")
+    public ResponseEntity<?> previewClassRecipients(@RequestBody Map<String, Object> body) {
+        log.info("Inside previewClassRecipients");
+        try {
+            UserEntity loggedInUser = userService.getLoggedInUser();
+            String loggedInUsername = loggedInUser.getUsername();
+            School school = employeeService.getLoggedInEmployeeSchool(loggedInUsername)
+                    .orElseThrow(() -> new RuntimeException("School not found for Logged In user: " + loggedInUsername));
+            Long mediumId = toLongOrNull(body.get("mediumId"));
+            List<Long> gradeIds = toLongList(body.get("gradeIds"));
+            List<Long> sectionIds = toLongList(body.get("sectionIds"));
+            List<com.smsweb.sms.dto.ClassRecipientCount> classes =
+                    classNotificationService.preview(school.getId(), mediumId, gradeIds, sectionIds);
+            long total = 0;
+            List<Map<String, Object>> rows = new ArrayList<>();
+            for (com.smsweb.sms.dto.ClassRecipientCount c : classes) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("label", c.getLabel());
+                m.put("students", c.getStudentCount());
+                rows.add(m);
+                total += c.getStudentCount();
+            }
+            Map<String, Object> res = new LinkedHashMap<>();
+            res.put("classes", rows);
+            res.put("classCount", rows.size());
+            res.put("studentCount", total);
+            return ResponseEntity.ok(res);
+        } catch (ClassNotificationService.InvalidSelectionException ise) {
+            return ResponseEntity.badRequest().body(Map.of("error", ise.getMessage()));
+        } catch (Exception ex) {
+            log.error("previewClassRecipients failed", ex);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Could not check the selected classes right now. Please try again."));
+        }
+    }
+
+    private static Long toLongOrNull(Object o) {
+        if (o == null || String.valueOf(o).isBlank()) return null;
+        try {
+            return Long.parseLong(String.valueOf(o).trim());
+        } catch (NumberFormatException e) {
+            throw new ClassNotificationService.InvalidSelectionException("Invalid selection.");
+        }
+    }
+
+    private static List<Long> toLongList(Object o) {
+        List<Long> out = new ArrayList<>();
+        if (o instanceof Collection<?>) {
+            for (Object x : (Collection<?>) o) {
+                Long v = toLongOrNull(x);
+                if (v != null) out.add(v);
+            }
+        }
+        return out;
     }
 
     /**

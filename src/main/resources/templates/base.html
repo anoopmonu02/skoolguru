@@ -45,6 +45,7 @@
     <link rel="stylesheet" th:href="@{/css/layout.css}">
     <link rel="stylesheet" th:href="@{/css/components.css}">
     <link rel="stylesheet" th:href="@{/css/list-table.css}">
+    <link rel="stylesheet" th:href="@{/css/dialogs.css}">
 
     <!-- ================= THIRD-PARTY LIBRARIES =================
          MOVED here from the end of <body>.
@@ -205,6 +206,7 @@
                         <li sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN','ROLE_STAFF')" class="sidebar-item"><a class="sidebar-link" sms:access="ADMIN_HOLIDAY:VIEW" th:href="@{'/admin/holidays'}"><i class="bi bi-dot"></i><span>Holiday Calendar</span></a></li>
                         <li sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN','ROLE_STAFF')" class="sidebar-item"><a class="sidebar-link" sms:access="ADMIN_EXAM:VIEW" th:href="@{'/admin/examinations'}"><i class="bi bi-dot"></i><span>Examination</span></a></li>
                         <li sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN','ROLE_STAFF')" class="sidebar-item"><a class="sidebar-link" sms:access="ADMIN_EXAM_DATE:VIEW" th:href="@{'/admin/examinations-date'}"><i class="bi bi-dot"></i><span>Examination Date</span></a></li>
+                        <li sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN','ROLE_STAFF')" class="sidebar-item"><a class="sidebar-link" sms:access="ADMIN_FAMILY_MAPPING:VIEW" th:href="@{/admin/family-mapping}"><i class="bi bi-dot"></i><span>Family Mapping</span></a></li>
                         <li class="sidebar-item"><hr class="sidebar-divider"></li>
                         <li sec:authorize="hasRole('ROLE_SUPERADMIN')" class="sidebar-item">
                             <a class="sidebar-link" th:href="@{/admin/family-migration}">
@@ -230,6 +232,7 @@
                                 <span>Mobile Users</span>
                             </a>
                         </li>
+                        <!-- Birthday Notification and Database Backup now live in App Config (Birthday / Database Backup tabs).
                         <li sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN')" class="sidebar-item">
                             <a class="sidebar-link" th:href="@{/admin/birthday-notification-settings}">
                                 <i class="bi bi-cake2-fill text-warning"></i>
@@ -242,6 +245,7 @@
                                 <span>Database Backup</span>
                             </a>
                         </li>
+                        -->
                         <li sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN')" class="sidebar-item">
                             <a class="sidebar-link" th:href="@{/admin/app-config}">
                                 <i class="bi bi-toggles text-danger"></i>
@@ -353,6 +357,7 @@
                                 <li sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN','ROLE_ACCOUNTENT')" class="sidebar-item"><a sms:access="FEE_PENDING_SUMMARY_REPORT:VIEW" th:href="@{'/fees/fees-pending-summary-report'}" class="sidebar-link"><i class="bi bi-dot"></i><span>Pending Fee Report</span></a></li>
                                 <li sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN','ROLE_ACCOUNTENT')" class="sidebar-item"><a sms:access="FEE_REPORT_GRADEWISE_INCOME:VIEW" th:href="@{'/fees/fees-total-gradewise-income-report'}" class="sidebar-link"><i class="bi bi-dot"></i><span>Grade-wise Collection</span></a></li>
                                 <li sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN','ROLE_ACCOUNTENT')" class="sidebar-item"><a class="sidebar-link" sms:access="STUDENT_DISCOUNT_REPORT:VIEW" th:href="@{'/student/stu-discount-list-session-wise'}"><i class="bi bi-dot"></i><span>Discount List Report</span></a></li>
+                                <li sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN','ROLE_ACCOUNTENT')" class="sidebar-item"><a class="sidebar-link" sms:access="SIBLING_DISCOUNT_REPORT:VIEW" th:href="@{'/student/sibling-report'}"><i class="bi bi-dot"></i><span>Sibling Report</span></a></li>
                                 <li sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN','ROLE_ACCOUNTENT')" class="sidebar-item"><a sms:access="FEE_REPORT_HEAD_WISE:VIEW" th:href="@{'/fees/fees-head-wise-collection-summary'}" class="sidebar-link"><i class="bi bi-dot"></i><span>Head-wise Summary</span></a></li>
                             </ul>
                         </li>
@@ -372,6 +377,8 @@
                                 <li sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN','ROLE_TEACHER','ROLE_ACCOUNTENT')" class="sidebar-item"><a sms:access="STUDENT_GRADEWISE_IMAGE_DOWNLOAD:VIEW" th:href="@{'/student/grade-wise-image-download'}" class="sidebar-link"><i class="bi bi-dot"></i><span>Grade-wise Images Download</span></a></li>
                                 <li sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN','ROLE_TEACHER','ROLE_ACCOUNTENT')" class="sidebar-item"><a sms:access="STUDENT_BOARD_REGISTRATION_CLASS9:VIEW" th:href="@{'/student/board-registration-class9'}" class="sidebar-link"><i class="bi bi-dot"></i><span>Board Registration (Class 9)</span></a></li>
                                 <li sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN','ROLE_TEACHER','ROLE_ACCOUNTENT')" class="sidebar-item"><a sms:access="STUDENT_REPORT_ATTENDANCE_ANNUAL:VIEW" th:href="@{'/student/annual-attendance-report'}" class="sidebar-link"><i class="bi bi-dot"></i><span>Attendance Report (Annual)</span></a></li>
+                                <li sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN','ROLE_ACCOUNTENT','ROLE_STAFF')" class="sidebar-item"><a sms:access="STUDENT_REPORT_ABSENT_MONTHLY:VIEW" th:href="@{'/student/absent-report-monthly'}" class="sidebar-link"><i class="bi bi-dot"></i><span>Absent Report (Monthly)</span></a></li>
+                                <li sec:authorize="hasAnyRole('ROLE_ADMIN','ROLE_SUPERADMIN','ROLE_ACCOUNTENT')" class="sidebar-item"><a sms:access="STUDENT_SEARCH_ALUMNI:VIEW" th:href="@{'/student/search-alumni'}" class="sidebar-link"><i class="bi bi-dot"></i><span>Search Alumni</span></a></li>
                             </ul>
                         </li>
                     </ul>
@@ -526,10 +533,12 @@
 <!-- script.js — loads last because it manipulates the DOM -->
 <th:block th:if="${page == 'datatable'}">
     <script th:src="@{/js/script.js}"></script>  <!-- LAST: needs Bootstrap + jQuery ready -->
+    <script th:src="@{/js/sg-dialogs.js}"></script>
 </th:block>
 
 <th:block th:unless="${page == 'datatable'}">
     <script th:src="@{/js/script.js}"></script>  <!-- LAST: needs Bootstrap + jQuery ready -->
+    <script th:src="@{/js/sg-dialogs.js}"></script>
 </th:block>
 
 <!-- All sidebar/UI logic is in script.js -->

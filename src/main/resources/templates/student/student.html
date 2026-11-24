@@ -350,9 +350,11 @@
   <script type="text/javascript" th:inline="javascript">
     const studentSuccessMessage = [[${success}]];
     const studentErrorMessage   = [[${error}]];
+    const studentWarningMessage = [[${warning}]];
     $(document).ready(function() {
       if (studentSuccessMessage) showMsg("success", studentSuccessMessage, "Success");
       if (studentErrorMessage)   showMsg("error",   studentErrorMessage,   "Error");
+      if (studentWarningMessage) showMsg("warning", studentWarningMessage, "Note");
 
       const hasSuperAdmin   = $("#isSuperAdmin").val();
       const dataUrl         = /*[[@{/student/student/data}]]*/ '/student/student/data';
@@ -789,12 +791,55 @@
     // Spring Security's CSRF check - the hidden form's _csrf field was
     // auto-injected by Thymeleaf at page render time (see the form's own
     // comment). Only the action's id segment needs to be swapped in per click.
+    // A student who belongs to an active sibling group is not removed straight away: the group
+    // preview is fetched first (read-only) and the admin chooses what happens to the group.
+    // Students outside any group keep the original one-step removal exactly as before.
     $('#confirmDeleteButton').on('click', function () {
-      if (deleteId) {
-        const $form = $('#deleteStudentPostForm');
-        $form.attr('action', `${contextPath}student/delete-student/${deleteId}`);
-        $form.trigger('submit');
-      }
+      if (!deleteId) { return; }
+      const $btn = $(this).prop('disabled', true);
+      const id = deleteId;
+      $.ajax({
+        url: `${contextPath}student/delete-student/${id}/sibling-info`,
+        type: 'GET',
+        dataType: 'json'
+      }).done(function (info) {
+        if (!info || !info.inGroup) {
+          const $form = $('#deleteStudentPostForm');
+          $form.attr('action', `${contextPath}student/delete-student/${id}`);
+          $form.trigger('submit');
+          return;
+        }
+        bootstrap.Modal.getInstance(document.getElementById('deleteConfirmationModal'))?.hide();
+        const group = info.groups[0];
+        const items = (info.groups || []).map(function (g) {
+          return { label: g.groupName, value: g.totalMembers + ' students' };
+        });
+        const names = (group.members || []).filter(function (m) { return !m.removed; })
+          .map(function (m) { return m.name + (m.inactive ? ' (inactive)' : ''); });
+        SG.confirm({
+          title: 'This student is in a sibling group',
+          message: 'Removing the student will delete the sibling group below, and the sibling discount of its members will be stopped.',
+          tone: 'warning', icon: 'bi-people-fill', width: 480,
+          items: items,
+          note: names.length ? ('Remaining members: ' + names.join(', ')) : null,
+          acknowledge: 'I understand this cannot be undone.',
+          confirmText: 'OK',
+          extraButton: { text: 'OK & Create New Group', value: 'DISSOLVE_AND_CREATE' }
+        }).then(function (choice) {
+          if (!choice) { return; }
+          const $csrf = $('#deleteStudentPostForm input[type=hidden]').first().clone();
+          const $f = $('<form method="post" style="display:none"></form>')
+            .attr('action', `${contextPath}student/delete-student/confirm`)
+            .append($csrf)
+            .append($('<input type="hidden" name="id">').val(id))
+            .append($('<input type="hidden" name="action">').val(choice === 'DISSOLVE_AND_CREATE' ? 'DISSOLVE_AND_CREATE' : 'DISSOLVE'));
+          $('body').append($f);
+          $f.trigger('submit');
+        });
+      }).fail(function () {
+        // Could not check the group: do not remove anything, so a grouped student is never removed by mistake.
+        showMsg('error', 'Could not check the sibling group. Nothing was removed. Please try again.', 'Error');
+      }).always(function () { $btn.prop('disabled', false); });
     });
 
 

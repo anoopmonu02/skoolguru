@@ -5,6 +5,7 @@ import com.smsweb.sms.controllers.BaseController;
 import com.smsweb.sms.models.admin.AcademicYear;
 import com.smsweb.sms.models.admin.School;
 import com.smsweb.sms.models.permission.AccessType;
+import com.smsweb.sms.services.student.StudentBulkMobileFamilyLinkService;
 import com.smsweb.sms.services.student.StudentBulkUpdateService;
 import com.smsweb.sms.services.student.StudentFieldGroupRegistry;
 import org.slf4j.Logger;
@@ -39,6 +40,9 @@ public class StudentBulkUpdateRestController extends BaseController {
 
     @Autowired
     private StudentBulkUpdateService studentBulkUpdateService;
+
+    @Autowired
+    private StudentBulkMobileFamilyLinkService studentBulkMobileFamilyLinkService;
 
     @CheckAccess(screen = "STUDENT_UPDATE_DETAILS", type = AccessType.VIEW)
     @PostMapping("/getStudentsByFieldGroup")
@@ -105,6 +109,16 @@ public class StudentBulkUpdateRestController extends BaseController {
             List<Map<String, Object>> rows = (List<Map<String, Object>>) (List<?>) rowsObj;
             List<Map<String, Object>> results = studentBulkUpdateService.saveFieldGroup(
                     groupKey, rows, academicYear.getId(), school.getId());
+            // The batch above has already committed. Linking the saved numbers to their family
+            // account runs only now, outside that transaction, so a failure here can never undo
+            // the saved rows. Any problem only adds a warning to the affected row.
+            if ("MOBILE1_MOBILE2".equals(groupKey)) {
+                try {
+                    studentBulkMobileFamilyLinkService.applyFamilyLink(results);
+                } catch (Exception e) {
+                    log.error("Family link follow-up failed after bulk mobile update", e);
+                }
+            }
             return ResponseEntity.ok(Map.of("results", results));
         } catch (Exception e) {
             log.error("Error in saveStudentFieldGroup", e);

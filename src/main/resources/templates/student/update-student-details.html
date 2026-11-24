@@ -495,7 +495,7 @@
 
     const VALIDATORS = {
       email: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? null : 'Please enter a valid email address',
-      mobile1: v => (v === '' || /^[0-9]{10}$/.test(v)) ? null : 'Mobile number must be exactly 10 digits',
+      mobile1: v => /^[0-9]{10}$/.test(v) ? null : 'Mobile 1 is required and must be exactly 10 digits',
       mobile2: v => (v === '' || /^[0-9]{10}$/.test(v)) ? null : 'Mobile number must be exactly 10 digits',
       pincode: v => (v === '' || /^[0-9]{6}$/.test(v)) ? null : 'Pincode must be a 6-digit number',
       aadharNo: v => (v === '' || /^[0-9]{12}$/.test(v)) ? null : 'Aadhar number must be exactly 12 digits',
@@ -646,6 +646,7 @@
           const results = data.results || [];
           const failed = results.filter(r => !r.success);
           const passed = results.filter(r => r.success);
+          const warned = passed.filter(r => r.warning);
 
           // Re-baseline every field that actually saved, so clicking Save again
           // with no further edits correctly reports "no changes" a second time
@@ -658,7 +659,21 @@
           if (saveConfirmModalInstance) saveConfirmModalInstance.hide();
 
           const skippedNote = pendingSkippedUnchangedCount > 0 ? `, ${pendingSkippedUnchangedCount} unchanged (skipped)` : '';
-          if (failed.length === 0) {
+          if (failed.length === 0 && warned.length > 0) {
+            // Saved, but the parent-app family link could not be confirmed for some rows.
+            showMsg('warning', `${passed.length} record(s) saved${skippedNote}; ${warned.length} with a warning`, 'Saved with warning');
+            SG.alert({
+              title: 'Saved with warning',
+              tone: 'warning',
+              message: 'The mobile numbers were saved, but these students are not linked to a parent-app family account yet.',
+              items: warned.slice(0, 8).map(r => {
+                const $row = pendingRowElementsByUuid ? pendingRowElementsByUuid[r.uuid] : null;
+                const name = $row ? $row.find('.stu-name-text').first().text().trim() : r.uuid;
+                return { label: name, value: r.message };
+              }),
+              note: warned.length > 8 ? `+${warned.length - 8} more. Use Admin > Family Mapping to fix them.` : 'Use Admin > Family Mapping to fix them.'
+            });
+          } else if (failed.length === 0) {
             showMsg('success', `${passed.length} record(s) saved successfully${skippedNote}`, 'Updated');
           } else {
             const namedFailures = failed.slice(0, 3).map(r => {

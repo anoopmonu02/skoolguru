@@ -70,6 +70,27 @@
     }
     .mm-status-badge.on { background: #fef3c7; color: #92400e; }
     .mm-status-badge.off { background: #dcfce7; color: #166534; }
+
+    /* ── Tab bar (pill style, design tokens) ───────────────────────────────── */
+    #configTabs { display: inline-flex; flex-wrap: wrap; gap: 6px; padding: 6px; margin: 0 0 20px; list-style: none;
+                  background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); }
+    #configTabs .nav-link { display: flex; align-items: center; gap: 7px; border: 0; border-radius: var(--radius-md);
+                  padding: 9px 16px; font-weight: 700; font-size: 13.5px; color: var(--text-muted); background: transparent; cursor: pointer;
+                  transition: background var(--transition), color var(--transition), box-shadow var(--transition); }
+    #configTabs .nav-link:hover { background: var(--accent-light); color: var(--accent); }
+    #configTabs .nav-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    #configTabs .nav-link.active, #configTabs .nav-link.active:hover { background: var(--accent); color: #fff; box-shadow: var(--shadow-sm); }
+    .config-pane.d-none { display: none !important; }
+    .save-spinner { display: none; }
+    .char-count { font-size: .78rem; color: var(--text-muted); }
+
+    /* Card used by the tab panes (Email / Backup / Notifications / Birthday / Discount) */
+    .config-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+                   box-shadow: var(--shadow-xs); height: 100%; overflow: hidden; }
+    .config-card .card-header { background: transparent; border-bottom: 1px solid var(--border-color);
+                   font-size: 14.5px; font-weight: 800; color: var(--text-primary); }
+    .config-card .card-body { color: var(--text-primary); }
+    .config-card .form-label { font-size: 13px; }
   </style>
 
   <div class="container-fluid px-3">
@@ -79,11 +100,22 @@
         <div class="ac-hero">
           <div class="ac-hero-icon"><i class="bi bi-toggles"></i></div>
           <div>
-            <h1>App Config — Maintenance Mode</h1>
-            <p>Take the mobile parent app offline for planned maintenance, with a custom message shown on its maintenance screen. Takes effect within seconds — no restart needed.</p>
+            <h1>App Config</h1>
+            <p>School-level settings in one place: the mobile app, discounts, email account, database backup, notifications and birthdays.</p>
           </div>
         </div>
 
+        <ul class="nav" id="configTabs" role="tablist">
+          <li class="nav-item"><button class="nav-link active" id="tab-mobile-btn" type="button" data-pane="pane-mobile"><i class="bi bi-phone"></i>Mobile App</button></li>
+          <li class="nav-item"><button class="nav-link" id="tab-discount-btn" type="button" data-pane="pane-discount"><i class="bi bi-percent"></i>Discount</button></li>
+          <li class="nav-item"><button class="nav-link" id="tab-email-btn" type="button" data-pane="pane-email"><i class="bi bi-envelope-at"></i>Email Account</button></li>
+          <li class="nav-item"><button class="nav-link" id="tab-backup-btn" type="button" data-pane="pane-backup"><i class="bi bi-database-down"></i>Database Backup</button></li>
+          <li class="nav-item"><button class="nav-link" id="tab-notifications-btn" type="button" data-pane="pane-notifications"><i class="bi bi-bell"></i>Notifications</button></li>
+          <li class="nav-item"><button class="nav-link" id="tab-birthday-btn" type="button" data-pane="pane-birthday"><i class="bi bi-cake2"></i>Birthday</button></li>
+        </ul>
+
+        <!-- ═══════════════ MOBILE APP TAB (maintenance mode) ═══════════════ -->
+        <div id="pane-mobile" class="config-pane">
         <div class="row g-3 mb-3">
           <div class="col-md-4">
             <div class="stat-chip">
@@ -157,29 +189,56 @@
             </div>
           </div>
         </div>
+        </div><!-- /pane-mobile -->
 
-      </div>
-    </div>
-  </div>
+        <!-- ═══════════════ DISCOUNT TAB ═══════════════ -->
+        <div id="pane-discount" class="config-pane d-none"
+             th:data-sibling-url="@{/admin/app-config/discount/sibling-allowed}"
+             th:data-min="${siblingDiscountMin}" th:data-max="${siblingDiscountMax}">
+          <div class="row g-3">
+            <div class="col-lg-6">
+              <div class="config-card">
+                <div class="card-header py-3"><i class="bi bi-people me-2 text-primary"></i>Sibling Discount</div>
+                <div class="card-body">
+                  <div th:if="${!discountSchoolAvailable}" class="alert alert-warning small mb-0">
+                    No school is linked to your login, so this per-school setting isn't available here.
+                  </div>
+                  <div th:if="${discountSchoolAvailable}">
+                    <label for="siblingAllowedInput" class="form-label fw-semibold mb-0">Allowed sibling discount in a group</label>
+                    <p class="text-muted small mb-2">
+                      How many students in one sibling group can receive the sibling discount.
+                      Allowed range: <span th:text="${siblingDiscountMin}">1</span> to <span th:text="${siblingDiscountMax}">3</span>.
+                    </p>
+                    <input type="number" class="form-control mb-3" id="siblingAllowedInput" style="max-width: 160px;"
+                           inputmode="numeric" step="1"
+                           th:min="${siblingDiscountMin}" th:max="${siblingDiscountMax}"
+                           th:value="${siblingDiscountAllowed}">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <span class="char-count">Applies to <strong th:text="${discountSchoolName}">School</strong> only</span>
+                      <button type="button" class="btn btn-primary btn-sm" id="saveSiblingAllowedBtn">
+                        <span class="spinner-border spinner-border-sm save-spinner" id="siblingAllowedSpinner" role="status"></span>
+                        <i class="bi bi-check-lg me-1"></i>Save
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-  <!-- Confirm-enable modal — enabling maintenance mode is disruptive (blocks every
-       parent's app immediately), so it gets a confirmation step. Disabling it does not. -->
-  <div class="modal fade" id="confirmMaintenanceModal" tabindex="-1" aria-labelledby="confirmMaintenanceModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header bg-warning-subtle">
-          <h5 class="modal-title" id="confirmMaintenanceModalLabel">
-            <i class="bi bi-exclamation-triangle-fill me-2 text-warning"></i>Turn On Maintenance Mode?
-          </h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <p class="mb-0">This immediately blocks the mobile app for every parent across every school, until you turn it back off here.</p>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-lg"></i> Cancel</button>
-          <button type="button" class="btn btn-warning" id="confirmMaintenanceBtn"><i class="bi bi-cone-striped"></i> Turn On</button>
-        </div>
+        <!-- ═══════════════ EMAIL ACCOUNT TAB ═══════════════ -->
+        <div th:replace="~{admin/config-tabs/email-tab :: pane}"></div>
+
+        <!-- ═══════════════ DATABASE BACKUP TAB ═══════════════ -->
+        <div th:replace="~{admin/config-tabs/backup-tab :: pane}"></div>
+
+        <!-- ═══════════════ NOTIFICATIONS TAB ═══════════════ -->
+        <div th:replace="~{admin/config-tabs/notification-tab :: pane}"></div>
+
+        <!-- ═══════════════ BIRTHDAY TAB ═══════════════ -->
+        <div th:replace="~{admin/config-tabs/birthday-tab :: pane}"></div>
+
       </div>
     </div>
   </div>
@@ -212,8 +271,6 @@
     }
 
     /* ── Toggle (enabling asks for confirmation first) ────────────────────── */
-    let _pendingToggleValue = null;
-
     function sendToggle(enabled) {
       $('#maintenanceToggle').prop('disabled', true);
       fetch(`${contextPath}admin/app-config/toggle`, {
@@ -241,25 +298,18 @@
     $('#maintenanceToggle').on('change', function () {
       const enabled = $(this).is(':checked');
       if (enabled) {
-        _pendingToggleValue = true;
-        new bootstrap.Modal(document.getElementById('confirmMaintenanceModal')).show();
+        // Stays off until the admin confirms - enabling blocks every parent's app immediately.
+        $(this).prop('checked', false);
+        SG.confirm({
+          title: 'Turn on maintenance mode?',
+          message: 'This immediately blocks the mobile app for every parent across every school, until you turn it back off here.',
+          tone: 'warning', icon: 'bi-cone-striped', confirmText: 'Turn on'
+        }).then(function (ok) {
+          if (ok) { $('#maintenanceToggle').prop('checked', true); sendToggle(true); }
+        });
       } else {
         sendToggle(false);
       }
-    });
-
-    $('#confirmMaintenanceModal').on('hidden.bs.modal', function () {
-      // Modal dismissed (Cancel / backdrop / Esc) without confirming — revert the switch.
-      if (_pendingToggleValue !== null) {
-        $('#maintenanceToggle').prop('checked', false);
-        _pendingToggleValue = null;
-      }
-    });
-
-    $('#confirmMaintenanceBtn').on('click', function () {
-      _pendingToggleValue = null;
-      bootstrap.Modal.getInstance(document.getElementById('confirmMaintenanceModal'))?.hide();
-      sendToggle(true);
     });
 
     /* ── Save message ──────────────────────────────────────────────────────── */
@@ -287,6 +337,52 @@
       .catch(() => showMsg('error', 'Could not save. Please try again.', 'Error'))
       .finally(() => btn.prop('disabled', false));
     });
+  </script>
+
+  <script type="text/javascript" th:inline="none">
+  document.addEventListener('DOMContentLoaded', function () {
+    var tabButtons = document.querySelectorAll('#configTabs button[data-pane]');
+    var hashes = { 'pane-mobile': '', 'pane-discount': '#discount', 'pane-email': '#email', 'pane-backup': '#backup',
+                   'pane-notifications': '#notifications', 'pane-birthday': '#birthday' };
+    function showPane(paneId) {
+      tabButtons.forEach(function (b) { b.classList.toggle('active', b.dataset.pane === paneId); });
+      document.querySelectorAll('.config-pane').forEach(function (p) { p.classList.toggle('d-none', p.id !== paneId); });
+    }
+    tabButtons.forEach(function (b) {
+      b.addEventListener('click', function () {
+        showPane(b.dataset.pane);
+        try { history.replaceState(null, '', hashes[b.dataset.pane] || (location.pathname + location.search)); } catch (e) {}
+      });
+    });
+    Object.keys(hashes).forEach(function (paneId) {
+      if (hashes[paneId] && location.hash === hashes[paneId]) { showPane(paneId); }
+    });
+
+    // Discount tab: sibling discount allowed per group
+    var saveBtn = document.getElementById('saveSiblingAllowedBtn');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', function () {
+        var pane = document.getElementById('pane-discount');
+        var input = document.getElementById('siblingAllowedInput');
+        var spinner = document.getElementById('siblingAllowedSpinner');
+        var min = parseInt(pane.dataset.min, 10), max = parseInt(pane.dataset.max, 10);
+        var raw = input.value.trim();
+        if (!/^\d+$/.test(raw) || parseInt(raw, 10) < min || parseInt(raw, 10) > max) {
+          toastr.error('Please enter a whole number between ' + min + ' and ' + max + '.', 'Check the value');
+          return;
+        }
+        saveBtn.disabled = true; spinner.style.display = 'inline-block';
+        $.ajax({
+          url: pane.dataset.siblingUrl, type: 'POST', data: { value: parseInt(raw, 10) },
+          success: function (resp) { input.value = resp.value; toastr.success(resp.message, 'Saved'); },
+          error: function (xhr) {
+            toastr.error((xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : 'Could not save — please try again.', 'Error');
+          },
+          complete: function () { saveBtn.disabled = false; spinner.style.display = 'none'; }
+        });
+      });
+    }
+  });
   </script>
 
 </section>

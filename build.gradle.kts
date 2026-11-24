@@ -98,6 +98,9 @@ dependencies {
     // roll back. The last bootRun did exactly that: it dropped and recreated
     // unique constraints on month_mapping and sibling_discount at startup.
     // From here every schema change is a numbered, reviewed SQL file.
+    // Boot 4 moved Flyway auto-configuration out of the core jar. With only flyway-core on the
+    // classpath the migrations in db/migration are silently never run, so the starter is needed.
+    implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-mysql")
 

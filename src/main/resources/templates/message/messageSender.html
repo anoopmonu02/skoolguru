@@ -7,6 +7,17 @@
 </head>
 <body>
 <section>
+    <style>
+        .cs-multi { position: relative; }
+        .cs-multi-btn { text-align: left; cursor: pointer; width: 100%; }
+        .cs-multi-label { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .cs-multi-menu { width: 100%; min-width: 220px; max-height: 260px; overflow-y: auto; padding: 6px;
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-md); }
+        .cs-multi-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer;
+            font-size: 13.5px; color: var(--text-primary); margin: 0; }
+        .cs-multi-item:hover { background: var(--accent-light); }
+        .cs-sub { margin-bottom: 14px; }
+    </style>
 
     <!-- Page-specific styling only - lives here (inside <section>) rather
          than in <head> because this template's th:replace="~{base::Layout(~{::section})}"
@@ -279,20 +290,42 @@
 
                     <div id="classSectionSelector" class="aa-card" style="display: none;">
                         <div class="aa-card-head"><span class="aa-icon aa-icon-accent"><i class="bi bi-people-fill"></i></span><h2>Class / Section</h2></div>
+                        <div class="aa-sub cs-sub">Tick one or more grades and sections. Every grade is paired with every section (grades 1, 2 and sections A, B give 1-A, 1-B, 2-A, 2-B) and each class gets its own message.</div>
                         <div class="row">
                             <div class="col-md-3">
-                                <label for="grade" class="form-label">Grade</label>
-                                <select id="grade" name="grade" class="form-select">
-                                    <option value="">Select Grade</option>
-                                    <option th:each="grade : ${grades}" th:value="${grade.id}" th:text="${grade.gradeName}">Grade</option>
+                                <label for="classMedium" class="form-label">Medium</label>
+                                <select id="classMedium" name="classMedium" class="form-select">
+                                    <option value="">All mediums</option>
+                                    <option th:each="m : ${mediums}" th:value="${m.id}" th:text="${m.mediumName}">Medium</option>
                                 </select>
                             </div>
                             <div class="col-md-3">
-                                <label for="section" class="form-label">Section</label>
-                                <select id="section" name="section" class="form-select">
-                                    <option value="">Select Section</option>
-                                    <option th:each="section : ${sections}" th:value="${section.id}" th:text="${section.sectionName}">Section</option>
-                                </select>
+                                <label class="form-label">Grades</label>
+                                <div class="dropdown cs-multi" id="gradeMulti" data-noun="grades">
+                                    <button type="button" class="form-select cs-multi-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                        <span class="cs-multi-label">Select grades</span>
+                                    </button>
+                                    <div class="dropdown-menu cs-multi-menu">
+                                        <label class="cs-multi-item" th:each="grade : ${grades}">
+                                            <input type="checkbox" class="form-check-input cs-check" th:value="${grade.id}" th:attr="data-label=${grade.gradeName}">
+                                            <span th:text="${grade.gradeName}">Grade</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Sections</label>
+                                <div class="dropdown cs-multi" id="sectionMulti" data-noun="sections">
+                                    <button type="button" class="form-select cs-multi-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                        <span class="cs-multi-label">Select sections</span>
+                                    </button>
+                                    <div class="dropdown-menu cs-multi-menu">
+                                        <label class="cs-multi-item" th:each="section : ${sections}">
+                                            <input type="checkbox" class="form-check-input cs-check" th:value="${section.id}" th:attr="data-label=${section.sectionName}">
+                                            <span th:text="${section.sectionName}">Section</span>
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1095,20 +1128,47 @@
                     $("#notificationMessageModal").modal("show");
                 }
                 else if (recipientType === "CLASS") {
-                    let messageDetails = `Type: <strong>${messageType.toUpperCase()}</strong> | Recipient: <strong>${recipientType.toUpperCase()}</strong>`;
-                    const selectedClass = $("#grade option:selected").text();
-                    const selectedSection = $("#section option:selected").text();
-                    if(selectedClass==='Select Grade'){
-                        alert("Please select Grade to proceed");
+                    const gradeIds = csChecked('#gradeMulti');
+                    const sectionIds = csChecked('#sectionMulti');
+                    if (gradeIds.length === 0) {
+                        SG.alert({title: 'Select grade', tone: 'warning', message: 'Please select at least one Grade to proceed.'});
                         return;
                     }
-                    if(selectedSection==='Select Section'){
-                        alert("Please select Section to proceed");
+                    if (sectionIds.length === 0) {
+                        SG.alert({title: 'Select section', tone: 'warning', message: 'Please select at least one Section to proceed.'});
                         return;
                     }
-                    messageDetails += ` | Class: <strong>${escapeHtml(selectedClass)}</strong> - Section: <strong>${escapeHtml(selectedSection)}</strong>`;
-                    $("#modalMessageDetails").html(messageDetails);
-                    $("#notificationMessageModal").modal("show");
+                    const mediumId = $("#classMedium").val() || null;
+                    const mediumText = mediumId ? $("#classMedium option:selected").text() : 'All mediums';
+                    $("#sendNewMessage").prop('disabled', true);
+                    fetch(`${contextPath}message/previewClassRecipients`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({mediumId: mediumId, gradeIds: gradeIds, sectionIds: sectionIds})
+                    })
+                    .then(async r => {
+                        const body = await r.json().catch(() => ({}));
+                        if (!r.ok) throw new Error(body.error || 'Could not check the selected classes.');
+                        return body;
+                    })
+                    .then(data => {
+                        if (!data.classCount) {
+                            SG.alert({title: 'No students found', tone: 'warning',
+                                message: 'No Active students found for the selected medium, grades and sections.'});
+                            return;
+                        }
+                        classPreview = data;
+                        classPreview.mediumText = mediumText;
+                        const details = `Type: <strong>${messageType.toUpperCase()}</strong> | Recipient: <strong>CLASS</strong>` +
+                            ` | Medium: <strong>${escapeHtml(mediumText)}</strong>` +
+                            ` | <strong>${data.studentCount}</strong> students in <strong>${data.classCount}</strong> ${data.classCount === 1 ? 'class' : 'classes'}`;
+                        $("#modalMessageDetails").html(details);
+                        $("#notificationMessageModal").modal("show");
+                    })
+                    .catch(err => {
+                        SG.alert({title: 'Could not check classes', tone: 'danger', message: err.message});
+                    })
+                    .finally(() => { $("#sendNewMessage").prop('disabled', false); });
                 }
                 else if (recipientType === "STUDENT") {
                     let messageDetails = `Type: <strong>${messageType.toUpperCase()}</strong> | Recipient: <strong>${recipientType.toUpperCase()}</strong>`;
@@ -1193,6 +1253,46 @@
         }
 
 
+        // ── Multi-class notification helpers ───────────────────────────────────────
+        let classPreview = null;          // last preview shown to the user (classes + counts)
+        let classSendConfirmed = false;   // true only for the re-entrant call made after the user confirms
+
+        function csChecked(containerSel) {
+            return $(containerSel + ' .cs-check:checked').map(function () { return $(this).val(); }).get();
+        }
+
+        function csUpdateLabel(containerSel) {
+            const $c = $(containerSel);
+            const noun = $c.data('noun') || 'items';
+            const labels = $c.find('.cs-check:checked').map(function () { return $(this).data('label'); }).get();
+            let text = 'Select ' + noun;
+            if (labels.length > 0) {
+                text = labels.length <= 3 ? labels.join(', ') : labels.slice(0, 3).join(', ') + ' +' + (labels.length - 3);
+            }
+            $c.find('.cs-multi-label').text(text);
+        }
+
+        $(document).on('change', '.cs-check', function () { csUpdateLabel('#' + $(this).closest('.cs-multi').attr('id')); });
+
+        // Final "are you sure" with the per-class counts, shown just before the send.
+        function confirmClassSend(fileCount) {
+            const p = classPreview;
+            const items = (p.classes || []).slice(0, 12).map(c => ({label: c.label, value: c.students + (c.students === 1 ? ' student' : ' students')}));
+            if ((p.classes || []).length > 12) items.push({label: 'More', value: '+' + (p.classes.length - 12) + ' classes'});
+            return SG.confirm({
+                title: 'Send to ' + p.classCount + (p.classCount === 1 ? ' class?' : ' classes?'),
+                tone: 'info',
+                icon: 'bi-send-fill',
+                message: 'Will be sent to ' + p.studentCount + ' students in ' + p.classCount +
+                    (p.classCount === 1 ? ' class' : ' classes') + ' (one message per class). Medium: ' + p.mediumText + '.',
+                items: items,
+                note: fileCount > 0 ? 'The attachment(s) are stored once and shared by every message.' : null,
+                confirmText: 'Send',
+                cancelText: 'Cancel',
+                width: 480
+            });
+        }
+
         function sendNotification() {
             const heading = document.getElementById("notificationHeading").value.trim();
             const message = document.getElementById("notificationTextArea").value.trim();
@@ -1217,17 +1317,35 @@
             formData.append("recipientType", recipientType);
 
             if (recipientType === "CLASS") {
-                const selectedClass = document.getElementById("grade")?.value;
-                const selectedSection = document.getElementById("section")?.value;
+                const gradeIds = csChecked('#gradeMulti');
+                const sectionIds = csChecked('#sectionMulti');
 
-                if (!selectedClass || !selectedSection) {
-                    errorDiv.textContent = "Please select class and section.";
+                if (gradeIds.length === 0 || sectionIds.length === 0) {
+                    errorDiv.textContent = "Please select at least one grade and one section.";
+                    errorDiv.classList.remove("d-none");
+                    return;
+                }
+                if (!classPreview) {
+                    errorDiv.textContent = "Please close this window and press Send New Message again.";
                     errorDiv.classList.remove("d-none");
                     return;
                 }
 
-                formData.append("classId", selectedClass);
-                formData.append("sectionId", selectedSection);
+                // Ask once, with the per-class counts, then call this function again to really send.
+                if (!classSendConfirmed) {
+                    const fileCount = (document.getElementById("notificationAttachments")?.files || []).length;
+                    confirmClassSend(fileCount).then(ok => {
+                        if (!ok) return;
+                        classSendConfirmed = true;
+                        try { sendNotification(); } finally { classSendConfirmed = false; }
+                    });
+                    return;
+                }
+
+                gradeIds.forEach(id => formData.append("gradeIds", id));
+                sectionIds.forEach(id => formData.append("sectionIds", id));
+                const mediumId = document.getElementById("classMedium")?.value;
+                if (mediumId) formData.append("mediumId", mediumId);
             } else if (recipientType === "STUDENT") {
                 if(!selectedStudent){
                     errorDiv.textContent = "Please enter a student ID.";
@@ -1268,7 +1386,19 @@
                     }
                 })
                 .then(data => {
-                    toastr["info"]("Notification Sent Successfully.", "Info");
+                    if (recipientType === "CLASS" && data && data.failedClasses && data.failedClasses.length) {
+                        // Stays on screen until acknowledged: these classes were NOT sent and must be resent.
+                        SG.alert({
+                            title: 'Sent to some classes only',
+                            tone: 'warning',
+                            message: 'The notification was sent to ' + data.sentClasses + ' class(es), but NOT to the classes below. Please send to those again.',
+                            items: data.failedClasses.map(c => ({label: 'Not sent', value: c}))
+                        });
+                    } else if (recipientType === "CLASS" && data && data.sentClasses) {
+                        SG.toast('success', 'Sent to ' + data.sentStudents + ' students in ' + data.sentClasses + (data.sentClasses === 1 ? ' class.' : ' classes.'), 'Notification sent');
+                    } else {
+                        toastr["info"]("Notification Sent Successfully.", "Info");
+                    }
                     toastr.options = {
                         "closeButton": true,
                         "debug": false,

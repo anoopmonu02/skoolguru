@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:replace="~{base::Layout(~{::section})}">
+<head>
+  <meta charset="UTF-8">
+  <title>UAIC - Search Alumni</title>
+</head>
+<body>
+<section>
+
+  <style>
+    /* ============================================================
+       Search Alumni — spotlight search + printed-style record sheet.
+       Every class is prefixed .al- so nothing here can collide with
+       (or restyle) any other page. Colours come from the app's own
+       tokens (tokens.css); the few extra tones are scoped to .al-page
+       and get a dark-mode override via [data-bs-theme="dark"].
+       ============================================================ */
+    .al-page {
+      --al-ok: #15803d; --al-ok-bg: #dcfce7; --al-warn: #b45309; --al-warn-bg: #fef3c7;
+      --al-mute: #475569; --al-mute-bg: #e2e8f0; --al-row-hover: #f8fafc; --al-scrim: rgba(15,23,42,.55);
+    }
+    [data-bs-theme="dark"] .al-page {
+      --al-ok: #4ade80; --al-ok-bg: rgba(74,222,128,.14); --al-warn: #fbbf24; --al-warn-bg: rgba(251,191,36,.14);
+      --al-mute: #cbd5e1; --al-mute-bg: rgba(148,163,184,.16); --al-row-hover: #18233a;
+    }
+    .al-page *, .al-page *::before, .al-page *::after { box-sizing: border-box; }
+    .al-page button, .al-page input, .al-page select { font: inherit; color: inherit; }
+    .al-page button { cursor: pointer; }
+    .al-page :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .al-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-xs); }
+
+    /* ── spotlight search ── */
+    .al-spot { padding: 26px 24px 22px; text-align: center; margin-bottom: 14px; background: linear-gradient(180deg, var(--accent-light), transparent 70%), var(--card-bg); }
+    .al-spot h3 { font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 22px; line-height: 1.2; margin: 0 0 4px; color: var(--text-primary); }
+    .al-spot p { margin: 0 0 16px; color: var(--text-muted); font-size: 13px; }
+    .al-bar { display: grid; grid-template-columns: 170px minmax(0, 1fr) auto; max-width: 780px; margin-inline: auto; border: 1.5px solid var(--border-color); border-radius: 14px; background: var(--card-bg); box-shadow: var(--shadow-sm); overflow: hidden; text-align: left; transition: border-color var(--transition), box-shadow var(--transition); }
+    .al-bar:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+    .al-sel, .al-inp { width: 100%; height: 52px; border: 0; background: var(--card-bg); color: var(--text-primary); padding: 0 12px; font-size: 14px; box-shadow: none; }
+    .al-sel { border-right: 1px solid var(--border-color); font-weight: 600; }
+    .al-inp { padding-left: 38px; font-size: 15px; }
+    .al-sel:focus, .al-inp:focus { outline: none; }
+    .al-field { position: relative; }
+    .al-field > .bi { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; pointer-events: none; }
+    .al-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 26px; border: 0; background: var(--accent); color: #fff; font-weight: 700; font-size: 14px; transition: background var(--transition); }
+    .al-btn:hover { background: var(--brand-600); color: #fff; }
+    .al-btn:disabled { opacity: .65; cursor: progress; }
+    .al-hint { font-size: 12px; color: var(--text-muted); margin-top: 10px; min-height: 18px; }
+    .al-hint.al-err { color: #dc2626; font-weight: 600; }
+
+    .al-count { color: var(--text-muted); font-size: 12.5px; margin: 0 2px 10px; min-height: 18px; }
+    .al-count b { color: var(--text-primary); }
+
+    /* ── result chips ── */
+    .al-chips-row { display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 12px; margin-bottom: 4px; }
+    .al-pick { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; min-width: 210px; padding: 9px 14px 9px 10px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--card-bg); text-align: left; box-shadow: var(--shadow-xs); color: var(--text-primary); }
+    .al-pick:hover { border-color: var(--accent); }
+    .al-pick[aria-selected="true"] { border-color: var(--accent); background: var(--accent-light); }
+    .al-av { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: 700; flex-shrink: 0; width: 38px; height: 38px; font-size: 13px; }
+    .al-stack { display: flex; flex-direction: column; min-width: 0; line-height: 1.35; }
+    .al-nm { font-weight: 700; color: var(--text-primary); overflow-wrap: anywhere; }
+    .al-sub { font-size: 11.5px; color: var(--text-muted); }
+
+    /* ── record sheet ── */
+    .al-sheet { display: grid; grid-template-columns: 250px minmax(0, 1fr); overflow: hidden; }
+    .al-rail { padding: 24px 22px; background: var(--body-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 14px; align-items: stretch; }
+    .al-portrait { position: relative; aspect-ratio: 4 / 5; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 56px; line-height: 1; }
+    .al-portrait img.al-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+    .al-acts { position: absolute; right: 8px; bottom: 8px; display: flex; gap: 6px; }
+    .al-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-primary); box-shadow: var(--shadow-xs); font-size: 14px; text-decoration: none; transition: background var(--transition), color var(--transition), border-color var(--transition); }
+    .al-icon-btn:hover { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
+    .al-btn-o { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 36px; border-radius: 9px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-primary); font-weight: 700; font-size: 12.5px; text-decoration: none; }
+    .al-btn-o:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+    .al-btn-o.al-off { color: var(--text-muted); cursor: default; pointer-events: none; font-weight: 600; }
+    .al-rid { border: 1px dashed var(--border-color); border-radius: 10px; padding: 10px 12px; font-size: 12px; color: var(--text-muted); }
+    .al-rid b { display: block; color: var(--text-primary); font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 14px; line-height: 1.3; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    .al-main { padding: 26px 30px 28px; min-width: 0; }
+    .al-main h3 { font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 28px; line-height: 1.1; margin: 0 0 10px; overflow-wrap: anywhere; color: var(--text-primary); }
+    .al-ro { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700; color: var(--brand-700); background: var(--accent-light); border-radius: 999px; padding: 4px 11px; margin-bottom: 12px; }
+    [data-bs-theme="dark"] .al-ro { color: var(--accent); }
+    .al-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .al-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+    .al-tag.ok { color: var(--al-ok); background: var(--al-ok-bg); }
+    .al-tag.warn { color: var(--al-warn); background: var(--al-warn-bg); }
+    .al-tag.mute { color: var(--al-mute); background: var(--al-mute-bg); }
+    .al-tag.acc { color: var(--brand-700); background: var(--accent-light); }
+    [data-bs-theme="dark"] .al-tag.acc { color: var(--accent); }
+    .al-sec { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border-color); }
+    .al-sec-t { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 12px; line-height: 1; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin: 0 0 14px; }
+    .al-sec-t .bi { color: var(--accent); font-size: 15px; }
+    .al-dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 22px; margin: 0; }
+    .al-fld { min-width: 0; }
+    .al-fld dt { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin: 0 0 2px; }
+    .al-fld dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; color: var(--text-primary); }
+    .al-fld.al-wide { grid-column: 1 / -1; }
+    .al-num { font-variant-numeric: tabular-nums; }
+    .al-mask { display: inline-flex; align-items: center; gap: 6px; }
+    .al-mask-toggle { border: 0; background: transparent; color: var(--text-muted); padding: 2px 4px; border-radius: 6px; font-size: 14px; line-height: 1; }
+    .al-mask-toggle:hover { color: var(--accent); background: var(--accent-light); }
+    .al-journey { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+    .al-journey li { display: flex; flex-direction: column; gap: 1px; padding: 7px 12px; border: 1px solid var(--border-color); border-radius: 10px; font-size: 12px; background: var(--card-bg); }
+    .al-journey li .s { color: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+    .al-journey li .c { font-weight: 700; color: var(--text-primary); }
+    .al-journey li.end { border-color: var(--al-ok); background: var(--al-ok-bg); }
+    .al-journey li.end.warn { border-color: var(--al-warn); background: var(--al-warn-bg); }
+    .al-empty { text-align: center; padding: 44px 16px; color: var(--text-muted); grid-column: 1 / -1; }
+    .al-empty .bi { font-size: 28px; display: block; margin: 0 auto 8px; opacity: .55; }
+
+    /* ── photo zoom modal ── */
+    .al-modal { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; padding: 20px; background: var(--al-scrim); }
+    .al-modal[hidden] { display: none; }
+    .al-modal-box { background: var(--card-bg); border-radius: 16px; padding: 16px; width: min(420px, 100%); box-shadow: 0 12px 40px rgba(15,23,42,.35); }
+    .al-modal-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 12px; }
+    .al-modal-top b { font-family: 'Outfit', sans-serif; font-size: 15px; overflow-wrap: anywhere; color: var(--text-primary); }
+    .al-modal-img { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 96px; line-height: 1; }
+    .al-modal-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: var(--body-bg); }
+    .al-modal-foot { display: flex; justify-content: flex-end; margin-top: 12px; }
+    .al-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(16px); background: #0f172a; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 13px; font-weight: 600; opacity: 0; pointer-events: none; transition: opacity var(--transition), transform var(--transition); z-index: 2100; max-width: calc(100% - 32px); }
+    .al-toast.on { opacity: 1; transform: translateX(-50%); }
+
+    @media (max-width: 900px) {
+      .al-bar { grid-template-columns: 1fr; }
+      .al-sel { border-right: 0; border-bottom: 1px solid var(--border-color); }
+      .al-btn { height: 48px; }
+      .al-sheet { grid-template-columns: 1fr; }
+      .al-rail { border-right: 0; border-bottom: 1px solid var(--border-color); flex-direction: row; flex-wrap: wrap; align-items: center; }
+      .al-portrait { width: 120px; flex-shrink: 0; }
+      .al-dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 520px) {
+      .al-dl { grid-template-columns: 1fr; }
+      .al-main { padding: 20px 18px; }
+    }
+    @media (prefers-reduced-motion: reduce) { .al-page * { transition: none !important; } }
+  </style>
+
+  <div class="container-fluid px-3 al-page">
+    <div class="row mt-2">
+      <div class="col-md-12">
+        <div th:replace="~{components/ui :: page-header('Search Alumni')}"></div>
+      </div>
+
+      <div class="col-12">
+        <div class="al-card al-spot">
+          <h3>Find a student</h3>
+          <p>Pick a session, then type part of the student's, father's or mother's name, or an SR No. Active and inactive students are both included. Records are read-only.</p>
+          <div class="al-bar">
+            <select class="al-sel" id="alSession" aria-label="Session">
+              <option value="">Select session</option>
+              <option th:each="ay : ${academicYears}" th:value="${ay.id}" th:text="${ay.sessionFormat}">2024-2025</option>
+            </select>
+            <div class="al-field">
+              <i class="bi bi-search"></i>
+              <input class="al-inp" id="alQuery" type="search" maxlength="100" placeholder="Name, father, mother or SR No" aria-label="Search alumni" autocomplete="off">
+            </div>
+            <button class="al-btn" type="button" id="alGo">Search</button>
+          </div>
+          <div class="al-hint" id="alHint" role="status"></div>
+        </div>
+
+        <div class="al-count" id="alCount"></div>
+        <div class="al-chips-row" id="alChips" role="listbox" aria-label="Search results"></div>
+        <div class="al-card al-sheet" id="alSheet" aria-live="polite">
+          <div class="al-empty"><i class="bi bi-mortarboard"></i><div>Pick a session and search above, then pick a student to see the record.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="al-modal al-page" id="alModal" hidden role="dialog" aria-modal="true" aria-label="Photo preview">
+    <div class="al-modal-box">
+      <div class="al-modal-top"><b id="alModalName"></b><button class="al-icon-btn" type="button" id="alModalClose" aria-label="Close preview"><i class="bi bi-x-lg"></i></button></div>
+      <div class="al-modal-img" id="alModalImg"></div>
+      <div class="al-modal-foot"><a class="al-icon-btn" id="alModalDl" href="#" aria-label="Download photo" title="Download photo"><i class="bi bi-download"></i></a></div>
+    </div>
+  </div>
+  <div class="al-toast" id="alToast" role="status"></div>
+
+  <script type="text/javascript" th:inline="javascript">
+    const contextPath = /*[[@{/}]]*/ '/';
+  </script>
+
+  <script type="text/javascript">
+    (function () {
+      var COLORS = ['#0ea5e9', '#7c3aed', '#d97706', '#16a34a', '#dc2626', '#0891b2'];
+      var state = { list: [], sel: null, cache: {}, sess: '', sessLabel: '' };
+      var busy = false;
+
+      function $id(id) { return document.getElementById(id); }
+      function esc(v) {
+        return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      }
+      function initials(n) {
+        return String(n || '').replace(/^Mohd\.?\s*/i, '').trim().split(/\s+/).slice(0, 2).map(function (p) { return p.charAt(0).toUpperCase(); }).join('') || '?';
+      }
+      function colorFor(name) {
+        var h = 0, s = String(name || '');
+        for (var i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) % 997; }
+        return COLORS[h % COLORS.length];
+      }
+      function avStyle(name) { var c = colorFor(name); return 'background:' + c + '22;color:' + c; }
+      function human(v) {
+        if (!v) return '';
+        var t = String(v).replace(/_/g, ' ').toLowerCase();
+        return t.replace(/\b[a-z]/g, function (m) { return m.toUpperCase(); });
+      }
+      function t(v) { return v === '' || v == null ? '' : esc(v); }
+      function fld(label, val, wide) {
+        return '<div class="al-fld' + (wide ? ' al-wide' : '') + '"><dt>' + label + '</dt><dd>' + (val === '' || val == null ? '-' : val) + '</dd></div>';
+      }
+      function num(v) { return v === '' || v == null ? '' : '<span class="al-num">' + esc(v) + '</span>'; }
+      function icon(name) { return '<i class="bi bi-' + name + '"></i>'; }
+
+      function maskMobile(v) { return v.length > 4 ? v.slice(0, 2) + new Array(v.length - 3).join('x') + v.slice(-2) : v; }
+      function maskAadhaar(v) {
+        var d = String(v).replace(/\s+/g, '');
+        return d.length === 12 ? 'xxxx xxxx ' + d.slice(-4) : new Array(Math.max(d.length - 3, 1)).join('x') + d.slice(-4);
+      }
+      function fullAadhaar(v) { var d = String(v).replace(/\s+/g, ''); return d.length === 12 ? d.replace(/(\d{4})(\d{4})(\d{4})/, '$1 $2 $3') : d; }
+      function masked(v, kind) {
+        if (!v) return '';
+        var full = kind === 'aadhaar' ? fullAadhaar(v) : v;
+        var m = kind === 'aadhaar' ? maskAadhaar(v) : maskMobile(v);
+        return '<span class="al-mask al-num"><span class="al-mask-text" data-full="' + esc(full) + '" data-masked="' + esc(m) + '">' + esc(m) + '</span>' +
+          '<button type="button" class="al-mask-toggle" aria-label="Show or hide number" title="Show">' + icon('eye') + '</button></span>';
+      }
+
+      function photoUrl(uuid, download) {
+        return contextPath + 'alumni-photo/' + encodeURIComponent(uuid) + (download ? '?download=true' : '');
+      }
+      function statusTag(p) {
+        if (p.active) return '<span class="al-tag ok">Active</span>';
+        return p.tcNo ? '<span class="al-tag warn">TC issued</span>' : '<span class="al-tag mute">Inactive</span>';
+      }
+
+      var toastT;
+      function toast(msg) {
+        var el = $id('alToast'); el.textContent = msg; el.classList.add('on');
+        clearTimeout(toastT); toastT = setTimeout(function () { el.classList.remove('on'); }, 2600);
+      }
+      function setHint(msg, isErr) {
+        var h = $id('alHint'); h.textContent = msg || ''; h.className = 'al-hint' + (isErr ? ' al-err' : '');
+      }
+      function emptyBlock(iconName, msg) {
+        return '<div class="al-empty">' + icon(iconName) + '<div>' + esc(msg) + '</div></div>';
+      }
+
+      function fetchJson(url, options) {
+        options = options || {};
+        options.headers = Object.assign({ 'Accept': 'application/json' }, options.headers || {});
+        return fetch(url, options).then(function (resp) {
+          if (!resp.ok) {
+            return resp.text().then(function (txt) {
+              var msg = txt || 'Request failed';
+              try { var j = JSON.parse(txt); msg = j.error || msg; } catch (e) { }
+              throw new Error(resp.status === 403 ? 'You do not have access to Search Alumni.' : msg);
+            });
+          }
+          return resp.json();
+        });
+      }
+
+      /* ── results ── */
+      function renderChips() {
+        var cnt = $id('alCount');
+        var n = state.list.length;
+        cnt.innerHTML = '<b>' + n + '</b> ' + (n === 1 ? 'student' : 'students') + ' found in ' + esc(state.sessLabel) +
+          (n >= 30 ? ' (showing the first 30, type more of the name to narrow down)' : '');
+        $id('alChips').innerHTML = state.list.map(function (a) {
+          var sub = (a.lastClass ? 'Class ' + esc(a.lastClass) : 'Class -') + (a.classSrNo ? ' &middot; SR ' + esc(a.classSrNo) : '');
+          var st = a.active ? '<span class="al-tag ok">Active</span>' : '<span class="al-tag mute">Inactive</span>';
+          return '<button type="button" class="al-pick" role="option" data-pick="' + esc(a.uuid) + '" aria-selected="' + (a.uuid === state.sel) + '">' +
+            '<span class="al-av" style="' + avStyle(a.studentName) + '">' + esc(initials(a.studentName)) + '</span>' +
+            '<span class="al-stack"><span class="al-nm">' + esc(a.studentName) + '</span><span class="al-sub">' + sub + '</span>' +
+            (a.fatherName ? '<span class="al-sub">Father: ' + esc(a.fatherName) + '</span>' : '') + '</span>' + st + '</button>';
+        }).join('');
+      }
+
+      /* ── record sheet ── */
+      function journeyHtml(p) {
+        var steps = p.journey || [];
+        if (!steps.length) return '<div class="al-sub">No enrolment history on record.</div>';
+        var mark = steps.length - 1;
+        if (!p.active) {
+          mark = -1;
+          steps.forEach(function (s, i) { if (String(s.status).toLowerCase() === 'inactive') mark = i; });
+        }
+        return '<ol class="al-journey">' + steps.map(function (s, i) {
+          var isEnd = i === mark;
+          var cls = isEnd ? 'end' + (!p.active && p.tcNo ? ' warn' : '') : '';
+          var label = (s.classLabel ? 'Class ' + esc(s.classLabel) : 'Class -') + (isEnd ? (p.active ? ' &middot; current' : ' &middot; exit') : '');
+          return '<li class="' + cls + '"><span class="s">' + esc(s.session || '-') + '</span><span class="c">' + label + '</span></li>';
+        }).join('') + '</ol>';
+      }
+
+      function renderSheet(p) {
+        var sheet = $id('alSheet');
+        var ini = esc(initials(p.studentName));
+        var acts = p.hasPhoto
+          ? '<span class="al-acts"><button type="button" class="al-icon-btn" data-zoom="1" aria-label="Zoom photo" title="Zoom">' + icon('zoom-in') + '</button>' +
+            '<a class="al-icon-btn" href="' + photoUrl(p.uuid, true) + '" aria-label="Download photo" title="Download">' + icon('download') + '</a></span>'
+          : '';
+        var img = p.hasPhoto ? '<img class="al-photo" src="' + photoUrl(p.uuid, false) + '" alt="Photo of ' + esc(p.studentName) + '">' : '';
+        var dl = p.hasPhoto
+          ? '<a class="al-btn-o" href="' + photoUrl(p.uuid, true) + '">' + icon('download') + ' Download photo</a>'
+          : '<span class="al-btn-o al-off">No photo on record</span>';
+
+        sheet.innerHTML =
+          '<div class="al-rail"><div class="al-portrait" style="' + avStyle(p.studentName) + '">' + ini + img + acts + '</div>' +
+          '<div class="al-rid">Record No<b>' + (esc(p.registrationNo) || '-') + '</b></div>' +
+          '<div class="al-rid">Transfer certificate<b>' + (esc(p.tcNo) || '-') + '</b></div>' + dl + '</div>' +
+          '<div class="al-main"><span class="al-ro">' + icon('lock-fill') + ' Read-only record</span><h3>' + esc(p.studentName) + '</h3>' +
+          '<div class="al-tags">' + statusTag(p) +
+          (p.lastSession ? '<span class="al-tag acc">Session ' + esc(p.lastSession) + '</span>' : '') +
+          (p.classSrNo ? '<span class="al-tag mute">SR ' + esc(p.classSrNo) + '</span>' : '') +
+          (p.psrn != null ? '<span class="al-tag mute">PSRN ' + esc(p.psrn) + '</span>' : '') + '</div>' +
+          '<div class="al-sec"><h4 class="al-sec-t">' + icon('mortarboard') + ' School journey</h4>' + journeyHtml(p) + '</div>' +
+          '<div class="al-sec"><h4 class="al-sec-t">' + icon('person') + ' Personal</h4><dl class="al-dl">' +
+            fld('Date of birth', t(p.dob)) + fld('Gender', t(human(p.gender))) + fld('Category', t(p.category)) +
+            fld('Blood group', t(p.bloodGroup)) + fld('Religion', t(human(p.religion))) + fld('Medium', t(p.medium)) + '</dl></div>' +
+          '<div class="al-sec"><h4 class="al-sec-t">' + icon('people') + ' Family and contact</h4><dl class="al-dl">' +
+            fld('Father', t(p.fatherName)) + fld('Mother', t(p.motherName)) + fld('PSRN', num(p.psrn)) +
+            fld('Contact 1', masked(p.mobile1, 'mobile')) + fld('Contact 2', masked(p.mobile2, 'mobile')) + fld('Aadhaar No', masked(p.aadharNo, 'aadhaar')) +
+            fld('Address', t(p.address), true) + '</dl></div>' +
+          exitHtml(p) + '</div>';
+      }
+
+      function exitHtml(p) {
+        if (p.active) return '';
+        return '<div class="al-sec"><h4 class="al-sec-t">' + icon('flag') + ' Exit</h4><dl class="al-dl">' +
+          fld('Last class', t(p.exitClass)) + fld('Last session', t(p.exitSession)) + fld('Passing year', num(p.passingYear)) +
+          fld('TC No', num(p.tcNo)) + fld('Reason', t(p.removalCause), true) + '</dl></div>';
+      }
+
+      function loadProfile(uuid) {
+        state.sel = uuid;
+        renderChips();
+        if (state.cache[uuid]) { renderSheet(state.cache[uuid]); return; }
+        $id('alSheet').innerHTML = emptyBlock('hourglass-split', 'Loading record...');
+        fetchJson(contextPath + 'getAlumniProfile/' + encodeURIComponent(uuid) + '?academicYearId=' + encodeURIComponent(state.sess))
+          .then(function (p) {
+            state.cache[uuid] = p;
+            if (state.sel === uuid) renderSheet(p);
+          })
+          .catch(function (e) {
+            if (state.sel === uuid) $id('alSheet').innerHTML = emptyBlock('exclamation-circle', e.message || 'Could not load this record.');
+          });
+      }
+
+      function runSearch() {
+        if (busy) return;
+        var q = $id('alQuery').value.trim();
+        var sess = $id('alSession').value;
+        if (!sess) {
+          setHint('Please select a session first.', true);
+          $id('alSession').focus();
+          return;
+        }
+        if (!q) {
+          setHint('Type part of a name (student, father or mother) or an SR No.', true);
+          $id('alQuery').focus();
+          return;
+        }
+        setHint('');
+        busy = true;
+        var btn = $id('alGo'); btn.disabled = true; btn.textContent = 'Searching...';
+        fetchJson(contextPath + 'searchAlumniData', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ academicYearId: sess, query: q })
+        }).then(function (rows) {
+          state.list = Array.isArray(rows) ? rows : [];
+          state.cache = {};
+          state.sess = sess;
+          state.sessLabel = $id('alSession').options[$id('alSession').selectedIndex].text;
+          if (!state.list.length) {
+            state.sel = null;
+            renderChips();
+            $id('alCount').innerHTML = 'No students match this search.';
+            $id('alSheet').innerHTML = emptyBlock('search', 'No students found in this session. Check the spelling or try another session.');
+            return;
+          }
+          loadProfile(state.list[0].uuid);
+        }).catch(function (e) {
+          setHint(e.message || 'Search failed. Please try again.', true);
+        }).then(function () {
+          busy = false; btn.disabled = false; btn.textContent = 'Search';
+        });
+      }
+
+      /* ── photo zoom ── */
+      var opener = null;
+      function openModal() {
+        var p = state.cache[state.sel]; if (!p) return;
+        opener = document.activeElement;
+        $id('alModalName').textContent = p.studentName;
+        var im = $id('alModalImg');
+        im.setAttribute('style', avStyle(p.studentName));
+        im.innerHTML = esc(initials(p.studentName)) + (p.hasPhoto ? '<img id="alModalPhoto" src="' + photoUrl(p.uuid, false) + '" alt="Photo of ' + esc(p.studentName) + '">' : '');
+        $id('alModalDl').setAttribute('href', photoUrl(p.uuid, true));
+        $id('alModal').hidden = false;
+        $id('alModalClose').focus();
+      }
+      function closeModal() {
+        $id('alModal').hidden = true;
+        if (opener && opener.focus) opener.focus();
+      }
+
+      /* ── wiring ── */
+      $id('alGo').addEventListener('click', runSearch);
+      $id('alQuery').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
+      $id('alSession').addEventListener('change', function () { setHint(''); if ($id('alSession').value && $id('alQuery').value.trim()) runSearch(); });
+
+      document.addEventListener('click', function (e) {
+        var el;
+        if ((el = e.target.closest('.al-mask-toggle'))) {
+          var txt = el.parentNode.querySelector('.al-mask-text');
+          var shown = txt.textContent === txt.getAttribute('data-full');
+          txt.textContent = shown ? txt.getAttribute('data-masked') : txt.getAttribute('data-full');
+          el.innerHTML = icon(shown ? 'eye' : 'eye-slash'); el.title = shown ? 'Show' : 'Hide';
+          return;
+        }
+        if ((el = e.target.closest('[data-zoom]'))) { openModal(); return; }
+        if (e.target === $id('alModal') || e.target.closest('#alModalClose')) { closeModal(); return; }
+        if ((el = e.target.closest('.al-pick'))) { loadProfile(el.getAttribute('data-pick')); return; }
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !$id('alModal').hidden) closeModal();
+      });
+      // A photo file that is missing on disk: fall back to the initials avatar and drop the photo buttons.
+      document.addEventListener('error', function (e) {
+        var img = e.target;
+        if (!img || img.tagName !== 'IMG') return;
+        if (img.classList.contains('al-photo')) {
+          var box = img.parentNode, acts = box.querySelector('.al-acts');
+          if (acts) acts.parentNode.removeChild(acts);
+          box.removeChild(img);
+        } else if (img.id === 'alModalPhoto') {
+          img.parentNode.removeChild(img);
+          toast('Photo file could not be loaded.');
+        }
+      }, true);
+    })();
+  </script>
+
+</section>
+</body>
+</html>
